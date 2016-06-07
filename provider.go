@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 )
@@ -11,13 +11,13 @@ func Provider() terraform.ResourceProvider {
 	// TODO: Define schema and resources.
 
 	return &schema.Provider{
-		// Provider settings
+		// Provider settings schema
 		Schema: map[string]*schema.Schema{
 			"region": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"userName": &schema.Schema{
+			"username": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -26,17 +26,33 @@ func Provider() terraform.ResourceProvider {
 				Required: true,
 			},
 		},
-		ResourcesMap:  map[string]*schema.Resource{
+
+		// Provider resource definitions
+		ResourcesMap: map[string]*schema.Resource{
 			// A network domain.
 			"ddcloud_network-domain": resourceNetworkDomain(),
 		},
+
+		// Provider configuration
 		ConfigureFunc: configure,
 	}
 }
 
-// Configure the provider client.
-func configure(data *schema.ResourceData) (interface{}, error) {
-	// TODO: Create compute API client client.
+// Configure the provider.
+// Returns the provider's compute API client.
+func configure(providerSettings *schema.ResourceData) (interface{}, error) {
+	var (
+		region   string
+		username string
+		password string
+		client   *compute.Client
+	)
 
-	return nil, fmt.Errorf("Not implemented yet.")
+	region = providerSettings.Get("region").(string)
+	username = providerSettings.Get("username").(string)
+	password = providerSettings.Get("password").(string)
+
+	client = compute.NewClient(region, username, password)
+
+	return client, nil
 }
