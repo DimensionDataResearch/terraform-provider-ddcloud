@@ -36,7 +36,7 @@ func Provider() terraform.ResourceProvider {
 
 // Configure the provider client.
 func configure(data *schema.ResourceData) (interface{}, error) {
-	// TODO: Create provider client.
+	// TODO: Create compute API client client.
 
 	return nil, fmt.Errorf("Not implemented yet.")
 }
