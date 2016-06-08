@@ -7,10 +7,10 @@ import (
 )
 
 const (
-	resourceKeyNetworkDomainName = "name"
+	resourceKeyNetworkDomainName        = "name"
 	resourceKeyNetworkDomainDescription = "description"
-	resourceKeyNetworkDomainPlan = "plan"
-	resourceKeyNetworkDomainDataCenter = "datacenter"
+	resourceKeyNetworkDomainPlan        = "plan"
+	resourceKeyNetworkDomainDataCenter  = "datacenter"
 )
 
 func resourceNetworkDomain() *schema.Resource {
@@ -28,12 +28,12 @@ func resourceNetworkDomain() *schema.Resource {
 			resourceKeyNetworkDomainDescription: &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
-				Default: "",
+				Default:  "",
 			},
 			resourceKeyNetworkDomainPlan: &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
-				Default: "ESSENTIALS",
+				Default:  "ESSENTIALS",
 			},
 			resourceKeyNetworkDomainDataCenter: &schema.Schema{
 				Type:     schema.TypeString,
