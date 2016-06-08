@@ -4,6 +4,7 @@ import (
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
+	"strings"
 )
 
 // Provider creates the Dimension Data Cloud resource provider.
@@ -30,7 +31,7 @@ func Provider() terraform.ResourceProvider {
 		// Provider resource definitions
 		ResourcesMap: map[string]*schema.Resource{
 			// A network domain.
-			"ddcloud_network-domain": resourceNetworkDomain(),
+			"ddcloud_networkdomain": resourceNetworkDomain(),
 		},
 
 		// Provider configuration
@@ -49,6 +50,8 @@ func configure(providerSettings *schema.ResourceData) (interface{}, error) {
 	)
 
 	region = providerSettings.Get("region").(string)
+	region = strings.ToLower(region)
+	
 	username = providerSettings.Get("username").(string)
 	password = providerSettings.Get("password").(string)
 

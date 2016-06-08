@@ -6,6 +6,13 @@ import (
 	"log"
 )
 
+const (
+	resourceKeyNetworkDomainName = "name"
+	resourceKeyNetworkDomainDescription = "description"
+	resourceKeyNetworkDomainPlan = "plan"
+	resourceKeyNetworkDomainDataCenter = "datacenter"
+)
+
 func resourceNetworkDomain() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceNetworkDomainCreate,
@@ -14,19 +21,21 @@ func resourceNetworkDomain() *schema.Resource {
 		Delete: resourceNetworkDomainDelete,
 
 		Schema: map[string]*schema.Schema{
-			"name": &schema.Schema{
+			resourceKeyNetworkDomainName: &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
-			"description": &schema.Schema{
+			resourceKeyNetworkDomainDescription: &schema.Schema{
 				Type:     schema.TypeString,
-				Required: false,
+				Optional: true,
+				Default: "",
 			},
-			"plan": &schema.Schema{
+			resourceKeyNetworkDomainPlan: &schema.Schema{
 				Type:     schema.TypeString,
-				Required: false,
+				Optional: true,
+				Default: "ESSENTIALS",
 			},
-			"data-center-id": &schema.Schema{
+			resourceKeyNetworkDomainDataCenter: &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -38,10 +47,10 @@ func resourceNetworkDomain() *schema.Resource {
 func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}) error {
 	var name, description, plan, dataCenterID string
 
-	name = data.Get("name").(string)
-	description = data.Get("description").(string)
-	plan = data.Get("plan").(string)
-	dataCenterID = data.Get("data-center-id").(string)
+	name = data.Get(resourceKeyNetworkDomainName).(string)
+	description = data.Get(resourceKeyNetworkDomainDataCenter).(string)
+	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
+	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
 	log.Printf("Create network domain '%s' in data center '%s' (plan = '%s', description = '%s').", name, dataCenterID, plan, description)
 
@@ -56,11 +65,11 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 // Read a network domain resource.
 func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) error {
 	var name, description, plan, dataCenterID string
-
-	name = data.Get("name").(string)
-	description = data.Get("description").(string)
-	plan = data.Get("plan").(string)
-	dataCenterID = data.Get("data-center-id").(string)
+//
+	name = data.Get(resourceKeyNetworkDomainName).(string)
+	description = data.Get(resourceKeyNetworkDomainDataCenter).(string)
+	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
+	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
 	log.Printf("Read network domain '%s' (Id = '%s') in data center '%s' (plan = '%s', description = '%s').", name, data.Id(), dataCenterID, plan, description)
 
@@ -74,10 +83,10 @@ func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) 
 func resourceNetworkDomainUpdate(data *schema.ResourceData, provider interface{}) error {
 	var name, description, plan, dataCenterID string
 
-	name = data.Get("name").(string)
-	description = data.Get("description").(string)
-	plan = data.Get("plan").(string)
-	dataCenterID = data.Get("data-center-id").(string)
+	name = data.Get(resourceKeyNetworkDomainName).(string)
+	description = data.Get(resourceKeyNetworkDomainDataCenter).(string)
+	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
+	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
 	log.Printf("Update network domain '%s' (Id = '%s') in data center '%s' (plan = '%s', description = '%s').", name, data.Id(), dataCenterID, plan, description)
 
@@ -91,10 +100,10 @@ func resourceNetworkDomainUpdate(data *schema.ResourceData, provider interface{}
 func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}) error {
 	var name, description, plan, dataCenterID string
 
-	name = data.Get("name").(string)
-	description = data.Get("description").(string)
-	plan = data.Get("plan").(string)
-	dataCenterID = data.Get("data-center-id").(string)
+	name = data.Get(resourceKeyNetworkDomainName).(string)
+	description = data.Get(resourceKeyNetworkDomainDataCenter).(string)
+	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
+	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
 	log.Printf("Delete network domain '%s' (Id = '%s') in data center '%s' (plan = '%s', description = '%s').", name, data.Id(), dataCenterID, plan, description)
 
