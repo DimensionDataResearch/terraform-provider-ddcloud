@@ -34,4 +34,12 @@ resource "ddcloud_networkdomain" "test-net-domain" {
 }
 ```
 
+1. Run `terraform plan -out tf.plan`.
+2. Verify that everything looks ok.
+3. Run `terraform apply tf.plan`
+4. Have a look around and, when it's time to clean up...
+5. Run `terraform plan -destroy -out tf.plan`
+6. Verify that everything looks ok.
+7. Run `terraform apply tf.plan`
+
 When I get time, I'll be moving the credentials out to a file that won't be under source control (with the ability to fall back to environment variables).
