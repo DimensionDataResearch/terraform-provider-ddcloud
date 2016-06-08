@@ -71,7 +71,7 @@ func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) 
 	var name, description, plan, dataCenterID string
 
 	name = data.Get(resourceKeyNetworkDomainName).(string)
-	description = data.Get(resourceKeyNetworkDomainDataCenter).(string)
+	description = data.Get(resourceKeyNetworkDomainDescription).(string)
 	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
 	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
@@ -85,19 +85,27 @@ func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) 
 
 // Update a network domain resource.
 func resourceNetworkDomainUpdate(data *schema.ResourceData, provider interface{}) error {
-	var name, description, plan, dataCenterID string
+	var id, name, description, plan string
 
-	name = data.Get(resourceKeyNetworkDomainName).(string)
-	description = data.Get(resourceKeyNetworkDomainDataCenter).(string)
-	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
-	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
+	id = data.Id()
 
-	log.Printf("Update network domain '%s' (Id = '%s') in data center '%s' (plan = '%s', description = '%s').", name, data.Id(), dataCenterID, plan, description)
+	if data.HasChange(resourceKeyNetworkDomainName) {
+		name = data.Get(resourceKeyNetworkDomainName).(string)
+	}
+
+	if data.HasChange(resourceKeyNetworkDomainDescription) {
+		description = data.Get(resourceKeyNetworkDomainDescription).(string)
+	}
+
+	if data.HasChange(resourceKeyNetworkDomainPlan) {
+		plan = data.Get(resourceKeyNetworkDomainPlan).(string)
+	}
+
+	log.Printf("Update network domain '%s' (Name = '%s', Description = '%s', Plan = '%s').", data.Id(), name, description, plan)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with call to update the network domain.
 
-	return nil
+	return providerClient.EditNetworkDomain(id, name, description, plan)
 }
 
 // Delete a network domain resource.
@@ -105,7 +113,7 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 	var name, description, plan, dataCenterID string
 
 	name = data.Get(resourceKeyNetworkDomainName).(string)
-	description = data.Get(resourceKeyNetworkDomainDataCenter).(string)
+	description = data.Get(resourceKeyNetworkDomainDescription).(string)
 	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
 	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
