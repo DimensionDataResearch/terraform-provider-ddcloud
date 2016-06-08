@@ -51,7 +51,7 @@ func configure(providerSettings *schema.ResourceData) (interface{}, error) {
 
 	region = providerSettings.Get("region").(string)
 	region = strings.ToLower(region)
-	
+
 	username = providerSettings.Get("username").(string)
 	password = providerSettings.Get("password").(string)
 

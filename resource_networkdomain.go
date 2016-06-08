@@ -55,9 +55,13 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 	log.Printf("Create network domain '%s' in data center '%s' (plan = '%s', description = '%s').", name, dataCenterID, plan, description)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with call to create a network domain.
 
-	data.SetId(name) // TODO: Use CaaS domain Id instead.
+	networkDomainID, err := providerClient.DeployNetworkDomain(name, description, plan, dataCenterID)
+	if err != nil {
+		return err
+	}
+
+	data.SetId(networkDomainID)
 
 	return nil
 }
@@ -65,7 +69,7 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 // Read a network domain resource.
 func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) error {
 	var name, description, plan, dataCenterID string
-//
+
 	name = data.Get(resourceKeyNetworkDomainName).(string)
 	description = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
