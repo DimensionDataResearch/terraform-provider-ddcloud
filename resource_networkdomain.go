@@ -110,17 +110,14 @@ func resourceNetworkDomainUpdate(data *schema.ResourceData, provider interface{}
 
 // Delete a network domain resource.
 func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}) error {
-	var name, description, plan, dataCenterID string
+	id := data.Id()
+	name := data.Get(resourceKeyNetworkDomainName).(string)
+	dataCenterID := data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
-	name = data.Get(resourceKeyNetworkDomainName).(string)
-	description = data.Get(resourceKeyNetworkDomainDescription).(string)
-	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
-	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
-
-	log.Printf("Delete network domain '%s' (Id = '%s') in data center '%s' (plan = '%s', description = '%s').", name, data.Id(), dataCenterID, plan, description)
+	log.Printf("Delete network domain '%s' ('%s') in data center '%s'.", id, name, dataCenterID)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with call to delete the network domain.
+	err := providerClient.DeleteNetworkDomain(id)
 
-	return nil
+	return err
 }
