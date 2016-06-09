@@ -67,14 +67,17 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 
 	log.Printf("Network domain '%s' is being provisioned...", networkDomainID)
 
-	timeout := time.After(60 * time.Second)
+	timeout := time.NewTimer(60 * time.Second)
+	defer timeout.Stop()
+
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-timeout:
+		case <-timeout.C:
 			return fmt.Errorf("Timed out after waiting %d seconds for provisioning of network domain '%s' to complete.", 60, networkDomainID)
+
 		case <-ticker.C:
 			log.Printf("Polling status for network domain '%s'...", networkDomainID)
 			networkDomain, err := providerClient.GetNetworkDomain(networkDomainID)

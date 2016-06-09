@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"log"
+	"time"
 )
 
 const (
@@ -76,7 +78,46 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 
 	data.SetId(vlanID)
 
-	return nil
+	log.Printf("VLAN '%s' is being provisioned...", networkDomainID)
+
+	timeout := time.NewTimer(5 * time.Minute)
+	defer timeout.Stop()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout.C:
+			return fmt.Errorf("Timed out after waiting %d seconds for provisioning of VLAN '%s' to complete.", 60, vlanID)
+
+		case <-ticker.C:
+			log.Printf("Polling status for VLAN '%s'...", networkDomainID)
+			vlan, err := providerClient.GetVLAN(vlanID)
+			if err != nil {
+				return err
+			}
+
+			if vlan == nil {
+				return fmt.Errorf("Newly-created network domain was not found with Id '%s'.", vlanID)
+			}
+
+			switch vlan.State {
+			case "PENDING_ADD":
+				log.Printf("VLAN '%s' is still being provisioned...", vlanID)
+
+				continue
+			case "NORMAL":
+				log.Printf("VLAN '%s' has been successfully provisioned.", networkDomainID)
+
+				return nil
+			default:
+				log.Printf("Unexpected status for VLAN '%s' ('%s').", vlanID, vlan.State)
+
+				return fmt.Errorf("Failed to provision VLAN '%s' ('%s'): encountered unexpected state '%s'.", vlanID, name, vlan.State)
+			}
+		}
+	}
 }
 
 // Read a VLAN resource.
