@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"log"
+	"time"
 )
 
 const (
@@ -63,7 +65,43 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 
 	data.SetId(networkDomainID)
 
-	return nil
+	log.Printf("Network domain '%s' is being provisioned...", networkDomainID)
+
+	timeout := time.After(60 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			return fmt.Errorf("Timed out after waiting %d seconds for provisioning of network domain '%s' to complete.", 60, networkDomainID)
+		case <-ticker.C:
+			log.Printf("Polling status for network domain '%s'...", networkDomainID)
+			networkDomain, err := providerClient.GetNetworkDomain(networkDomainID)
+			if err != nil {
+				return err
+			}
+
+			if networkDomain == nil {
+				return fmt.Errorf("Newly-created network domain was not found with Id '%s'.", networkDomainID)
+			}
+
+			switch networkDomain.State {
+			case "PENDING_ADD":
+				log.Printf("Network domain '%s' is still being provisioned...", networkDomainID)
+
+				continue
+			case "NORMAL":
+				log.Printf("Network domain '%s' has been successfully provisioned.", networkDomainID)
+
+				return nil
+			default:
+				log.Printf("Unexpected status for network domain '%s' ('%s').", networkDomainID, networkDomain.State)
+
+				return fmt.Errorf("Failed to provision network domain '%s' ('%s'): encountered unexpected state '%s'.", networkDomainID, name, networkDomain.State)
+			}
+		}
+	}
 }
 
 // Read a network domain resource.

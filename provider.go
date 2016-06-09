@@ -32,6 +32,9 @@ func Provider() terraform.ResourceProvider {
 		ResourcesMap: map[string]*schema.Resource{
 			// A network domain.
 			"ddcloud_networkdomain": resourceNetworkDomain(),
+
+			// A VLAN.
+			"ddcloud_vlan": resourceVLAN(),
 		},
 
 		// Provider configuration
