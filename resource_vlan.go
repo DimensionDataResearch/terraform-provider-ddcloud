@@ -137,7 +137,18 @@ func resourceVLANRead(data *schema.ResourceData, provider interface{}) error {
 	log.Printf("Read VLAN '%s' (Name = '%s', description = '%s') in network domain '%s' (IPv4 network = '%s/%d').", id, name, description, networkDomainID, ipv4BaseAddress, ipv4PrefixSize)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with call to retrieve the VLAN.
+
+	vlan, err := providerClient.GetVLAN(id)
+	if err != nil {
+		return err
+	}
+
+	if vlan != nil {
+		data.Set(resourceKeyVLANName, vlan.Name)
+		data.Set(resourceKeyNetworkDomainDescription, vlan.Description)
+	} else {
+		data.SetId("") // Mark resource as deleted.
+	}
 
 	return nil
 }

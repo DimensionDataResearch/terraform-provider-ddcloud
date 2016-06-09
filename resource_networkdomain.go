@@ -111,15 +111,29 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) error {
 	var name, description, plan, dataCenterID string
 
+	id := data.Id()
 	name = data.Get(resourceKeyNetworkDomainName).(string)
 	description = data.Get(resourceKeyNetworkDomainDescription).(string)
 	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
 	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
-	log.Printf("Read network domain '%s' (Id = '%s') in data center '%s' (plan = '%s', description = '%s').", name, data.Id(), dataCenterID, plan, description)
+	log.Printf("Read network domain '%s' (Id = '%s') in data center '%s' (plan = '%s', description = '%s').", name, id, dataCenterID, plan, description)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with call to retrieve the network domain.
+
+	networkDomain, err := providerClient.GetNetworkDomain(id)
+	if err != nil {
+		return err
+	}
+
+	if networkDomain != nil {
+		data.Set(resourceKeyNetworkDomainName, networkDomain.Name)
+		data.Set(resourceKeyNetworkDomainDescription, networkDomain.Description)
+		data.Set(resourceKeyNetworkDomainPlan, networkDomain.Type)
+		data.Set(resourceKeyNetworkDomainDataCenter, networkDomain.DatacenterID)
+	} else {
+		data.SetId("") // Mark resource as deleted.
+	}
 
 	return nil
 }
