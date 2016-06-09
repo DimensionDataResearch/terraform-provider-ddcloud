@@ -150,27 +150,33 @@ func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) 
 
 // Update a network domain resource.
 func resourceNetworkDomainUpdate(data *schema.ResourceData, provider interface{}) error {
-	var id, name, description, plan string
+	var (
+		id, name, description, plan      string
+		newName, newDescription, newPlan *string
+	)
 
 	id = data.Id()
 
 	if data.HasChange(resourceKeyNetworkDomainName) {
 		name = data.Get(resourceKeyNetworkDomainName).(string)
+		newName = &name
 	}
 
 	if data.HasChange(resourceKeyNetworkDomainDescription) {
 		description = data.Get(resourceKeyNetworkDomainDescription).(string)
+		newDescription = &description
 	}
 
 	if data.HasChange(resourceKeyNetworkDomainPlan) {
 		plan = data.Get(resourceKeyNetworkDomainPlan).(string)
+		newPlan = &plan
 	}
 
 	log.Printf("Update network domain '%s' (Name = '%s', Description = '%s', Plan = '%s').", data.Id(), name, description, plan)
 
 	providerClient := provider.(*compute.Client)
 
-	return providerClient.EditNetworkDomain(id, name, description, plan)
+	return providerClient.EditNetworkDomain(id, newName, newDescription, newPlan)
 }
 
 // Delete a network domain resource.

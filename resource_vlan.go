@@ -158,7 +158,8 @@ func resourceVLANRead(data *schema.ResourceData, provider interface{}) error {
 // Update a VLAN resource.
 func resourceVLANUpdate(data *schema.ResourceData, provider interface{}) error {
 	var (
-		id, name, description, ipv4BaseAddress string
+		id, ipv4BaseAddress, name, description string
+		newName, newDescription                *string
 		ipv4PrefixSize                         int
 	)
 
@@ -166,17 +167,19 @@ func resourceVLANUpdate(data *schema.ResourceData, provider interface{}) error {
 
 	if data.HasChange(resourceKeyVLANName) {
 		name = data.Get(resourceKeyVLANName).(string)
+		newName = &name
 	}
 
 	if data.HasChange(resourceKeyVLANDescription) {
 		description = data.Get(resourceKeyVLANDescription).(string)
+		newDescription = &description
 	}
 
-	log.Printf("Update VLAN '%s' (Name = '%s', description = '%s', IPv4 network = '%s/%d').", id, name, description, ipv4BaseAddress, ipv4PrefixSize)
+	log.Printf("Update VLAN '%s' (name = '%s', description = '%s', IPv4 network = '%s/%d').", id, name, description, ipv4BaseAddress, ipv4PrefixSize)
 
 	providerClient := provider.(*compute.Client)
 
-	return providerClient.EditVLAN(id, name, description)
+	return providerClient.EditVLAN(id, newName, newDescription)
 }
 
 // Delete a VLAN resource.
