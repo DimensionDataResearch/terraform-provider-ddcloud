@@ -43,11 +43,13 @@ func resourceVLAN() *schema.Resource {
 			resourceKeyVLANIPv4BaseAddress: &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 				Description: "The VLAN's private IPv4 base address.",
 			},
 			resourceKeyVLANIPv4PrefixSize: &schema.Schema{
 				Type:        schema.TypeInt,
 				Required:    true,
+				ForceNew:    true,
 				Description: "The VLAN's private IPv4 prefix length.",
 			},
 		},
@@ -170,20 +172,11 @@ func resourceVLANUpdate(data *schema.ResourceData, provider interface{}) error {
 		description = data.Get(resourceKeyVLANDescription).(string)
 	}
 
-	if data.HasChange(resourceKeyVLANIPv4BaseAddress) {
-		ipv4BaseAddress = data.Get(resourceKeyVLANIPv4BaseAddress).(string)
-	}
-
-	if data.HasChange(resourceKeyVLANIPv4PrefixSize) {
-		ipv4PrefixSize = data.Get(resourceKeyVLANIPv4PrefixSize).(int)
-	}
-
 	log.Printf("Update VLAN '%s' (Name = '%s', description = '%s', IPv4 network = '%s/%d').", id, name, description, ipv4BaseAddress, ipv4PrefixSize)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with actual API call to edit VLAN.
 
-	return nil
+	return providerClient.EditVLAN(id, name, description)
 }
 
 // Delete a VLAN resource.
