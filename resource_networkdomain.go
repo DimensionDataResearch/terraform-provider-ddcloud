@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	resourceKeyNetworkDomainName        = "name"
-	resourceKeyNetworkDomainDescription = "description"
-	resourceKeyNetworkDomainPlan        = "plan"
-	resourceKeyNetworkDomainDataCenter  = "datacenter"
+	resourceKeyNetworkDomainName           = "name"
+	resourceKeyNetworkDomainDescription    = "description"
+	resourceKeyNetworkDomainPlan           = "plan"
+	resourceKeyNetworkDomainDataCenter     = "datacenter"
+	resourceKeyNetworkDomainNatIPv4Address = "nat_ipv4_address"
 )
 
 func resourceNetworkDomain() *schema.Resource {
@@ -39,7 +40,12 @@ func resourceNetworkDomain() *schema.Resource {
 			},
 			resourceKeyNetworkDomainDataCenter: &schema.Schema{
 				Type:     schema.TypeString,
+				ForceNew: true,
 				Required: true,
+			},
+			resourceKeyNetworkDomainNatIPv4Address: &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 		},
 	}
@@ -97,6 +103,9 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 			case "NORMAL":
 				log.Printf("Network domain '%s' has been successfully provisioned.", networkDomainID)
 
+				// Capture IPv4 NAT address.
+				data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
+
 				return nil
 			default:
 				log.Printf("Unexpected status for network domain '%s' ('%s').", networkDomainID, networkDomain.State)
@@ -131,6 +140,7 @@ func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) 
 		data.Set(resourceKeyNetworkDomainDescription, networkDomain.Description)
 		data.Set(resourceKeyNetworkDomainPlan, networkDomain.Type)
 		data.Set(resourceKeyNetworkDomainDataCenter, networkDomain.DatacenterID)
+		data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
 	} else {
 		data.SetId("") // Mark resource as deleted.
 	}
