@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"time"
+
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (
@@ -14,6 +15,7 @@ const (
 	resourceKeyVLANDescription     = "description"
 	resourceKeyVLANIPv4BaseAddress = "ipv4_base_address"
 	resourceKeyVLANIPv4PrefixSize  = "ipv4_prefix_size"
+	resourceDeleteTimeoutVLAN      = 5 * time.Minute
 )
 
 func resourceVLAN() *schema.Resource {
@@ -82,7 +84,7 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("VLAN '%s' is being provisioned...", networkDomainID)
 
-	timeout := time.NewTimer(5 * time.Minute)
+	timeout := time.NewTimer(resourceDeleteTimeoutVLAN)
 	defer timeout.Stop()
 
 	ticker := time.NewTicker(2 * time.Second)
@@ -91,7 +93,7 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	for {
 		select {
 		case <-timeout.C:
-			return fmt.Errorf("Timed out after waiting %d seconds for provisioning of VLAN '%s' to complete.", 60, vlanID)
+			return fmt.Errorf("Timed out after waiting %d minutes for provisioning of VLAN '%s' to complete.", resourceDeleteTimeoutVLAN, vlanID)
 
 		case <-ticker.C:
 			log.Printf("Polling status for VLAN '%s'...", networkDomainID)
@@ -191,7 +193,48 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 	log.Printf("Delete VLAN '%s' ('%s') in network domain '%s'.", id, name, networkDomainID)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with actual API call to edit VLAN.
+	err := providerClient.DeleteVLAN(id)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	log.Printf("Network domain '%s' is being deleted...", id)
+
+	// Wait for deletion to complete.
+	timeout := time.NewTimer(resourceDeleteTimeoutVLAN)
+	defer timeout.Stop()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout.C:
+			return fmt.Errorf("Timed out after waiting %d minutes for deletion of VLAN '%s' to complete.", resourceDeleteTimeoutVLAN, id)
+
+		case <-ticker.C:
+			log.Printf("Polling status for VLAN '%s'...", id)
+			networkDomain, err := providerClient.GetVLAN(id)
+			if err != nil {
+				return err
+			}
+
+			if networkDomain == nil {
+				log.Printf("VLAN '%s' has been successfully deleted.", id)
+
+				return nil
+			}
+
+			switch networkDomain.State {
+			case "PENDING_DELETE":
+				log.Printf("VLAN '%s' is still being deleted...", id)
+
+				continue
+			default:
+				log.Printf("Unexpected status for VLAN '%s' ('%s').", id, networkDomain.State)
+
+				return fmt.Errorf("Failed to provision VLAN '%s' ('%s'): encountered unexpected state '%s'.", id, name, networkDomain.State)
+			}
+		}
+	}
 }

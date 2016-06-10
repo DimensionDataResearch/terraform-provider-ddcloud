@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"time"
+
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (
@@ -14,6 +15,7 @@ const (
 	resourceKeyNetworkDomainPlan           = "plan"
 	resourceKeyNetworkDomainDataCenter     = "datacenter"
 	resourceKeyNetworkDomainNatIPv4Address = "nat_ipv4_address"
+	resourceDeleteTimeoutNetworkDomain     = 2 * time.Minute
 )
 
 func resourceNetworkDomain() *schema.Resource {
@@ -73,7 +75,8 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 
 	log.Printf("Network domain '%s' is being provisioned...", networkDomainID)
 
-	timeout := time.NewTimer(60 * time.Second)
+	// Wait for provisioning to complete.
+	timeout := time.NewTimer(resourceDeleteTimeoutNetworkDomain)
 	defer timeout.Stop()
 
 	ticker := time.NewTicker(2 * time.Second)
@@ -82,7 +85,7 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 	for {
 		select {
 		case <-timeout.C:
-			return fmt.Errorf("Timed out after waiting %d seconds for provisioning of network domain '%s' to complete.", 60, networkDomainID)
+			return fmt.Errorf("Timed out after waiting %d minutes for provisioning of network domain '%s' to complete.", resourceDeleteTimeoutNetworkDomain, networkDomainID)
 
 		case <-ticker.C:
 			log.Printf("Polling status for network domain '%s'...", networkDomainID)
@@ -189,6 +192,47 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 
 	providerClient := provider.(*compute.Client)
 	err := providerClient.DeleteNetworkDomain(id)
+	if err != nil {
+		return err
+	}
 
-	return err
+	log.Printf("Network domain '%s' is being deleted...", id)
+
+	// Wait for deletion to complete.
+	timeout := time.NewTimer(resourceDeleteTimeoutNetworkDomain)
+	defer timeout.Stop()
+
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout.C:
+			return fmt.Errorf("Timed out after waiting %d minutes for deletion of network domain '%s' to complete.", resourceDeleteTimeoutNetworkDomain, id)
+
+		case <-ticker.C:
+			log.Printf("Polling status for network domain '%s'...", id)
+			networkDomain, err := providerClient.GetNetworkDomain(id)
+			if err != nil {
+				return err
+			}
+
+			if networkDomain == nil {
+				log.Printf("Network domain '%s' has been successfully deleted.", id)
+
+				return nil
+			}
+
+			switch networkDomain.State {
+			case "PENDING_DELETE":
+				log.Printf("Network domain '%s' is still being deleted...", id)
+
+				continue
+			default:
+				log.Printf("Unexpected status for network domain '%s' ('%s').", id, networkDomain.State)
+
+				return fmt.Errorf("Failed to provision network domain '%s' ('%s'): encountered unexpected state '%s'.", id, name, networkDomain.State)
+			}
+		}
+	}
 }
