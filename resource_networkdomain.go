@@ -58,7 +58,7 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 	var name, description, plan, dataCenterID string
 
 	name = data.Get(resourceKeyNetworkDomainName).(string)
-	description = data.Get(resourceKeyNetworkDomainDataCenter).(string)
+	description = data.Get(resourceKeyNetworkDomainDescription).(string)
 	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
 	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
@@ -137,6 +137,9 @@ func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) 
 	if err != nil {
 		return err
 	}
+
+	log.Println("Found network domain: ", networkDomain)
+	log.Println("Network domain DCID is: ", networkDomain.DatacenterID)
 
 	if networkDomain != nil {
 		data.Set(resourceKeyNetworkDomainName, networkDomain.Name)

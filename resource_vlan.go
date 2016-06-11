@@ -149,7 +149,7 @@ func resourceVLANRead(data *schema.ResourceData, provider interface{}) error {
 
 	if vlan != nil {
 		data.Set(resourceKeyVLANName, vlan.Name)
-		data.Set(resourceKeyNetworkDomainDescription, vlan.Description)
+		data.Set(resourceKeyVLANDescription, vlan.Description)
 	} else {
 		data.SetId("") // Mark resource as deleted.
 	}
