@@ -35,6 +35,9 @@ func Provider() terraform.ResourceProvider {
 
 			// A VLAN.
 			"ddcloud_vlan": resourceVLAN(),
+
+			// A server (virtual machine).
+			"ddcloud_server": resourceServer(),
 		},
 
 		// Provider configuration
