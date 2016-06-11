@@ -1,12 +1,11 @@
 package main
 
 import (
+	"compute-api/compute"
 	"fmt"
+	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"time"
-
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (

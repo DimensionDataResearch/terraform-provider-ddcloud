@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"compute-api/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
 	"strings"
