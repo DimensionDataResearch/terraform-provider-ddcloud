@@ -14,6 +14,7 @@ const (
 	resourceKeyVLANDescription     = "description"
 	resourceKeyVLANIPv4BaseAddress = "ipv4_base_address"
 	resourceKeyVLANIPv4PrefixSize  = "ipv4_prefix_size"
+	resourceCreateTimeoutVLAN      = 5 * time.Minute
 	resourceDeleteTimeoutVLAN      = 5 * time.Minute
 )
 
@@ -83,7 +84,7 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("VLAN '%s' is being provisioned...", vlanID)
 
-	timeout := time.NewTimer(resourceDeleteTimeoutVLAN)
+	timeout := time.NewTimer(resourceCreateTimeoutVLAN)
 	defer timeout.Stop()
 
 	ticker := time.NewTicker(2 * time.Second)
@@ -92,7 +93,7 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	for {
 		select {
 		case <-timeout.C:
-			return fmt.Errorf("Timed out after waiting %d minutes for provisioning of VLAN '%s' to complete.", resourceDeleteTimeoutVLAN, vlanID)
+			return fmt.Errorf("Timed out after waiting %d minutes for provisioning of VLAN '%s' to complete.", resourceCreateTimeoutVLAN/time.Minute, vlanID)
 
 		case <-ticker.C:
 			log.Printf("Polling status for VLAN '%s'...", vlanID)

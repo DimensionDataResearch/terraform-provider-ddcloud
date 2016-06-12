@@ -21,7 +21,7 @@ const (
 	resourceKeyServerSecondaryDNS    = "dns_secondary"
 	resourceKeyServerAutoStart       = "auto_start"
 	resourceCreateTimeoutServer      = 30 * time.Minute
-	resourceDeleteTimeoutServer      = 2 * time.Minute
+	resourceDeleteTimeoutServer      = 15 * time.Minute
 )
 
 func resourceServer() *schema.Resource {
@@ -202,16 +202,16 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Server '%s' is being provisioned...", name)
 
-	timeout := time.NewTimer(resourceDeleteTimeoutVLAN)
+	timeout := time.NewTimer(resourceCreateTimeoutServer)
 	defer timeout.Stop()
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-timeout.C:
-			return fmt.Errorf("Timed out after waiting %d minutes for provisioning of server '%s' to complete.", resourceCreateTimeoutServer, serverID)
+			return fmt.Errorf("Timed out after waiting %d minutes for provisioning of server '%s' to complete.", resourceCreateTimeoutServer/time.Minute, serverID)
 
 		case <-ticker.C:
 			log.Printf("Polling status for server '%s'...", serverID)
