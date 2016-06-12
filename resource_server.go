@@ -17,6 +17,7 @@ const (
 	resourceKeyServerOSImageName     = "osimage_name"
 	resourceKeyServerPrimaryVLAN     = "primary_adapter_vlan"
 	resourceKeyServerPrimaryIPv4     = "primary_adapter_ipv4"
+	resourceKeyServerPrimaryIPv6     = "primary_adapter_ipv6"
 	resourceKeyServerPrimaryDNS      = "dns_primary"
 	resourceKeyServerSecondaryDNS    = "dns_secondary"
 	resourceKeyServerAutoStart       = "auto_start"
@@ -55,18 +56,16 @@ func resourceServer() *schema.Resource {
 				ForceNew: true,
 				Optional: true,
 				Default:  "",
-				ConflictsWith: []string{
-					resourceKeyServerPrimaryIPv4,
-				},
 			},
 			resourceKeyServerPrimaryIPv4: &schema.Schema{
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Optional: true,
 				Default:  "",
-				ConflictsWith: []string{
-					resourceKeyServerPrimaryVLAN,
-				},
+			},
+			resourceKeyServerPrimaryIPv6: &schema.Schema{
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 			resourceKeyServerPrimaryDNS: &schema.Schema{
 				Type:     schema.TypeString,
@@ -232,6 +231,8 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 			case compute.ResourceStatusNormal:
 				log.Printf("Server '%s' has been successfully provisioned.", networkDomainID)
 
+				data.Set(resourceKeyServerPrimaryIPv6, server.Network.PrimaryAdapter.PrivateIPv6Address)
+
 				return nil
 			default:
 				log.Printf("Unexpected status for Server '%s' ('%s').", serverID, server.State)
@@ -244,16 +245,34 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 // Read a server resource.
 func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
-	var id, name, description, networkDomainID string
-
-	id = data.Id()
-	name = data.Get(resourceKeyServerName).(string)
-	description = data.Get(resourceKeyServerDescription).(string)
+	id := data.Id()
+	name := data.Get(resourceKeyServerName).(string)
+	description := data.Get(resourceKeyServerDescription).(string)
+	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
 
 	log.Printf("Read server '%s' (Id = '%s') in network domain '%s' (description = '%s').", name, id, networkDomainID, description)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with appropriate API call.
+	server, err := providerClient.GetServer(id)
+	if err != nil {
+		return err
+	}
+
+	if server == nil {
+		log.Printf("Server ''%s' has been deleted.", id)
+
+		// Mark as deleted.
+		data.SetId("")
+
+		return nil
+	}
+
+	data.Set(resourceKeyServerName, server.Name)
+	data.Set(resourceKeyServerDescription, server.Description)
+	data.Set(resourceKeyServerPrimaryVLAN, server.Network.PrimaryAdapter.VLANID)
+	data.Set(resourceKeyServerPrimaryIPv4, server.Network.PrimaryAdapter.PrivateIPv4Address)
+	data.Set(resourceKeyServerPrimaryIPv6, server.Network.PrimaryAdapter.PrivateIPv6Address)
+	data.Set(resourceKeyServerNetworkDomainID, server.Network.NetworkDomainID)
 
 	return nil
 }
@@ -277,7 +296,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 	providerClient := provider.(*compute.Client)
 	providerClient.Reset() // TODO: Replace call to Reset with appropriate API call.
 
-	return nil
+	return fmt.Errorf("Update for the 'ddcloud_server' resource type is not yet implemented.")
 }
 
 // Delete a server resource.
@@ -293,5 +312,5 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	providerClient := provider.(*compute.Client)
 	providerClient.Reset() // TODO: Replace call to Reset with appropriate API call.
 
-	return nil
+	return fmt.Errorf("Delete for the 'ddcloud_server' resource type is not yet implemented.")
 }
