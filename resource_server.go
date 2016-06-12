@@ -200,50 +200,46 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	data.SetId(serverID)
 
-	return nil
+	log.Printf("Server '%s' is being provisioned...", name)
 
-	/*
-		log.Printf("Server '%s' is being provisioned...", name)
+	timeout := time.NewTimer(resourceDeleteTimeoutVLAN)
+	defer timeout.Stop()
 
-		timeout := time.NewTimer(resourceDeleteTimeoutVLAN)
-		defer timeout.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
 
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
+	for {
+		select {
+		case <-timeout.C:
+			return fmt.Errorf("Timed out after waiting %d minutes for provisioning of server '%s' to complete.", resourceCreateTimeoutServer, serverID)
 
-		for {
-			select {
-			case <-timeout.C:
-				return fmt.Errorf("Timed out after waiting %d minutes for provisioning of server '%s' to complete.", resourceDeleteTimeoutVLAN, vlanID)
+		case <-ticker.C:
+			log.Printf("Polling status for server '%s'...", serverID)
+			server, err := providerClient.GetServer(serverID)
+			if err != nil {
+				return err
+			}
 
-			case <-ticker.C:
-				log.Printf("Polling status for server '%s'...", serverID)
-				server, err := providerClient.GetServer(serverID)
-				if err != nil {
-					return err
-				}
+			if server == nil {
+				return fmt.Errorf("Newly-created server was not found with Id '%s'.", serverID)
+			}
 
-				if vlan == nil {
-					return fmt.Errorf("Newly-created server was not found with Id '%s'.", serverID)
-				}
+			switch server.State {
+			case compute.ResourceStatusPendingAdd:
+				log.Printf("Server '%s' is still being provisioned...", serverID)
 
-				switch server.State {
-				case compute.ResourceStatusPendingAdd:
-					log.Printf("Server '%s' is still being provisioned...", serverID)
+				continue
+			case compute.ResourceStatusNormal:
+				log.Printf("Server '%s' has been successfully provisioned.", networkDomainID)
 
-					continue
-				case compute.ResourceStatusNormal:
-					log.Printf("Server '%s' has been successfully provisioned.", networkDomainID)
+				return nil
+			default:
+				log.Printf("Unexpected status for Server '%s' ('%s').", serverID, server.State)
 
-					return nil
-				default:
-					log.Printf("Unexpected status for Server '%s' ('%s').", serverID, server.State)
-
-					return fmt.Errorf("Failed to provision server '%s' ('%s'): encountered unexpected state '%s'.", serverID, name, server.State)
-				}
+				return fmt.Errorf("Failed to provision server '%s' ('%s'): encountered unexpected state '%s'.", serverID, name, server.State)
 			}
 		}
-	*/
+	}
 }
 
 // Read a server resource.
