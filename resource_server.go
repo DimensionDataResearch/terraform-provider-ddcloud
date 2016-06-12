@@ -233,6 +233,25 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 				data.Set(resourceKeyServerPrimaryIPv6, server.Network.PrimaryAdapter.PrivateIPv6Address)
 
+				// Configure connection info so that we can use a provisioner if required.
+				switch server.OperatingSystem.Family {
+				case "UNIX":
+					data.SetConnInfo(map[string]string{
+						"type":     "ssh",
+						"host":     *server.Network.PrimaryAdapter.PrivateIPv6Address,
+						"user":     "root",
+						"password": adminPassword,
+					})
+
+				case "WINDOWS":
+					data.SetConnInfo(map[string]string{
+						"type":     "winrm",
+						"host":     *server.Network.PrimaryAdapter.PrivateIPv6Address,
+						"user":     "Administrator",
+						"password": adminPassword,
+					})
+				}
+
 				return nil
 			default:
 				log.Printf("Unexpected status for Server '%s' ('%s').", serverID, server.State)
