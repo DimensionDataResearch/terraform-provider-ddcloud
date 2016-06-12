@@ -1,0 +1,3 @@
+[submodule "vendor/compute-api"]
+    path = vendor/compute-api
+    url = https://github.com/DimensionDataResearch/go-dd-cloud-compute.git
