@@ -81,7 +81,7 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 
 	data.SetId(vlanID)
 
-	log.Printf("VLAN '%s' is being provisioned...", networkDomainID)
+	log.Printf("VLAN '%s' is being provisioned...", vlanID)
 
 	timeout := time.NewTimer(resourceDeleteTimeoutVLAN)
 	defer timeout.Stop()
@@ -95,22 +95,22 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 			return fmt.Errorf("Timed out after waiting %d minutes for provisioning of VLAN '%s' to complete.", resourceDeleteTimeoutVLAN, vlanID)
 
 		case <-ticker.C:
-			log.Printf("Polling status for VLAN '%s'...", networkDomainID)
+			log.Printf("Polling status for VLAN '%s'...", vlanID)
 			vlan, err := providerClient.GetVLAN(vlanID)
 			if err != nil {
 				return err
 			}
 
 			if vlan == nil {
-				return fmt.Errorf("Newly-created network domain was not found with Id '%s'.", vlanID)
+				return fmt.Errorf("Newly-created VLAN was not found with Id '%s'.", vlanID)
 			}
 
 			switch vlan.State {
-			case "PENDING_ADD":
+			case compute.ResourceStatusPendingAdd:
 				log.Printf("VLAN '%s' is still being provisioned...", vlanID)
 
 				continue
-			case "NORMAL":
+			case compute.ResourceStatusNormal:
 				log.Printf("VLAN '%s' has been successfully provisioned.", networkDomainID)
 
 				return nil
