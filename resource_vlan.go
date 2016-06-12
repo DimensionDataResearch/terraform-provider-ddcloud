@@ -2,7 +2,6 @@ package main
 
 import (
 	"compute-api/compute"
-	"fmt"
 	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"time"
@@ -84,44 +83,13 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("VLAN '%s' is being provisioned...", vlanID)
 
-	timeout := time.NewTimer(resourceCreateTimeoutVLAN)
-	defer timeout.Stop()
-
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-timeout.C:
-			return fmt.Errorf("Timed out after waiting %d minutes for provisioning of VLAN '%s' to complete.", resourceCreateTimeoutVLAN/time.Minute, vlanID)
-
-		case <-ticker.C:
-			log.Printf("Polling status for VLAN '%s'...", vlanID)
-			vlan, err := providerClient.GetVLAN(vlanID)
-			if err != nil {
-				return err
-			}
-
-			if vlan == nil {
-				return fmt.Errorf("Newly-created VLAN was not found with Id '%s'.", vlanID)
-			}
-
-			switch vlan.State {
-			case compute.ResourceStatusPendingAdd:
-				log.Printf("VLAN '%s' is still being provisioned...", vlanID)
-
-				continue
-			case compute.ResourceStatusNormal:
-				log.Printf("VLAN '%s' has been successfully provisioned.", networkDomainID)
-
-				return nil
-			default:
-				log.Printf("Unexpected status for VLAN '%s' ('%s').", vlanID, vlan.State)
-
-				return fmt.Errorf("Failed to provision VLAN '%s' ('%s'): encountered unexpected state '%s'.", vlanID, name, vlan.State)
-			}
-		}
-	}
+	return compute.WaitForDeploy(vlanID, "VLAN",
+		func(resourceId string) (compute.Resource, error) {
+			return providerClient.GetVLAN(resourceId)
+		},
+		nil, // onResourceDeployed
+		resourceCreateTimeoutVLAN,
+	)
 }
 
 // Read a VLAN resource.
@@ -200,41 +168,10 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("VLAN '%s' is being deleted...", id)
 
-	// Wait for deletion to complete.
-	timeout := time.NewTimer(resourceDeleteTimeoutVLAN)
-	defer timeout.Stop()
-
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-timeout.C:
-			return fmt.Errorf("Timed out after waiting %d minutes for deletion of VLAN '%s' to complete.", resourceDeleteTimeoutVLAN, id)
-
-		case <-ticker.C:
-			log.Printf("Polling status for VLAN '%s'...", id)
-			networkDomain, err := providerClient.GetVLAN(id)
-			if err != nil {
-				return err
-			}
-
-			if networkDomain == nil {
-				log.Printf("VLAN '%s' has been successfully deleted.", id)
-
-				return nil
-			}
-
-			switch networkDomain.State {
-			case compute.ResourceStatusPendingDelete:
-				log.Printf("VLAN '%s' is still being deleted...", id)
-
-				continue
-			default:
-				log.Printf("Unexpected status for VLAN '%s' ('%s').", id, networkDomain.State)
-
-				return fmt.Errorf("Failed to delete VLAN '%s' ('%s'): encountered unexpected state '%s'.", id, name, networkDomain.State)
-			}
-		}
-	}
+	return compute.WaitForDelete(id, "VLAN",
+		func(resourceId string) (compute.Resource, error) {
+			return providerClient.GetVLAN(resourceId)
+		},
+		resourceDeleteTimeoutServer,
+	)
 }
