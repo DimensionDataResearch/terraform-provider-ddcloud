@@ -87,7 +87,7 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	timeout := time.NewTimer(resourceCreateTimeoutVLAN)
 	defer timeout.Stop()
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -198,7 +198,7 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 		return err
 	}
 
-	log.Printf("Network domain '%s' is being deleted...", id)
+	log.Printf("VLAN '%s' is being deleted...", id)
 
 	// Wait for deletion to complete.
 	timeout := time.NewTimer(resourceDeleteTimeoutVLAN)
@@ -226,14 +226,14 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 			}
 
 			switch networkDomain.State {
-			case "PENDING_DELETE":
+			case compute.ResourceStatusPendingDelete:
 				log.Printf("VLAN '%s' is still being deleted...", id)
 
 				continue
 			default:
 				log.Printf("Unexpected status for VLAN '%s' ('%s').", id, networkDomain.State)
 
-				return fmt.Errorf("Failed to provision VLAN '%s' ('%s'): encountered unexpected state '%s'.", id, name, networkDomain.State)
+				return fmt.Errorf("Failed to delete VLAN '%s' ('%s'): encountered unexpected state '%s'.", id, name, networkDomain.State)
 			}
 		}
 	}

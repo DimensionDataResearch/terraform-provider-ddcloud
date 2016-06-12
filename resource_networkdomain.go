@@ -204,7 +204,7 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 	timeout := time.NewTimer(resourceDeleteTimeoutNetworkDomain)
 	defer timeout.Stop()
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -233,7 +233,7 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 			default:
 				log.Printf("Unexpected status for network domain '%s' ('%s').", id, networkDomain.State)
 
-				return fmt.Errorf("Failed to provision network domain '%s' ('%s'): encountered unexpected state '%s'.", id, name, networkDomain.State)
+				return fmt.Errorf("Failed to delete network domain '%s' ('%s'): encountered unexpected state '%s'.", id, name, networkDomain.State)
 			}
 		}
 	}

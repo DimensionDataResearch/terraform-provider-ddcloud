@@ -329,7 +329,48 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Delete server '%s' ('%s') in network domain '%s'.", id, name, networkDomainID)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with appropriate API call.
+	err := providerClient.DeleteServer(id)
+	if err != nil {
+		return err
+	}
 
-	return fmt.Errorf("Delete for the 'ddcloud_server' resource type is not yet implemented.")
+	log.Printf("Server '%s' is being deleted...", id)
+
+	// Wait for deletion to complete.
+	timeout := time.NewTimer(resourceDeleteTimeoutServer)
+	defer timeout.Stop()
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout.C:
+			return fmt.Errorf("Timed out after waiting %d minutes for deletion of server '%s' to complete.", resourceDeleteTimeoutServer, id)
+
+		case <-ticker.C:
+			log.Printf("Polling status for server '%s'...", id)
+			server, err := providerClient.GetServer(id)
+			if err != nil {
+				return err
+			}
+
+			if server == nil {
+				log.Printf("Server '%s' has been successfully deleted.", id)
+
+				return nil
+			}
+
+			switch server.State {
+			case compute.ResourceStatusPendingDelete:
+				log.Printf("Server '%s' is still being deleted...", id)
+
+				continue
+			default:
+				log.Printf("Unexpected status for server '%s' ('%s').", id, server.State)
+
+				return fmt.Errorf("Failed to provision server '%s' ('%s'): encountered unexpected state '%s'.", id, name, server.State)
+			}
+		}
+	}
 }
