@@ -48,6 +48,8 @@ func resourceServer() *schema.Resource {
 			resourceKeyServerAdminPassword: &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
+
+				// TODO: Mark this property as sensitive when we upgrade to a version of Terraform that supports it.
 			},
 			resourceKeyServerMemoryGB: &schema.Schema{
 				Type:     schema.TypeInt,
