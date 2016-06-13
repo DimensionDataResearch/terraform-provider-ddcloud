@@ -22,6 +22,7 @@ const (
 	resourceKeyServerSecondaryDNS    = "dns_secondary"
 	resourceKeyServerAutoStart       = "auto_start"
 	resourceCreateTimeoutServer      = 30 * time.Minute
+	resourceUpdateTimeoutServer      = 10 * time.Minute
 	resourceDeleteTimeoutServer      = 15 * time.Minute
 )
 
@@ -268,24 +269,40 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 
 // Update a server resource.
 func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error {
-	var id, name, description string
-
-	id = data.Id()
+	serverID := data.Id()
 
 	if data.HasChange(resourceKeyServerName) {
-		name = data.Get(resourceKeyServerName).(string)
+		return fmt.Errorf("Changing the 'name' property of a 'ddcloud_server' resource type is not yet implemented.")
 	}
 
 	if data.HasChange(resourceKeyServerDescription) {
-		description = data.Get(resourceKeyServerDescription).(string)
+		return fmt.Errorf("Changing the 'description' property of a 'ddcloud_server' resource type is not yet implemented.")
 	}
 
-	log.Printf("Update server '%s' (Name = '%s', Description = '%s').", id, name, description)
+	log.Printf("Update server '%s'.", serverID)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with appropriate API call.
+	server, err := providerClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
 
-	return fmt.Errorf("Update for the 'ddcloud_server' resource type is not yet implemented.")
+	var primaryIPv4, primaryIPv6 *string
+	if data.HasChange(resourceKeyServerPrimaryIPv4) {
+		primaryIPv4 = data.Get(resourceKeyServerPrimaryIPv4).(*string)
+	}
+	if data.HasChange(resourceKeyServerPrimaryIPv6) {
+		primaryIPv4 = data.Get(resourceKeyServerPrimaryIPv6).(*string)
+	}
+
+	if primaryIPv4 != nil || primaryIPv6 != nil {
+		err = updateServerIPAddress(providerClient, server, primaryIPv4, primaryIPv6)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Delete a server resource.
@@ -307,4 +324,19 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server '%s' is being deleted...", id)
 
 	return providerClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
+}
+
+func updateServerIPAddress(providerClient *compute.Client, server *compute.Server, primaryIPv4 *string, primaryIPv6 *string) error {
+	log.Printf("Update primary IP address(es) for server '%s'...", server.ID)
+
+	primaryNetworkAdapterID := *server.Network.PrimaryAdapter.ID
+	err := providerClient.NotifyServerIPAddressChange(primaryNetworkAdapterID, primaryIPv4, primaryIPv6)
+	if err != nil {
+		return err
+	}
+
+	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", server.ID, primaryNetworkAdapterID)
+	_, err = providerClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
+
+	return err
 }
