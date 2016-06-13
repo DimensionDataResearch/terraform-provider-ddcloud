@@ -51,13 +51,13 @@ func resourceServer() *schema.Resource {
 			},
 			resourceKeyServerMemoryGB: &schema.Schema{
 				Type:     schema.TypeInt,
-				Required: false,
+				Optional: true,
 				Computed: true,
 				Default:  nil,
 			},
 			resourceKeyServerCPUCount: &schema.Schema{
 				Type:     schema.TypeInt,
-				Required: false,
+				Optional: true,
 				Computed: true,
 				Default:  nil,
 			},
@@ -70,13 +70,15 @@ func resourceServer() *schema.Resource {
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Optional: true,
-				Default:  "",
+				Computed: true,
+				Default:  nil,
 			},
 			resourceKeyServerPrimaryIPv4: &schema.Schema{
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Optional: true,
-				Default:  "",
+				Computed: true,
+				Default:  nil,
 			},
 			resourceKeyServerPrimaryIPv6: &schema.Schema{
 				Type:     schema.TypeString,
@@ -98,13 +100,15 @@ func resourceServer() *schema.Resource {
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Optional: true,
-				Default:  "",
+				Computed: true,
+				Default:  nil,
 			},
 			resourceKeyServerOSImageName: &schema.Schema{
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Optional: true,
-				Default:  "",
+				Computed: true,
+				Default:  nil,
 			},
 			resourceKeyServerAutoStart: &schema.Schema{
 				Type:     schema.TypeBool,
@@ -121,15 +125,9 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	name := data.Get(resourceKeyServerName).(string)
 	description := data.Get(resourceKeyServerDescription).(string)
 	adminPassword := data.Get(resourceKeyServerAdminPassword).(string)
-	memoryGB := data.Get(resourceKeyServerMemoryGB).(*int)
-	cpuCount := data.Get(resourceKeyServerCPUCount).(*int)
 	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
-	primaryVLAN := data.Get(resourceKeyServerPrimaryVLAN).(string)
-	primaryIPv4 := data.Get(resourceKeyServerPrimaryIPv4).(string)
 	primaryDNS := data.Get(resourceKeyServerPrimaryDNS).(string)
 	secondaryDNS := data.Get(resourceKeyServerSecondaryDNS).(string)
-	osImageID := data.Get(resourceKeyServerOSImageID).(string)
-	osImageName := data.Get(resourceKeyServerOSImageName).(string)
 	autoStart := data.Get(resourceKeyServerAutoStart).(bool)
 
 	log.Printf("Create server '%s' in network domain '%s' (description = '%s').", name, networkDomainID, description)
@@ -149,23 +147,33 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server will be deployed in data centre '%s'.", dataCenterID)
 
 	// Retrieve image details.
+	var osImageID, osImageName *string
+	switch typedValue := data.Get(resourceKeyServerOSImageID).(type) {
+	case string:
+		osImageID = &typedValue
+	}
+	switch typedValue := data.Get(resourceKeyServerOSImageName).(type) {
+	case string:
+		osImageName = &typedValue
+	}
+
 	var osImage *compute.OSImage
-	if len(osImageID) > 0 {
+	if osImageID != nil {
 		// TODO: Look up OS image by Id (first, implement in compute API client).
 
 		return fmt.Errorf("Specifying osimage_id is not supported yet.")
-	} else if len(osImageName) > 0 {
-		log.Printf("Looking up OS image '%s' by name...", osImageName)
+	} else if osImageName != nil {
+		log.Printf("Looking up OS image '%s' by name...", *osImageName)
 
-		osImage, err = providerClient.FindOSImage(osImageName, dataCenterID)
+		osImage, err = providerClient.FindOSImage(*osImageName, dataCenterID)
 		if err != nil {
 			return err
 		}
 
 		if osImage == nil {
-			log.Printf("Warning - unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", osImageName, dataCenterID, networkDomainID)
+			log.Printf("Warning - unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *osImageName, dataCenterID, networkDomainID)
 
-			return fmt.Errorf("Unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", osImageName, dataCenterID, networkDomainID)
+			return fmt.Errorf("Unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *osImageName, dataCenterID, networkDomainID)
 		}
 
 		log.Printf("Server will be deployed from OS image with Id '%s'.", osImage.ID)
@@ -185,31 +193,28 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		return err
 	}
 
-	// Memory
-	if memoryGB != nil {
-		deploymentConfiguration.MemoryGB = *memoryGB
-	} else {
-		data.Set(resourceKeyServerMemoryGB, *memoryGB)
+	// Memory and CPU
+	switch memoryGB := data.Get(resourceKeyServerMemoryGB).(type) {
+	case int:
+		deploymentConfiguration.MemoryGB = memoryGB
 	}
 
-	// CPU
-	if cpuCount != nil {
-		deploymentConfiguration.CPU.Count = *cpuCount
-	} else {
-		data.Set(resourceKeyServerCPUCount, *cpuCount)
+	switch cpuCount := data.Get(resourceKeyServerCPUCount).(type) {
+	case int:
+		deploymentConfiguration.CPU.Count = cpuCount
 	}
 
 	// Network
-	var (
-		primaryVLANID      *string
-		primaryIPv4Address *string
-	)
-	if len(primaryVLAN) > 0 {
-		primaryVLANID = &primaryVLAN
+	var primaryVLANID, primaryIPv4Address *string
+	switch typedValue := data.Get(resourceKeyServerPrimaryVLAN).(type) {
+	case string:
+		primaryVLANID = &typedValue
 	}
-	if len(primaryIPv4) > 0 {
-		primaryIPv4Address = &primaryIPv4
+	switch typedValue := data.Get(resourceKeyServerPrimaryIPv4).(type) {
+	case string:
+		primaryIPv4Address = &typedValue
 	}
+
 	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
 		NetworkDomainID: networkDomainID,
 		PrimaryAdapter: compute.VirtualMachineNetworkAdapter{
@@ -289,6 +294,9 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 
 	data.Set(resourceKeyServerName, server.Name)
 	data.Set(resourceKeyServerDescription, server.Description)
+	log.Printf("osimage_id = '%v'.", data.Get(resourceKeyServerOSImageID))
+	log.Printf("server.SourceImageID = '%s'.", server.SourceImageID)
+	data.Set(resourceKeyServerOSImageID, server.SourceImageID)
 	data.Set(resourceKeyServerMemoryGB, server.MemoryGB)
 	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
 	data.Set(resourceKeyServerPrimaryVLAN, server.Network.PrimaryAdapter.VLANID)
@@ -321,10 +329,16 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	var memoryGB, cpuCount *int
 	if data.HasChange(resourceKeyServerMemoryGB) {
-		memoryGB = data.Get(resourceKeyServerMemoryGB).(*int)
+		switch typedValue := data.Get(resourceKeyServerMemoryGB).(type) {
+		case int:
+			memoryGB = &typedValue
+		}
 	}
 	if data.HasChange(resourceKeyServerCPUCount) {
-		cpuCount = data.Get(resourceKeyServerCPUCount).(*int)
+		switch typedValue := data.Get(resourceKeyServerCPUCount).(type) {
+		case int:
+			cpuCount = &typedValue
+		}
 	}
 
 	if memoryGB != nil || cpuCount != nil {
@@ -336,10 +350,18 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	var primaryIPv4, primaryIPv6 *string
 	if data.HasChange(resourceKeyServerPrimaryIPv4) {
-		primaryIPv4 = data.Get(resourceKeyServerPrimaryIPv4).(*string)
+		value := data.Get(resourceKeyServerPrimaryIPv4)
+		switch typedValue := value.(type) {
+		case string:
+			primaryIPv4 = &typedValue
+		}
 	}
 	if data.HasChange(resourceKeyServerPrimaryIPv6) {
-		primaryIPv4 = data.Get(resourceKeyServerPrimaryIPv6).(*string)
+		value := data.Get(resourceKeyServerPrimaryIPv6)
+		switch typedValue := value.(type) {
+		case string:
+			primaryIPv6 = &typedValue
+		}
 	}
 
 	if primaryIPv4 != nil || primaryIPv6 != nil {
@@ -391,5 +413,12 @@ func updateServerIPAddress(providerClient *compute.Client, server *compute.Serve
 func updateServerConfiguration(providerClient *compute.Client, server *compute.Server, memoryGB *int, cpuCount *int) error {
 	log.Printf("Update configuration for server '%s'...", server.ID)
 
-	return fmt.Errorf("Server reconfiguration (for 'ddcloud_server' resource type) is not yet implemented.")
+	err := providerClient.ReconfigureServer(server.ID, memoryGB, cpuCount)
+	if err != nil {
+		return err
+	}
+
+	_, err = providerClient.WaitForChange(compute.ResourceTypeServer, server.ID, "Reconfigure server", resourceUpdateTimeoutServer)
+
+	return err
 }
