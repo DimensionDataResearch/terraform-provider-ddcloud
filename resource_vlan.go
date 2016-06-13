@@ -145,7 +145,14 @@ func resourceVLANUpdate(data *schema.ResourceData, provider interface{}) error {
 
 	providerClient := provider.(*compute.Client)
 
-	return providerClient.EditVLAN(id, newName, newDescription)
+	if newName != nil || newDescription != nil {
+		err := providerClient.EditVLAN(id, newName, newDescription)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Delete a VLAN resource.

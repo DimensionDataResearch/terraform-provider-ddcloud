@@ -193,27 +193,22 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		return err
 	}
 
+	propertyHelper := propertyHelper(data)
+
 	// Memory and CPU
-	switch memoryGB := data.Get(resourceKeyServerMemoryGB).(type) {
-	case int:
-		deploymentConfiguration.MemoryGB = memoryGB
+	memoryGB := propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB)
+	if memoryGB != nil {
+		deploymentConfiguration.MemoryGB = *memoryGB
 	}
 
-	switch cpuCount := data.Get(resourceKeyServerCPUCount).(type) {
-	case int:
-		deploymentConfiguration.CPU.Count = cpuCount
+	cpuCount := propertyHelper.GetOptionalInt(resourceKeyServerCPUCount)
+	if cpuCount != nil {
+		deploymentConfiguration.CPU.Count = *cpuCount
 	}
 
 	// Network
-	var primaryVLANID, primaryIPv4Address *string
-	switch typedValue := data.Get(resourceKeyServerPrimaryVLAN).(type) {
-	case string:
-		primaryVLANID = &typedValue
-	}
-	switch typedValue := data.Get(resourceKeyServerPrimaryIPv4).(type) {
-	case string:
-		primaryIPv4Address = &typedValue
-	}
+	primaryVLANID := propertyHelper.GetOptionalString(resourceKeyServerPrimaryVLAN)
+	primaryIPv4Address := propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv4)
 
 	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
 		NetworkDomainID: networkDomainID,
@@ -244,26 +239,11 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	// Capture additional properties that are only available after deployment.
 	server := resource.(*compute.Server)
-	data.Set(resourceKeyServerPrimaryIPv6, server.Network.PrimaryAdapter.PrivateIPv6Address)
+	serverIPv6Address := *server.Network.PrimaryAdapter.PrivateIPv6Address
+	data.Set(resourceKeyServerPrimaryIPv6, serverIPv6Address)
 
 	// Configure connection info so that we can use a provisioner if required.
-	switch server.OperatingSystem.Family {
-	case "UNIX":
-		data.SetConnInfo(map[string]string{
-			"type":     "ssh",
-			"host":     *server.Network.PrimaryAdapter.PrivateIPv6Address,
-			"user":     "root",
-			"password": adminPassword,
-		})
-
-	case "WINDOWS":
-		data.SetConnInfo(map[string]string{
-			"type":     "winrm",
-			"host":     *server.Network.PrimaryAdapter.PrivateIPv6Address,
-			"user":     "Administrator",
-			"password": adminPassword,
-		})
-	}
+	updateConnectionInfo(data, server.OperatingSystem.Family, serverIPv6Address, adminPassword)
 
 	return nil
 }
@@ -294,14 +274,12 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 
 	data.Set(resourceKeyServerName, server.Name)
 	data.Set(resourceKeyServerDescription, server.Description)
-	log.Printf("osimage_id = '%v'.", data.Get(resourceKeyServerOSImageID))
-	log.Printf("server.SourceImageID = '%s'.", server.SourceImageID)
 	data.Set(resourceKeyServerOSImageID, server.SourceImageID)
 	data.Set(resourceKeyServerMemoryGB, server.MemoryGB)
 	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
-	data.Set(resourceKeyServerPrimaryVLAN, server.Network.PrimaryAdapter.VLANID)
-	data.Set(resourceKeyServerPrimaryIPv4, server.Network.PrimaryAdapter.PrivateIPv4Address)
-	data.Set(resourceKeyServerPrimaryIPv6, server.Network.PrimaryAdapter.PrivateIPv6Address)
+	data.Set(resourceKeyServerPrimaryVLAN, *server.Network.PrimaryAdapter.VLANID)
+	data.Set(resourceKeyServerPrimaryIPv4, *server.Network.PrimaryAdapter.PrivateIPv4Address)
+	data.Set(resourceKeyServerPrimaryIPv6, *server.Network.PrimaryAdapter.PrivateIPv6Address)
 	data.Set(resourceKeyServerNetworkDomainID, server.Network.NetworkDomainID)
 
 	return nil
@@ -311,6 +289,8 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error {
 	serverID := data.Id()
 
+	// These changes can only be made through the V1 API (we're mostly using V2).
+	// Later, we can come back and implement the required functionality in the compute API client.
 	if data.HasChange(resourceKeyServerName) {
 		return fmt.Errorf("Changing the 'name' property of a 'ddcloud_server' resource type is not yet implemented.")
 	}
@@ -327,49 +307,68 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		return err
 	}
 
+	data.Partial(true)
+
+	propertyHelper := propertyHelper(data)
+
 	var memoryGB, cpuCount *int
 	if data.HasChange(resourceKeyServerMemoryGB) {
-		switch typedValue := data.Get(resourceKeyServerMemoryGB).(type) {
-		case int:
-			memoryGB = &typedValue
-		}
+		memoryGB = propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB)
 	}
 	if data.HasChange(resourceKeyServerCPUCount) {
-		switch typedValue := data.Get(resourceKeyServerCPUCount).(type) {
-		case int:
-			cpuCount = &typedValue
-		}
+		cpuCount = propertyHelper.GetOptionalInt(resourceKeyServerCPUCount)
 	}
 
 	if memoryGB != nil || cpuCount != nil {
+		log.Printf("Server CPU / memory configuration change detected.")
+
 		err = updateServerConfiguration(providerClient, server, memoryGB, cpuCount)
 		if err != nil {
 			return err
+		}
+
+		if data.HasChange(resourceKeyServerMemoryGB) {
+			data.SetPartial(resourceKeyServerMemoryGB)
+		}
+
+		if data.HasChange(resourceKeyServerCPUCount) {
+			data.SetPartial(resourceKeyServerCPUCount)
 		}
 	}
 
 	var primaryIPv4, primaryIPv6 *string
 	if data.HasChange(resourceKeyServerPrimaryIPv4) {
-		value := data.Get(resourceKeyServerPrimaryIPv4)
-		switch typedValue := value.(type) {
-		case string:
-			primaryIPv4 = &typedValue
-		}
+		primaryIPv4 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv4)
 	}
 	if data.HasChange(resourceKeyServerPrimaryIPv6) {
-		value := data.Get(resourceKeyServerPrimaryIPv6)
-		switch typedValue := value.(type) {
-		case string:
-			primaryIPv6 = &typedValue
-		}
+		primaryIPv6 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv6)
 	}
 
 	if primaryIPv4 != nil || primaryIPv6 != nil {
+		log.Printf("Server network configuration change detected.")
+
 		err = updateServerIPAddress(providerClient, server, primaryIPv4, primaryIPv6)
 		if err != nil {
 			return err
 		}
+
+		if data.HasChange(resourceKeyServerPrimaryIPv4) {
+			data.SetPartial(resourceKeyServerPrimaryIPv4)
+		}
+
+		if data.HasChange(resourceKeyServerPrimaryIPv6) {
+			data.SetPartial(resourceKeyServerPrimaryIPv6)
+		}
+
+		// This property should always be defined in the resource data (once the server is provisioned) so get it as a string rather than a pointer,
+		primaryIPv6 := data.Get(resourceKeyServerPrimaryIPv6).(string)
+		adminPassword := data.Get(resourceKeyServerAdminPassword).(string)
+
+		// Since network configuration has changed, update the connection info used by provisioners.
+		updateConnectionInfo(data, server.OperatingSystem.Family, primaryIPv6, adminPassword)
 	}
+
+	data.Partial(false)
 
 	return nil
 }
@@ -395,6 +394,31 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	return providerClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
 }
 
+// updateServerConfiguration reconfigures a server, changing the allocated RAM and / or CPU count.
+func updateServerConfiguration(providerClient *compute.Client, server *compute.Server, memoryGB *int, cpuCount *int) error {
+	memoryDescription := "no change"
+	if memoryGB != nil {
+		memoryDescription = fmt.Sprintf("will change to %dGB", *memoryGB)
+	}
+
+	cpuCountDescription := "no change"
+	if memoryGB != nil {
+		memoryDescription = fmt.Sprintf("will change to %d", *cpuCount)
+	}
+
+	log.Printf("Update configuration for server '%s' (memory: %s, CPU: %s)...", server.ID, memoryDescription, cpuCountDescription)
+
+	err := providerClient.ReconfigureServer(server.ID, memoryGB, cpuCount)
+	if err != nil {
+		return err
+	}
+
+	_, err = providerClient.WaitForChange(compute.ResourceTypeServer, server.ID, "Reconfigure server", resourceUpdateTimeoutServer)
+
+	return err
+}
+
+// updateServerIPAddress notifies the compute infrastructure that a server's IP address has changed.
 func updateServerIPAddress(providerClient *compute.Client, server *compute.Server, primaryIPv4 *string, primaryIPv6 *string) error {
 	log.Printf("Update primary IP address(es) for server '%s'...", server.ID)
 
@@ -410,15 +434,22 @@ func updateServerIPAddress(providerClient *compute.Client, server *compute.Serve
 	return err
 }
 
-func updateServerConfiguration(providerClient *compute.Client, server *compute.Server, memoryGB *int, cpuCount *int) error {
-	log.Printf("Update configuration for server '%s'...", server.ID)
+// updateConnectionInfo configures connection info for a resource so that we can use a provisioner if required.
+func updateConnectionInfo(data *schema.ResourceData, osFamily string, hostIPAddress string, adminPassword string) {
+	connectionInfo := data.ConnInfo()
 
-	err := providerClient.ReconfigureServer(server.ID, memoryGB, cpuCount)
-	if err != nil {
-		return err
+	connectionInfo["host"] = hostIPAddress
+	connectionInfo["password"] = adminPassword
+
+	switch osFamily {
+	case "UNIX":
+		connectionInfo["type"] = "ssh"
+		connectionInfo["user"] = "root"
+
+	case "WINDOWS":
+		connectionInfo["type"] = "winrm"
+		connectionInfo["user"] = "Administrator"
 	}
 
-	_, err = providerClient.WaitForChange(compute.ResourceTypeServer, server.ID, "Reconfigure server", resourceUpdateTimeoutServer)
-
-	return err
+	data.SetConnInfo(connectionInfo)
 }
