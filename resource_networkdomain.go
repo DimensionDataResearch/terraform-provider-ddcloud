@@ -73,20 +73,16 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 
 	log.Printf("Network domain '%s' is being provisioned...", networkDomainID)
 
-	return compute.WaitForDeploy(networkDomainID, "Network domain",
-		func(resourceID string) (compute.Resource, error) {
-			return providerClient.GetNetworkDomain(resourceID)
-		},
-		func(resource compute.Resource) error {
-			networkDomain := resource.(*compute.NetworkDomain)
+	resource, err := providerClient.WaitForDeploy(compute.ResourceTypeNetworkDomain, networkDomainID, resourceCreateTimeoutVLAN)
+	if err != nil {
+		return err
+	}
 
-			// Capture IPv4 NAT address.
-			data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
+	// Capture additional properties that are only available after deployment.
+	networkDomain := resource.(*compute.NetworkDomain)
+	data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
 
-			return nil
-		}, // onResourceDeployed,
-		resourceCreateTimeoutVLAN,
-	)
+	return nil
 }
 
 // Read a network domain resource.
@@ -171,10 +167,5 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 
 	log.Printf("Network domain '%s' is being deleted...", id)
 
-	return compute.WaitForDelete(id, "Network domain",
-		func(resourceId string) (compute.Resource, error) {
-			return providerClient.GetNetworkDomain(resourceId)
-		},
-		resourceDeleteTimeoutServer,
-	)
+	return providerClient.WaitForDelete(compute.ResourceTypeNetworkDomain, id, resourceDeleteTimeoutServer)
 }

@@ -201,38 +201,35 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Server '%s' is being provisioned...", name)
 
-	return compute.WaitForDeploy(serverID, "Server",
-		func(resourceID string) (compute.Resource, error) {
-			return providerClient.GetServer(resourceID)
-		},
-		func(resource compute.Resource) error {
-			server := resource.(*compute.Server)
+	resource, err := providerClient.WaitForDeploy(compute.ResourceTypeServer, serverID, resourceCreateTimeoutServer)
+	if err != nil {
+		return err
+	}
 
-			data.Set(resourceKeyServerPrimaryIPv6, server.Network.PrimaryAdapter.PrivateIPv6Address)
+	// Capture additional properties that are only available after deployment.
+	server := resource.(*compute.Server)
+	data.Set(resourceKeyServerPrimaryIPv6, server.Network.PrimaryAdapter.PrivateIPv6Address)
 
-			// Configure connection info so that we can use a provisioner if required.
-			switch server.OperatingSystem.Family {
-			case "UNIX":
-				data.SetConnInfo(map[string]string{
-					"type":     "ssh",
-					"host":     *server.Network.PrimaryAdapter.PrivateIPv6Address,
-					"user":     "root",
-					"password": adminPassword,
-				})
+	// Configure connection info so that we can use a provisioner if required.
+	switch server.OperatingSystem.Family {
+	case "UNIX":
+		data.SetConnInfo(map[string]string{
+			"type":     "ssh",
+			"host":     *server.Network.PrimaryAdapter.PrivateIPv6Address,
+			"user":     "root",
+			"password": adminPassword,
+		})
 
-			case "WINDOWS":
-				data.SetConnInfo(map[string]string{
-					"type":     "winrm",
-					"host":     *server.Network.PrimaryAdapter.PrivateIPv6Address,
-					"user":     "Administrator",
-					"password": adminPassword,
-				})
-			}
+	case "WINDOWS":
+		data.SetConnInfo(map[string]string{
+			"type":     "winrm",
+			"host":     *server.Network.PrimaryAdapter.PrivateIPv6Address,
+			"user":     "Administrator",
+			"password": adminPassword,
+		})
+	}
 
-			return nil
-		},
-		resourceCreateTimeoutServer,
-	)
+	return nil
 }
 
 // Read a server resource.
@@ -309,10 +306,5 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Server '%s' is being deleted...", id)
 
-	return compute.WaitForDelete(id, "Server",
-		func(resourceId string) (compute.Resource, error) {
-			return providerClient.GetServer(resourceId)
-		},
-		resourceDeleteTimeoutServer,
-	)
+	return providerClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
 }

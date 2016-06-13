@@ -83,13 +83,9 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("VLAN '%s' is being provisioned...", vlanID)
 
-	return compute.WaitForDeploy(vlanID, "VLAN",
-		func(resourceId string) (compute.Resource, error) {
-			return providerClient.GetVLAN(resourceId)
-		},
-		nil, // onResourceDeployed
-		resourceCreateTimeoutVLAN,
-	)
+	_, err = providerClient.WaitForDeploy(compute.ResourceTypeVLAN, vlanID, resourceCreateTimeoutVLAN)
+
+	return err
 }
 
 // Read a VLAN resource.
@@ -168,10 +164,5 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("VLAN '%s' is being deleted...", id)
 
-	return compute.WaitForDelete(id, "VLAN",
-		func(resourceId string) (compute.Resource, error) {
-			return providerClient.GetVLAN(resourceId)
-		},
-		resourceDeleteTimeoutServer,
-	)
+	return providerClient.WaitForDelete(compute.ResourceTypeVLAN, id, resourceDeleteTimeoutServer)
 }
