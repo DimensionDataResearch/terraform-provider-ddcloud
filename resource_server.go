@@ -13,6 +13,8 @@ const (
 	resourceKeyServerDescription     = "description"
 	resourceKeyServerAdminPassword   = "admin_password"
 	resourceKeyServerNetworkDomainID = "networkdomain"
+	resourceKeyServerMemoryGB        = "memory_gb"
+	resourceKeyServerCPUCount        = "cpu_count"
 	resourceKeyServerOSImageID       = "osimage_id"
 	resourceKeyServerOSImageName     = "osimage_name"
 	resourceKeyServerPrimaryVLAN     = "primary_adapter_vlan"
@@ -46,6 +48,18 @@ func resourceServer() *schema.Resource {
 			resourceKeyServerAdminPassword: &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
+			},
+			resourceKeyServerMemoryGB: &schema.Schema{
+				Type:     schema.TypeInt,
+				Required: false,
+				Computed: true,
+				Default:  nil,
+			},
+			resourceKeyServerCPUCount: &schema.Schema{
+				Type:     schema.TypeInt,
+				Required: false,
+				Computed: true,
+				Default:  nil,
 			},
 			resourceKeyServerNetworkDomainID: &schema.Schema{
 				Type:     schema.TypeString,
@@ -107,6 +121,8 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	name := data.Get(resourceKeyServerName).(string)
 	description := data.Get(resourceKeyServerDescription).(string)
 	adminPassword := data.Get(resourceKeyServerAdminPassword).(string)
+	memoryGB := data.Get(resourceKeyServerMemoryGB).(*int)
+	cpuCount := data.Get(resourceKeyServerCPUCount).(*int)
 	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
 	primaryVLAN := data.Get(resourceKeyServerPrimaryVLAN).(string)
 	primaryIPv4 := data.Get(resourceKeyServerPrimaryIPv4).(string)
@@ -167,6 +183,20 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	err = deploymentConfiguration.ApplyImage(osImage)
 	if err != nil {
 		return err
+	}
+
+	// Memory
+	if memoryGB != nil {
+		deploymentConfiguration.MemoryGB = *memoryGB
+	} else {
+		data.Set(resourceKeyServerMemoryGB, *memoryGB)
+	}
+
+	// CPU
+	if cpuCount != nil {
+		deploymentConfiguration.CPU.Count = *cpuCount
+	} else {
+		data.Set(resourceKeyServerCPUCount, *cpuCount)
 	}
 
 	// Network
@@ -259,6 +289,8 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 
 	data.Set(resourceKeyServerName, server.Name)
 	data.Set(resourceKeyServerDescription, server.Description)
+	data.Set(resourceKeyServerMemoryGB, server.MemoryGB)
+	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
 	data.Set(resourceKeyServerPrimaryVLAN, server.Network.PrimaryAdapter.VLANID)
 	data.Set(resourceKeyServerPrimaryIPv4, server.Network.PrimaryAdapter.PrivateIPv4Address)
 	data.Set(resourceKeyServerPrimaryIPv6, server.Network.PrimaryAdapter.PrivateIPv6Address)
@@ -285,6 +317,21 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 	server, err := providerClient.GetServer(serverID)
 	if err != nil {
 		return err
+	}
+
+	var memoryGB, cpuCount *int
+	if data.HasChange(resourceKeyServerMemoryGB) {
+		memoryGB = data.Get(resourceKeyServerMemoryGB).(*int)
+	}
+	if data.HasChange(resourceKeyServerCPUCount) {
+		cpuCount = data.Get(resourceKeyServerCPUCount).(*int)
+	}
+
+	if memoryGB != nil || cpuCount != nil {
+		err = updateServerConfiguration(providerClient, server, memoryGB, cpuCount)
+		if err != nil {
+			return err
+		}
 	}
 
 	var primaryIPv4, primaryIPv6 *string
@@ -339,4 +386,10 @@ func updateServerIPAddress(providerClient *compute.Client, server *compute.Serve
 	_, err = providerClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
 
 	return err
+}
+
+func updateServerConfiguration(providerClient *compute.Client, server *compute.Server, memoryGB *int, cpuCount *int) error {
+	log.Printf("Update configuration for server '%s'...", server.ID)
+
+	return fmt.Errorf("Server reconfiguration (for 'ddcloud_server' resource type) is not yet implemented.")
 }
