@@ -1,3 +1,6 @@
 [submodule "vendor/compute-api"]
     path = vendor/compute-api
     url = https://github.com/DimensionDataResearch/go-dd-cloud-compute.git
+[submodule "vendor/mitchellh/mapstructure"]
+	path = vendor/mitchellh/mapstructure
+	url = https://github.com/mitchellh/mapstructure.git

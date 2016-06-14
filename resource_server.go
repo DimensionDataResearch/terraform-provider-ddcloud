@@ -15,6 +15,11 @@ const (
 	resourceKeyServerNetworkDomainID = "networkdomain"
 	resourceKeyServerMemoryGB        = "memory_gb"
 	resourceKeyServerCPUCount        = "cpu_count"
+	resourceKeyServerDisk            = "disk"
+	resourceKeyServerDiskID          = "id"
+	resourceKeyServerDiskSizeGB      = "size_gb"
+	resourceKeyServerDiskUnitID      = "scsi_unit_id"
+	resourceKeyServerDiskSpeed       = "speed"
 	resourceKeyServerOSImageID       = "osimage_id"
 	resourceKeyServerOSImageName     = "osimage_name"
 	resourceKeyServerPrimaryVLAN     = "primary_adapter_vlan"
@@ -62,6 +67,33 @@ func resourceServer() *schema.Resource {
 				Optional: true,
 				Computed: true,
 				Default:  nil,
+			},
+			resourceKeyServerDisk: &schema.Schema{
+				Type:     schema.TypeList,
+				Optional: true,
+				Computed: true,
+				Default:  nil,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						resourceKeyServerDiskID: &schema.Schema{
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						resourceKeyServerDiskSizeGB: &schema.Schema{
+							Type:     schema.TypeInt,
+							Required: true,
+						},
+						resourceKeyServerDiskUnitID: &schema.Schema{
+							Type:     schema.TypeInt,
+							Required: true,
+						},
+						resourceKeyServerDiskSpeed: &schema.Schema{
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "STANDARD",
+						},
+					},
+				},
 			},
 			resourceKeyServerNetworkDomainID: &schema.Schema{
 				Type:     schema.TypeString,
@@ -243,6 +275,28 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	server := resource.(*compute.Server)
 	serverIPv6Address := *server.Network.PrimaryAdapter.PrivateIPv6Address
 	data.Set(resourceKeyServerPrimaryIPv6, serverIPv6Address)
+
+	// TODO: Consider refactoring this out to something that returns []map[string]interface{} (ugh).
+	// TODO: Or perhaps consider using TypeMap instead of TypeList.
+	disks := server.Disks
+	if len(disks) > 0 {
+		propertyName := fmt.Sprintf("%s.#", resourceKeyServerDisk)
+		data.Set(propertyName+".#", len(disks))
+
+		for index, disk := range disks {
+			propertyName = fmt.Sprintf("%s[%d].%s", resourceKeyServerDisk, index, resourceKeyServerDiskID)
+			data.Set(propertyName, *disk.ID)
+
+			propertyName = fmt.Sprintf("%s[%d].%s", resourceKeyServerDisk, index, resourceKeyServerDiskSizeGB)
+			data.Set(propertyName, disk.SizeGB)
+
+			propertyName = fmt.Sprintf("%s[%d].%s", resourceKeyServerDisk, index, resourceKeyServerDiskUnitID)
+			data.Set(propertyName, disk.SCSIUnitID)
+
+			propertyName = fmt.Sprintf("%s[%d].%s", resourceKeyServerDisk, index, resourceKeyServerDiskSpeed)
+			data.Set(propertyName, disk.Speed)
+		}
+	}
 
 	// Configure connection info so that we can use a provisioner if required.
 	updateConnectionInfo(data, server.OperatingSystem.Family, serverIPv6Address, adminPassword)
