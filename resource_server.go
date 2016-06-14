@@ -180,16 +180,11 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	dataCenterID := networkDomain.DatacenterID
 	log.Printf("Server will be deployed in data centre '%s'.", dataCenterID)
 
+	propertyHelper := propertyHelper(data)
+
 	// Retrieve image details.
-	var osImageID, osImageName *string
-	switch typedValue := data.Get(resourceKeyServerOSImageID).(type) {
-	case string:
-		osImageID = &typedValue
-	}
-	switch typedValue := data.Get(resourceKeyServerOSImageName).(type) {
-	case string:
-		osImageName = &typedValue
-	}
+	osImageID := propertyHelper.GetOptionalString(resourceKeyServerOSImageID, false)
+	osImageName := propertyHelper.GetOptionalString(resourceKeyServerOSImageName, false)
 
 	var osImage *compute.OSImage
 	if osImageID != nil {
@@ -227,22 +222,24 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		return err
 	}
 
-	propertyHelper := propertyHelper(data)
-
 	// Memory and CPU
-	memoryGB := propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB)
+	memoryGB := propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB, false)
 	if memoryGB != nil {
 		deploymentConfiguration.MemoryGB = *memoryGB
+	} else {
+		data.Set(resourceKeyServerMemoryGB, deploymentConfiguration.MemoryGB)
 	}
 
-	cpuCount := propertyHelper.GetOptionalInt(resourceKeyServerCPUCount)
+	cpuCount := propertyHelper.GetOptionalInt(resourceKeyServerCPUCount, false)
 	if cpuCount != nil {
 		deploymentConfiguration.CPU.Count = *cpuCount
+	} else {
+		data.Set(resourceKeyServerCPUCount, deploymentConfiguration.CPU.Count)
 	}
 
 	// Network
-	primaryVLANID := propertyHelper.GetOptionalString(resourceKeyServerPrimaryVLAN)
-	primaryIPv4Address := propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv4)
+	primaryVLANID := propertyHelper.GetOptionalString(resourceKeyServerPrimaryVLAN, false)
+	primaryIPv4Address := propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv4, false)
 
 	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
 		NetworkDomainID: networkDomainID,
@@ -276,30 +273,17 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	serverIPv6Address := *server.Network.PrimaryAdapter.PrivateIPv6Address
 	data.Set(resourceKeyServerPrimaryIPv6, serverIPv6Address)
 
-	// TODO: Consider refactoring this out to something that returns []map[string]interface{} (ugh).
-	// TODO: Or perhaps consider using TypeMap instead of TypeList.
 	disks := server.Disks
-	if len(disks) > 0 {
-		propertyName := fmt.Sprintf("%s.#", resourceKeyServerDisk)
-		data.Set(propertyName+".#", len(disks))
-
-		for index, disk := range disks {
-			propertyName = fmt.Sprintf("%s[%d].%s", resourceKeyServerDisk, index, resourceKeyServerDiskID)
-			data.Set(propertyName, *disk.ID)
-
-			propertyName = fmt.Sprintf("%s[%d].%s", resourceKeyServerDisk, index, resourceKeyServerDiskSizeGB)
-			data.Set(propertyName, disk.SizeGB)
-
-			propertyName = fmt.Sprintf("%s[%d].%s", resourceKeyServerDisk, index, resourceKeyServerDiskUnitID)
-			data.Set(propertyName, disk.SCSIUnitID)
-
-			propertyName = fmt.Sprintf("%s[%d].%s", resourceKeyServerDisk, index, resourceKeyServerDiskSpeed)
-			data.Set(propertyName, disk.Speed)
+	diskProperties := make([]map[string]interface{}, len(disks))
+	for index, disk := range disks {
+		diskProperties[index] = map[string]interface{}{
+			resourceKeyServerDiskID:     *disk.ID,
+			resourceKeyServerDiskSizeGB: disk.SizeGB,
+			resourceKeyServerDiskUnitID: disk.SCSIUnitID,
+			resourceKeyServerDiskSpeed:  disk.Speed,
 		}
 	}
-
-	// Configure connection info so that we can use a provisioner if required.
-	updateConnectionInfo(data, server.OperatingSystem.Family, serverIPv6Address, adminPassword)
+	data.Set(resourceKeyServerDisk, diskProperties)
 
 	return nil
 }
@@ -338,6 +322,18 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	data.Set(resourceKeyServerPrimaryIPv6, *server.Network.PrimaryAdapter.PrivateIPv6Address)
 	data.Set(resourceKeyServerNetworkDomainID, server.Network.NetworkDomainID)
 
+	disks := server.Disks
+	diskProperties := make([]map[string]interface{}, len(disks))
+	for index, disk := range disks {
+		diskProperties[index] = map[string]interface{}{
+			resourceKeyServerDiskID:     *disk.ID,
+			resourceKeyServerDiskSizeGB: disk.SizeGB,
+			resourceKeyServerDiskUnitID: disk.SCSIUnitID,
+			resourceKeyServerDiskSpeed:  disk.Speed,
+		}
+	}
+	data.Set(resourceKeyServerDisk, diskProperties)
+
 	return nil
 }
 
@@ -369,10 +365,10 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	var memoryGB, cpuCount *int
 	if data.HasChange(resourceKeyServerMemoryGB) {
-		memoryGB = propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB)
+		memoryGB = propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB, false)
 	}
 	if data.HasChange(resourceKeyServerCPUCount) {
-		cpuCount = propertyHelper.GetOptionalInt(resourceKeyServerCPUCount)
+		cpuCount = propertyHelper.GetOptionalInt(resourceKeyServerCPUCount, false)
 	}
 
 	if memoryGB != nil || cpuCount != nil {
@@ -394,10 +390,10 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	var primaryIPv4, primaryIPv6 *string
 	if data.HasChange(resourceKeyServerPrimaryIPv4) {
-		primaryIPv4 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv4)
+		primaryIPv4 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv4, false)
 	}
 	if data.HasChange(resourceKeyServerPrimaryIPv6) {
-		primaryIPv6 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv6)
+		primaryIPv6 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv6, false)
 	}
 
 	if primaryIPv4 != nil || primaryIPv6 != nil {
@@ -415,13 +411,6 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		if data.HasChange(resourceKeyServerPrimaryIPv6) {
 			data.SetPartial(resourceKeyServerPrimaryIPv6)
 		}
-
-		// This property should always be defined in the resource data (once the server is provisioned) so get it as a string rather than a pointer,
-		primaryIPv6 := data.Get(resourceKeyServerPrimaryIPv6).(string)
-		adminPassword := data.Get(resourceKeyServerAdminPassword).(string)
-
-		// Since network configuration has changed, update the connection info used by provisioners.
-		updateConnectionInfo(data, server.OperatingSystem.Family, primaryIPv6, adminPassword)
 	}
 
 	data.Partial(false)
@@ -488,24 +477,4 @@ func updateServerIPAddress(providerClient *compute.Client, server *compute.Serve
 	_, err = providerClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
 
 	return err
-}
-
-// updateConnectionInfo configures connection info for a resource so that we can use a provisioner if required.
-func updateConnectionInfo(data *schema.ResourceData, osFamily string, hostIPAddress string, adminPassword string) {
-	connectionInfo := data.ConnInfo()
-
-	connectionInfo["host"] = hostIPAddress
-	connectionInfo["password"] = adminPassword
-
-	switch osFamily {
-	case "UNIX":
-		connectionInfo["type"] = "ssh"
-		connectionInfo["user"] = "root"
-
-	case "WINDOWS":
-		connectionInfo["type"] = "winrm"
-		connectionInfo["user"] = "Administrator"
-	}
-
-	data.SetConnInfo(connectionInfo)
 }

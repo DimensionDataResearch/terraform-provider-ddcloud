@@ -13,24 +13,28 @@ func propertyHelper(data *schema.ResourceData) resourcePropertyHelper {
 	return resourcePropertyHelper{data}
 }
 
-func (helper resourcePropertyHelper) GetOptionalString(key string) *string {
+func (helper resourcePropertyHelper) GetOptionalString(key string, allowEmpty bool) *string {
 	value := helper.data.Get(key)
 	switch typedValue := value.(type) {
 	case string:
-		return &typedValue
-	default:
-		return nil
+		if len(typedValue) > 0 || allowEmpty {
+			return &typedValue
+		}
 	}
+
+	return nil
 }
 
-func (helper resourcePropertyHelper) GetOptionalInt(key string) *int {
+func (helper resourcePropertyHelper) GetOptionalInt(key string, allowZero bool) *int {
 	value := helper.data.Get(key)
 	switch typedValue := value.(type) {
 	case int:
-		return &typedValue
-	default:
-		return nil
+		if typedValue != 0 || allowZero {
+			return &typedValue
+		}
 	}
+
+	return nil
 }
 
 func (helper resourcePropertyHelper) GetOptionalBool(key string) *bool {
