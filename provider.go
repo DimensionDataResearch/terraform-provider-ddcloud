@@ -38,6 +38,9 @@ func Provider() terraform.ResourceProvider {
 
 			// A server (virtual machine).
 			"ddcloud_server": resourceServer(),
+
+			// A Network Address Translation (NAT) rule.
+			"ddcloud_nat": resourceNAT(),
 		},
 
 		// Provider configuration
