@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compute-api/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -45,4 +46,35 @@ func (helper resourcePropertyHelper) GetOptionalBool(key string) *bool {
 	default:
 		return nil
 	}
+}
+
+func (helper resourcePropertyHelper) GetVirtualMachineDisks(key string) []compute.VirtualMachineDisk {
+	items := helper.data.Get(key).([]interface{})
+
+	disks := make([]compute.VirtualMachineDisk, len(items))
+	for index, item := range items {
+		diskProperties := item.(map[string]interface{})
+		disks[index] = parseDiskProperties(diskProperties)
+	}
+
+	return disks
+}
+
+// Parse a compute.VirtualMachineDisk from the specified disk property map.
+func parseDiskProperties(diskProperties map[string]interface{}) compute.VirtualMachineDisk {
+	disk := &compute.VirtualMachineDisk{}
+
+	if unitID, ok := diskProperties[resourceKeyServerAdditionalDiskUnitID]; ok {
+		disk.SCSIUnitID = unitID.(int)
+	}
+
+	if sizeGB, ok := diskProperties[resourceKeyServerAdditionalDiskSizeGB]; ok {
+		disk.SizeGB = sizeGB.(int)
+	}
+
+	if speed, ok := diskProperties[resourceKeyServerAdditionalDiskSpeed]; ok {
+		disk.Speed = speed.(string)
+	}
+
+	return *disk
 }

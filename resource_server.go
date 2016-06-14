@@ -9,28 +9,28 @@ import (
 )
 
 const (
-	resourceKeyServerName            = "name"
-	resourceKeyServerDescription     = "description"
-	resourceKeyServerAdminPassword   = "admin_password"
-	resourceKeyServerNetworkDomainID = "networkdomain"
-	resourceKeyServerMemoryGB        = "memory_gb"
-	resourceKeyServerCPUCount        = "cpu_count"
-	resourceKeyServerDisk            = "disk"
-	resourceKeyServerDiskID          = "id"
-	resourceKeyServerDiskSizeGB      = "size_gb"
-	resourceKeyServerDiskUnitID      = "scsi_unit_id"
-	resourceKeyServerDiskSpeed       = "speed"
-	resourceKeyServerOSImageID       = "osimage_id"
-	resourceKeyServerOSImageName     = "osimage_name"
-	resourceKeyServerPrimaryVLAN     = "primary_adapter_vlan"
-	resourceKeyServerPrimaryIPv4     = "primary_adapter_ipv4"
-	resourceKeyServerPrimaryIPv6     = "primary_adapter_ipv6"
-	resourceKeyServerPrimaryDNS      = "dns_primary"
-	resourceKeyServerSecondaryDNS    = "dns_secondary"
-	resourceKeyServerAutoStart       = "auto_start"
-	resourceCreateTimeoutServer      = 30 * time.Minute
-	resourceUpdateTimeoutServer      = 10 * time.Minute
-	resourceDeleteTimeoutServer      = 15 * time.Minute
+	resourceKeyServerName                 = "name"
+	resourceKeyServerDescription          = "description"
+	resourceKeyServerAdminPassword        = "admin_password"
+	resourceKeyServerNetworkDomainID      = "networkdomain"
+	resourceKeyServerMemoryGB             = "memory_gb"
+	resourceKeyServerCPUCount             = "cpu_count"
+	resourceKeyServerAdditionalDisk       = "additional_disk"
+	resourceKeyServerAdditionalDiskID     = "disk_id"
+	resourceKeyServerAdditionalDiskSizeGB = "size_gb"
+	resourceKeyServerAdditionalDiskUnitID = "scsi_unit_id"
+	resourceKeyServerAdditionalDiskSpeed  = "speed"
+	resourceKeyServerOSImageID            = "osimage_id"
+	resourceKeyServerOSImageName          = "osimage_name"
+	resourceKeyServerPrimaryVLAN          = "primary_adapter_vlan"
+	resourceKeyServerPrimaryIPv4          = "primary_adapter_ipv4"
+	resourceKeyServerPrimaryIPv6          = "primary_adapter_ipv6"
+	resourceKeyServerPrimaryDNS           = "dns_primary"
+	resourceKeyServerSecondaryDNS         = "dns_secondary"
+	resourceKeyServerAutoStart            = "auto_start"
+	resourceCreateTimeoutServer           = 30 * time.Minute
+	resourceUpdateTimeoutServer           = 10 * time.Minute
+	resourceDeleteTimeoutServer           = 15 * time.Minute
 )
 
 func resourceServer() *schema.Resource {
@@ -68,26 +68,26 @@ func resourceServer() *schema.Resource {
 				Computed: true,
 				Default:  nil,
 			},
-			resourceKeyServerDisk: &schema.Schema{
+			resourceKeyServerAdditionalDisk: &schema.Schema{
 				Type:     schema.TypeList,
 				Optional: true,
 				Computed: true,
 				Default:  nil,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						resourceKeyServerDiskID: &schema.Schema{
+						resourceKeyServerAdditionalDiskID: &schema.Schema{
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						resourceKeyServerDiskSizeGB: &schema.Schema{
+						resourceKeyServerAdditionalDiskSizeGB: &schema.Schema{
 							Type:     schema.TypeInt,
 							Required: true,
 						},
-						resourceKeyServerDiskUnitID: &schema.Schema{
+						resourceKeyServerAdditionalDiskUnitID: &schema.Schema{
 							Type:     schema.TypeInt,
 							Required: true,
 						},
-						resourceKeyServerDiskSpeed: &schema.Schema{
+						resourceKeyServerAdditionalDiskSpeed: &schema.Schema{
 							Type:     schema.TypeString,
 							Optional: true,
 							Default:  "STANDARD",
@@ -277,13 +277,21 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	diskProperties := make([]map[string]interface{}, len(disks))
 	for index, disk := range disks {
 		diskProperties[index] = map[string]interface{}{
-			resourceKeyServerDiskID:     *disk.ID,
-			resourceKeyServerDiskSizeGB: disk.SizeGB,
-			resourceKeyServerDiskUnitID: disk.SCSIUnitID,
-			resourceKeyServerDiskSpeed:  disk.Speed,
+			resourceKeyServerAdditionalDiskID:     *disk.ID,
+			resourceKeyServerAdditionalDiskSizeGB: disk.SizeGB,
+			resourceKeyServerAdditionalDiskUnitID: disk.SCSIUnitID,
+			resourceKeyServerAdditionalDiskSpeed:  disk.Speed,
 		}
 	}
-	data.Set(resourceKeyServerDisk, diskProperties)
+	data.Set(resourceKeyServerAdditionalDisk, diskProperties)
+
+	// TODO: Configure additional disks for the server, if specified in the configuration.
+	additionalDisks := propertyHelper.GetVirtualMachineDisks(resourceKeyServerAdditionalDisk)
+	if len(additionalDisks) > 0 {
+		log.Printf("We'll need to configure %d additional disks now the server is deployed: '%#v'", len(additionalDisks), additionalDisks)
+	}
+
+	deploymentConfiguration.Disks = mergeDisks(deploymentConfiguration.Disks, additionalDisks)
 
 	return nil
 }
@@ -325,14 +333,9 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	disks := server.Disks
 	diskProperties := make([]map[string]interface{}, len(disks))
 	for index, disk := range disks {
-		diskProperties[index] = map[string]interface{}{
-			resourceKeyServerDiskID:     *disk.ID,
-			resourceKeyServerDiskSizeGB: disk.SizeGB,
-			resourceKeyServerDiskUnitID: disk.SCSIUnitID,
-			resourceKeyServerDiskSpeed:  disk.Speed,
-		}
+		diskProperties[index] = buildDiskProperties(disk)
 	}
-	data.Set(resourceKeyServerDisk, diskProperties)
+	data.Set(resourceKeyServerAdditionalDisk, diskProperties)
 
 	return nil
 }
@@ -477,4 +480,47 @@ func updateServerIPAddress(providerClient *compute.Client, server *compute.Serve
 	_, err = providerClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
 
 	return err
+}
+
+// Parse and append additional disks to those specified by the image being deployed.
+func mergeDisks(imageDisks []compute.VirtualMachineDisk, additionalDisks []compute.VirtualMachineDisk) []compute.VirtualMachineDisk {
+	diskSet := schema.NewSet(
+		func(item interface{}) int {
+			disk := item.(compute.VirtualMachineDisk)
+
+			return disk.SCSIUnitID
+		},
+		[]interface{}{},
+	)
+
+	for _, disk := range imageDisks {
+		log.Printf("Merge image disk with SCSI unit Id %d.", disk.SCSIUnitID)
+		diskSet.Add(disk)
+	}
+
+	for _, disk := range additionalDisks {
+		log.Printf("Merge additional disk with SCSI unit Id %d.", disk.SCSIUnitID)
+		diskSet.Add(disk)
+	}
+
+	mergedDisks := make([]compute.VirtualMachineDisk, diskSet.Len())
+	for index, disk := range diskSet.List() {
+		mergedDisks[index] = disk.(compute.VirtualMachineDisk)
+	}
+
+	return mergedDisks
+}
+
+func buildDiskProperties(disk compute.VirtualMachineDisk) map[string]interface{} {
+	diskProperties := map[string]interface{}{
+		resourceKeyServerAdditionalDiskSizeGB: disk.SizeGB,
+		resourceKeyServerAdditionalDiskUnitID: disk.SCSIUnitID,
+		resourceKeyServerAdditionalDiskSpeed:  disk.Speed,
+	}
+
+	if disk.ID != nil {
+		diskProperties[resourceKeyServerAdditionalDiskID] = *disk.ID
+	}
+
+	return diskProperties
 }
