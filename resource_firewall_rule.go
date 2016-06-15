@@ -256,6 +256,7 @@ func resourceFirewallRuleDelete(data *schema.ResourceData, provider interface{})
 
 func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *compute.FirewallRuleConfiguration) error {
 	sourceAddress := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourceAddress, false)
+	sourceNetwork := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourceNetwork, false)
 	sourcePort, err := parseFirewallPort(
 		propertyHelper.data.Get(resourceKeyFirewallRuleSourcePort).(string),
 	)
@@ -265,16 +266,31 @@ func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *
 	if sourceAddress != nil {
 		log.Printf("Rule will match source address '%s'.", *sourceAddress)
 		configuration.MatchSourceAddressAndPort(*sourceAddress, sourcePort) // Port ranges not supported yet.
+	} else if sourceNetwork != nil {
+		log.Printf("Rule will match source network '%s'.", *sourceNetwork)
+
+		baseAddress, prefixSize, ok := parseNetworkAndPrefix(*sourceNetwork)
+		if !ok {
+			return fmt.Errorf("Source network '%s' for firewall rule '%s' is invalid (must be 'BaseAddress/PrefixSize')",
+				*sourceNetwork,
+				propertyHelper.data.Get(resourceKeyFirewallRuleName).(string),
+			)
+		}
+
+		configuration.MatchSourceNetworkAndPort(baseAddress, prefixSize, sourcePort)
+	} else if sourcePort != nil {
+		log.Printf("Rule will match any source address with port %d.", *sourcePort)
+		configuration.MatchAnySourceAddress(sourcePort)
 	} else {
-		// For firewall source matching, only the 'source_address' property is supported for now.
-		log.Print("Rule will match any source address.")
-		configuration.MatchAnySource() // TODO: MUST support matching on port only.
+		log.Print("Rule will match any source address and port.")
+		configuration.MatchAnySource()
 	}
 
 	return nil
 }
 
 func configureDestinationScope(propertyHelper resourcePropertyHelper, configuration *compute.FirewallRuleConfiguration) error {
+	destinationNetwork := propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationNetwork, false)
 	destinationAddress := propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationAddress, false)
 	destinationPort, err := parseFirewallPort(
 		propertyHelper.data.Get(resourceKeyFirewallRuleDestinationPort).(string),
@@ -285,10 +301,24 @@ func configureDestinationScope(propertyHelper resourcePropertyHelper, configurat
 	if destinationAddress != nil {
 		log.Printf("Rule will match destination address '%s'.", *destinationAddress)
 		configuration.MatchDestinationAddressAndPort(*destinationAddress, destinationPort) // Port ranges not supported yet.
+	} else if destinationNetwork != nil {
+		log.Printf("Rule will match destination network '%s'.", *destinationNetwork)
+
+		baseAddress, prefixSize, ok := parseNetworkAndPrefix(*destinationNetwork)
+		if !ok {
+			return fmt.Errorf("Source network '%s' for firewall rule '%s' is invalid (must be 'BaseAddress/PrefixSize')",
+				*destinationNetwork,
+				propertyHelper.data.Get(resourceKeyFirewallRuleName).(string),
+			)
+		}
+
+		configuration.MatchDestinationNetworkAndPort(baseAddress, prefixSize, destinationPort)
+	} else if destinationPort == nil {
+		log.Printf("Rule will match any destination address with port %d.", *destinationPort)
+		configuration.MatchAnyDestinationAddress(destinationPort)
 	} else {
-		// For firewall destination matching, only the 'destination_address' property is supported for now.
-		log.Print("Rule will match any destination address.")
-		configuration.MatchAnyDestination() // TODO: MUST support matching on port only.
+		log.Print("Rule will match any destination address and port.")
+		configuration.MatchAnyDestination()
 	}
 
 	return nil
@@ -330,6 +360,23 @@ func parsePortRange(portRange *string) (beginPort string, endPort *string) {
 
 	ports[1] = strings.TrimSpace(ports[1])
 	endPort = &ports[1]
+
+	return
+}
+
+func parseNetworkAndPrefix(networkAndPrefix string) (baseAddress string, prefixSize int, ok bool) {
+	networkComponents := strings.Split(networkAndPrefix, "/")
+	if len(networkAndPrefix) != 2 {
+		return
+	}
+
+	baseAddress = networkComponents[0]
+	prefixSize, err := strconv.Atoi(networkComponents[1])
+	if err != nil {
+		return
+	}
+
+	ok = true
 
 	return
 }
