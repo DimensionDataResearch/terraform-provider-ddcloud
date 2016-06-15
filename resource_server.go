@@ -166,9 +166,9 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Create server '%s' in network domain '%s' (description = '%s').", name, networkDomainID, description)
 
-	providerClient := provider.(*compute.Client)
+	apiClient := provider.(*compute.Client)
 
-	networkDomain, err := providerClient.GetNetworkDomain(networkDomainID)
+	networkDomain, err := apiClient.GetNetworkDomain(networkDomainID)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	} else if osImageName != nil {
 		log.Printf("Looking up OS image '%s' by name...", *osImageName)
 
-		osImage, err = providerClient.FindOSImage(*osImageName, dataCenterID)
+		osImage, err = apiClient.FindOSImage(*osImageName, dataCenterID)
 		if err != nil {
 			return err
 		}
@@ -254,7 +254,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server deployment configuration: %+v", deploymentConfiguration)
 	log.Printf("Server CPU deployment configuration: %+v", deploymentConfiguration.CPU)
 
-	serverID, err := providerClient.DeployServer(deploymentConfiguration)
+	serverID, err := apiClient.DeployServer(deploymentConfiguration)
 	if err != nil {
 		return err
 	}
@@ -263,7 +263,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Server '%s' is being provisioned...", name)
 
-	resource, err := providerClient.WaitForDeploy(compute.ResourceTypeServer, serverID, resourceCreateTimeoutServer)
+	resource, err := apiClient.WaitForDeploy(compute.ResourceTypeServer, serverID, resourceCreateTimeoutServer)
 	if err != nil {
 		return err
 	}
@@ -299,8 +299,8 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("Read server '%s' (Id = '%s') in network domain '%s' (description = '%s').", name, id, networkDomainID, description)
 
-	providerClient := provider.(*compute.Client)
-	server, err := providerClient.GetServer(id)
+	apiClient := provider.(*compute.Client)
+	server, err := apiClient.GetServer(id)
 	if err != nil {
 		return err
 	}
@@ -350,8 +350,8 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Update server '%s'.", serverID)
 
-	providerClient := provider.(*compute.Client)
-	server, err := providerClient.GetServer(serverID)
+	apiClient := provider.(*compute.Client)
+	server, err := apiClient.GetServer(serverID)
 	if err != nil {
 		return err
 	}
@@ -371,7 +371,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 	if memoryGB != nil || cpuCount != nil {
 		log.Printf("Server CPU / memory configuration change detected.")
 
-		err = updateServerConfiguration(providerClient, server, memoryGB, cpuCount)
+		err = updateServerConfiguration(apiClient, server, memoryGB, cpuCount)
 		if err != nil {
 			return err
 		}
@@ -396,7 +396,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 	if primaryIPv4 != nil || primaryIPv6 != nil {
 		log.Printf("Server network configuration change detected.")
 
-		err = updateServerIPAddress(providerClient, server, primaryIPv4, primaryIPv6)
+		err = updateServerIPAddress(apiClient, server, primaryIPv4, primaryIPv6)
 		if err != nil {
 			return err
 		}
@@ -425,19 +425,19 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Delete server '%s' ('%s') in network domain '%s'.", id, name, networkDomainID)
 
-	providerClient := provider.(*compute.Client)
-	err := providerClient.DeleteServer(id)
+	apiClient := provider.(*compute.Client)
+	err := apiClient.DeleteServer(id)
 	if err != nil {
 		return err
 	}
 
 	log.Printf("Server '%s' is being deleted...", id)
 
-	return providerClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
+	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
 }
 
 // updateServerConfiguration reconfigures a server, changing the allocated RAM and / or CPU count.
-func updateServerConfiguration(providerClient *compute.Client, server *compute.Server, memoryGB *int, cpuCount *int) error {
+func updateServerConfiguration(apiClient *compute.Client, server *compute.Server, memoryGB *int, cpuCount *int) error {
 	memoryDescription := "no change"
 	if memoryGB != nil {
 		memoryDescription = fmt.Sprintf("will change to %dGB", *memoryGB)
@@ -450,28 +450,28 @@ func updateServerConfiguration(providerClient *compute.Client, server *compute.S
 
 	log.Printf("Update configuration for server '%s' (memory: %s, CPU: %s)...", server.ID, memoryDescription, cpuCountDescription)
 
-	err := providerClient.ReconfigureServer(server.ID, memoryGB, cpuCount)
+	err := apiClient.ReconfigureServer(server.ID, memoryGB, cpuCount)
 	if err != nil {
 		return err
 	}
 
-	_, err = providerClient.WaitForChange(compute.ResourceTypeServer, server.ID, "Reconfigure server", resourceUpdateTimeoutServer)
+	_, err = apiClient.WaitForChange(compute.ResourceTypeServer, server.ID, "Reconfigure server", resourceUpdateTimeoutServer)
 
 	return err
 }
 
 // updateServerIPAddress notifies the compute infrastructure that a server's IP address has changed.
-func updateServerIPAddress(providerClient *compute.Client, server *compute.Server, primaryIPv4 *string, primaryIPv6 *string) error {
+func updateServerIPAddress(apiClient *compute.Client, server *compute.Server, primaryIPv4 *string, primaryIPv6 *string) error {
 	log.Printf("Update primary IP address(es) for server '%s'...", server.ID)
 
 	primaryNetworkAdapterID := *server.Network.PrimaryAdapter.ID
-	err := providerClient.NotifyServerIPAddressChange(primaryNetworkAdapterID, primaryIPv4, primaryIPv6)
+	err := apiClient.NotifyServerIPAddressChange(primaryNetworkAdapterID, primaryIPv4, primaryIPv6)
 	if err != nil {
 		return err
 	}
 
 	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", server.ID, primaryNetworkAdapterID)
-	_, err = providerClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
+	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
 
 	return err
 }

@@ -47,13 +47,13 @@ func Provider() terraform.ResourceProvider {
 		},
 
 		// Provider configuration
-		ConfigureFunc: configure,
+		ConfigureFunc: configureProvider,
 	}
 }
 
 // Configure the provider.
 // Returns the provider's compute API client.
-func configure(providerSettings *schema.ResourceData) (interface{}, error) {
+func configureProvider(providerSettings *schema.ResourceData) (interface{}, error) {
 	var (
 		region   string
 		username string

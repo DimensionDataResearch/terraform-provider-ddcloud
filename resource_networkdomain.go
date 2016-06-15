@@ -63,8 +63,8 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 
 	log.Printf("Create network domain '%s' in data center '%s' (plan = '%s', description = '%s').", name, dataCenterID, plan, description)
 
-	providerClient := provider.(*compute.Client)
-	networkDomainID, err := providerClient.DeployNetworkDomain(name, description, plan, dataCenterID)
+	apiClient := provider.(*compute.Client)
+	networkDomainID, err := apiClient.DeployNetworkDomain(name, description, plan, dataCenterID)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 
 	log.Printf("Network domain '%s' is being provisioned...", networkDomainID)
 
-	resource, err := providerClient.WaitForDeploy(compute.ResourceTypeNetworkDomain, networkDomainID, resourceCreateTimeoutVLAN)
+	resource, err := apiClient.WaitForDeploy(compute.ResourceTypeNetworkDomain, networkDomainID, resourceCreateTimeoutVLAN)
 	if err != nil {
 		return err
 	}
@@ -97,9 +97,9 @@ func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) 
 
 	log.Printf("Read network domain '%s' (Id = '%s') in data center '%s' (plan = '%s', description = '%s').", name, id, dataCenterID, plan, description)
 
-	providerClient := provider.(*compute.Client)
+	apiClient := provider.(*compute.Client)
 
-	networkDomain, err := providerClient.GetNetworkDomain(id)
+	networkDomain, err := apiClient.GetNetworkDomain(id)
 	if err != nil {
 		return err
 	}
@@ -146,9 +146,9 @@ func resourceNetworkDomainUpdate(data *schema.ResourceData, provider interface{}
 
 	log.Printf("Update network domain '%s' (Name = '%s', Description = '%s', Plan = '%s').", data.Id(), name, description, plan)
 
-	providerClient := provider.(*compute.Client)
+	apiClient := provider.(*compute.Client)
 
-	return providerClient.EditNetworkDomain(id, newName, newDescription, newPlan)
+	return apiClient.EditNetworkDomain(id, newName, newDescription, newPlan)
 }
 
 // Delete a network domain resource.
@@ -161,10 +161,10 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 
 	log.Printf("Delete network domain '%s' ('%s') in data center '%s'.", networkDomainID, name, dataCenterID)
 
-	providerClient := provider.(*compute.Client)
+	apiClient := provider.(*compute.Client)
 
 	// First, check if the network domain has any allocated public IP blocks.
-	publicIPBlocks, err := providerClient.ListPublicIPBlocks(networkDomainID)
+	publicIPBlocks, err := apiClient.ListPublicIPBlocks(networkDomainID)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 	for _, block := range publicIPBlocks.Blocks {
 		log.Printf("Removing public IP block '%s' (%s+%d) from network domain '%s'...", block.ID, block.BaseIP, block.Size, networkDomainID)
 
-		err := providerClient.RemovePublicIPBlock(block.ID)
+		err := apiClient.RemovePublicIPBlock(block.ID)
 		if err != nil {
 			return err
 		}
@@ -180,12 +180,12 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 		log.Printf("Successfully deleted public IP block '%s' from network domain '%s'.", block.ID, networkDomainID)
 	}
 
-	err = providerClient.DeleteNetworkDomain(networkDomainID)
+	err = apiClient.DeleteNetworkDomain(networkDomainID)
 	if err != nil {
 		return err
 	}
 
 	log.Printf("Network domain '%s' is being deleted...", networkDomainID)
 
-	return providerClient.WaitForDelete(compute.ResourceTypeNetworkDomain, networkDomainID, resourceDeleteTimeoutServer)
+	return apiClient.WaitForDelete(compute.ResourceTypeNetworkDomain, networkDomainID, resourceDeleteTimeoutServer)
 }

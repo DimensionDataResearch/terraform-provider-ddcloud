@@ -72,9 +72,9 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("Create VLAN '%s' ('%s') in network domain '%s' (IPv4 network = '%s/%d').", name, description, networkDomainID, ipv4BaseAddress, ipv4PrefixSize)
 
-	providerClient := provider.(*compute.Client)
+	apiClient := provider.(*compute.Client)
 
-	vlanID, err := providerClient.DeployVLAN(networkDomainID, name, description, ipv4BaseAddress, ipv4PrefixSize)
+	vlanID, err := apiClient.DeployVLAN(networkDomainID, name, description, ipv4BaseAddress, ipv4PrefixSize)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("VLAN '%s' is being provisioned...", vlanID)
 
-	_, err = providerClient.WaitForDeploy(compute.ResourceTypeVLAN, vlanID, resourceCreateTimeoutVLAN)
+	_, err = apiClient.WaitForDeploy(compute.ResourceTypeVLAN, vlanID, resourceCreateTimeoutVLAN)
 
 	return err
 }
@@ -104,9 +104,9 @@ func resourceVLANRead(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("Read VLAN '%s' (Name = '%s', description = '%s') in network domain '%s' (IPv4 network = '%s/%d').", id, name, description, networkDomainID, ipv4BaseAddress, ipv4PrefixSize)
 
-	providerClient := provider.(*compute.Client)
+	apiClient := provider.(*compute.Client)
 
-	vlan, err := providerClient.GetVLAN(id)
+	vlan, err := apiClient.GetVLAN(id)
 	if err != nil {
 		return err
 	}
@@ -143,10 +143,10 @@ func resourceVLANUpdate(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("Update VLAN '%s' (name = '%s', description = '%s', IPv4 network = '%s/%d').", id, name, description, ipv4BaseAddress, ipv4PrefixSize)
 
-	providerClient := provider.(*compute.Client)
+	apiClient := provider.(*compute.Client)
 
 	if newName != nil || newDescription != nil {
-		err := providerClient.EditVLAN(id, newName, newDescription)
+		err := apiClient.EditVLAN(id, newName, newDescription)
 		if err != nil {
 			return err
 		}
@@ -163,13 +163,13 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("Delete VLAN '%s' ('%s') in network domain '%s'.", id, name, networkDomainID)
 
-	providerClient := provider.(*compute.Client)
-	err := providerClient.DeleteVLAN(id)
+	apiClient := provider.(*compute.Client)
+	err := apiClient.DeleteVLAN(id)
 	if err != nil {
 		return err
 	}
 
 	log.Printf("VLAN '%s' is being deleted...", id)
 
-	return providerClient.WaitForDelete(compute.ResourceTypeVLAN, id, resourceDeleteTimeoutServer)
+	return apiClient.WaitForDelete(compute.ResourceTypeVLAN, id, resourceDeleteTimeoutServer)
 }

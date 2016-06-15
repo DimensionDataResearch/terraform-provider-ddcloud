@@ -171,15 +171,15 @@ func resourceFirewallRuleCreate(data *schema.ResourceData, provider interface{})
 	log.Printf("Create firewall rule '%s' in network domain '%s'.", configuration.Name, configuration.NetworkDomainID)
 	log.Printf("Firewall rule configuration: '%#v'", configuration)
 
-	providerClient := provider.(*compute.Client)
-	ruleID, err := providerClient.CreateFirewallRule(*configuration)
+	apiClient := provider.(*compute.Client)
+	ruleID, err := apiClient.CreateFirewallRule(*configuration)
 	if err != nil {
 		return err
 	}
 
 	data.SetId(ruleID)
 
-	_, err = providerClient.WaitForDeploy(compute.ResourceTypeFirewallRule, ruleID, resourceCreateTimeoutFirewallRule)
+	_, err = apiClient.WaitForDeploy(compute.ResourceTypeFirewallRule, ruleID, resourceCreateTimeoutFirewallRule)
 
 	return err
 }
@@ -191,8 +191,8 @@ func resourceFirewallRuleRead(data *schema.ResourceData, provider interface{}) e
 
 	log.Printf("Read firewall rule '%s' in network domain '%s'.", id, networkDomainID)
 
-	providerClient := provider.(*compute.Client)
-	rule, err := providerClient.GetFirewallRule(id)
+	apiClient := provider.(*compute.Client)
+	rule, err := apiClient.GetFirewallRule(id)
 	if err != nil {
 		return err
 	}
@@ -216,7 +216,7 @@ func resourceFirewallRuleUpdate(data *schema.ResourceData, provider interface{})
 
 	log.Printf("Update firewall rule '%s' in network domain '%s'.", id, networkDomainID)
 
-	providerClient := provider.(*compute.Client)
+	apiClient := provider.(*compute.Client)
 
 	if data.HasChange(resourceKeyFirewallRuleEnabled) {
 		enable := data.Get(resourceKeyFirewallRuleEnabled).(bool)
@@ -227,7 +227,7 @@ func resourceFirewallRuleUpdate(data *schema.ResourceData, provider interface{})
 			log.Printf("Disabling firewall rule '%s'...", id)
 		}
 
-		err := providerClient.EditFirewallRule(id, enable)
+		err := apiClient.EditFirewallRule(id, enable)
 		if err != nil {
 			return err
 		}
@@ -245,13 +245,13 @@ func resourceFirewallRuleDelete(data *schema.ResourceData, provider interface{})
 
 	log.Printf("Delete firewall rule '%s' in network domain '%s'.", id, networkDomainID)
 
-	providerClient := provider.(*compute.Client)
-	err := providerClient.DeleteFirewallRule(id)
+	apiClient := provider.(*compute.Client)
+	err := apiClient.DeleteFirewallRule(id)
 	if err != nil {
 		return err
 	}
 
-	return providerClient.WaitForDelete(compute.ResourceTypeFirewallRule, id, resourceDeleteTimeoutFirewallRule)
+	return apiClient.WaitForDelete(compute.ResourceTypeFirewallRule, id, resourceDeleteTimeoutFirewallRule)
 }
 
 func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *compute.FirewallRuleConfiguration) error {
