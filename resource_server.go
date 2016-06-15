@@ -268,8 +268,10 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		return err
 	}
 
-	// Capture additional properties that are only available after deployment.
+	// Capture additional properties that may only be available after deployment.
 	server := resource.(*compute.Server)
+	serverIPv4Address := server.Network.PrimaryAdapter.PrivateIPv4Address
+	data.Set(resourceKeyServerPrimaryIPv4, serverIPv4Address)
 	serverIPv6Address := *server.Network.PrimaryAdapter.PrivateIPv6Address
 	data.Set(resourceKeyServerPrimaryIPv6, serverIPv6Address)
 
@@ -284,14 +286,6 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 	data.Set(resourceKeyServerAdditionalDisk, diskProperties)
-
-	// TODO: Configure additional disks for the server, if specified in the configuration.
-	additionalDisks := propertyHelper.GetVirtualMachineDisks(resourceKeyServerAdditionalDisk)
-	if len(additionalDisks) > 0 {
-		log.Printf("We'll need to configure %d additional disks now the server is deployed: '%#v'", len(additionalDisks), additionalDisks)
-	}
-
-	deploymentConfiguration.Disks = mergeDisks(deploymentConfiguration.Disks, additionalDisks)
 
 	return nil
 }

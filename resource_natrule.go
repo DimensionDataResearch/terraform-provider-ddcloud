@@ -2,8 +2,11 @@ package main
 
 import (
 	"compute-api/compute"
+	"fmt"
 	"github.com/hashicorp/terraform/helper/schema"
 	"log"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -15,8 +18,6 @@ const (
 	resourceUpdateTimeoutNAT      = 10 * time.Minute
 	resourceDeleteTimeoutNAT      = 15 * time.Minute
 )
-
-const computedPropertyDescription = "<computed>"
 
 func resourceNAT() *schema.Resource {
 	return &schema.Resource{
@@ -40,7 +41,6 @@ func resourceNAT() *schema.Resource {
 			},
 			resourceKeyNATPublicAddress: &schema.Schema{
 				Type:        schema.TypeString,
-				ForceNew:    true,
 				Optional:    true,
 				Computed:    true,
 				Default:     nil,
@@ -52,13 +52,15 @@ func resourceNAT() *schema.Resource {
 
 // Create a NAT resource.
 func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
+	var err error
+
 	propertyHelper := propertyHelper(data)
 
 	networkDomainID := data.Get(resourceKeyNATNetworkDomainID).(string)
 	privateIP := data.Get(resourceKeyNATPrivateAddress).(string)
 	publicIP := propertyHelper.GetOptionalString(resourceKeyNATPublicAddress, false)
 
-	publicIPDescription := computedPropertyDescription
+	publicIPDescription := "<computed>"
 	if publicIP != nil {
 		publicIPDescription = *publicIP
 	}
@@ -67,26 +69,88 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 	providerClient := provider.(*compute.Client)
 	providerClient.Reset() // TODO: Replace call to Reset with appropriate API call(s).
 
-	data.Set(resourceKeyNATPublicAddress, publicIPDescription)
+	// First, work out if we have any free public IP addresses.
+	freeIPs := newStringSet()
+
+	// Public IPs are allocated in blocks.
+	publicIPBlocks, err := providerClient.ListPublicIPBlocks(networkDomainID)
+	if err != nil {
+		return err
+	}
+	for _, block := range publicIPBlocks.Blocks {
+		blockAddresses, err := calculateBlockAddresses(block)
+		if err != nil {
+			return err
+		}
+
+		for _, address := range blockAddresses {
+			freeIPs.Add(address)
+		}
+	}
+
+	// Some of those IPs may be reserved for other NAT rules or VIPs.
+	reservedIPs, err := providerClient.ListReservedPublicIPAddresses(networkDomainID)
+	if err != nil {
+		return err
+	}
+	for _, reservedIP := range reservedIPs.IPs {
+		freeIPs.Remove(reservedIP.Address)
+	}
+
+	// Anything left is free to use.
+	// Note that there is still potentially a race condition here. Improved behaviour would be to handle the relevant error response from CreateNATRule and retry.
+
+	// If there are no free public IP's we'll need to request the allocation of a new block.
+	if freeIPs.Len() == 0 {
+		log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
+
+		blockID, err := providerClient.AddPublicIPBlock(networkDomainID)
+		if err != nil {
+			return err
+		}
+
+		block, err := providerClient.GetPublicIPBlock(blockID)
+		if err != nil {
+			return err
+		}
+
+		if block == nil {
+			return fmt.Errorf("Cannot find newly-added public IPv4 address block '%s'.", blockID)
+		}
+
+		log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').", block.ID, block.Size, block.BaseIP)
+	}
+
+	natRuleID, err := providerClient.AddNATRule(networkDomainID, privateIP, publicIP)
+	if err != nil {
+		return err
+	}
+
+	natRule, err := providerClient.GetNATRule(natRuleID)
+	if err != nil {
+		return err
+	}
+
+	if natRule == nil {
+		return fmt.Errorf("Cannot find newly-added NAT rule '%s'.", natRuleID)
+	}
+
+	log.Printf("Successfully created NAT rule '%s'.", natRuleID)
+
+	data.SetId(natRuleID)
+	data.Set(resourceKeyNATPublicAddress, natRule.ExternalIPAddress)
 
 	return nil
 }
 
 // Read a NAT resource.
 func resourceNATRead(data *schema.ResourceData, provider interface{}) error {
-	propertyHelper := propertyHelper(data)
-
 	id := data.Id()
 	networkDomainID := data.Get(resourceKeyNATNetworkDomainID).(string)
 	privateIP := data.Get(resourceKeyNATPrivateAddress).(string)
-	publicIP := propertyHelper.GetOptionalString(resourceKeyNATPublicAddress, false)
+	publicIP := data.Get(resourceKeyNATPublicAddress).(string)
 
-	publicIPDescription := computedPropertyDescription
-	if publicIP != nil {
-		publicIPDescription = *publicIP
-	}
-
-	log.Printf("Read NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIPDescription, networkDomainID)
+	log.Printf("Read NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIP, networkDomainID)
 
 	providerClient := provider.(*compute.Client)
 	providerClient.Reset() // TODO: Replace call to Reset with appropriate API call(s).
@@ -96,19 +160,12 @@ func resourceNATRead(data *schema.ResourceData, provider interface{}) error {
 
 // Update a NAT resource.
 func resourceNATUpdate(data *schema.ResourceData, provider interface{}) error {
-	propertyHelper := propertyHelper(data)
-
 	id := data.Id()
 	networkDomainID := data.Get(resourceKeyNATNetworkDomainID).(string)
 	privateIP := data.Get(resourceKeyNATPrivateAddress).(string)
-	publicIP := propertyHelper.GetOptionalString(resourceKeyNATPublicAddress, false)
+	publicIP := data.Get(resourceKeyNATPublicAddress).(string)
 
-	publicIPDescription := computedPropertyDescription
-	if publicIP != nil {
-		publicIPDescription = *publicIP
-	}
-
-	log.Printf("Update NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIPDescription, networkDomainID)
+	log.Printf("Update NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIP, networkDomainID)
 
 	providerClient := provider.(*compute.Client)
 	providerClient.Reset() // TODO: Replace call to Reset with appropriate API call(s).
@@ -118,22 +175,35 @@ func resourceNATUpdate(data *schema.ResourceData, provider interface{}) error {
 
 // Delete a NAT resource.
 func resourceNATDelete(data *schema.ResourceData, provider interface{}) error {
-	propertyHelper := propertyHelper(data)
-
 	id := data.Id()
 	networkDomainID := data.Get(resourceKeyNATNetworkDomainID).(string)
 	privateIP := data.Get(resourceKeyNATPrivateAddress).(string)
-	publicIP := propertyHelper.GetOptionalString(resourceKeyNATPublicAddress, false)
+	publicIP := data.Get(resourceKeyNATPublicAddress).(string)
 
-	publicIPDescription := computedPropertyDescription
-	if publicIP != nil {
-		publicIPDescription = *publicIP
-	}
-
-	log.Printf("Delete NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIPDescription, networkDomainID)
+	log.Printf("Delete NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIP, networkDomainID)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with appropriate API call(s).
 
-	return nil
+	return providerClient.DeleteNATRule(id)
+}
+
+func calculateBlockAddresses(block compute.PublicIPBlock) ([]string, error) {
+	addresses := make([]string, block.Size)
+
+	baseAddressComponents := strings.Split(block.BaseIP, ".")
+	if len(baseAddressComponents) != 4 {
+		return addresses, fmt.Errorf("Invalid base IP address '%s'.", block.BaseIP)
+	}
+	baseOctet, err := strconv.Atoi(baseAddressComponents[3])
+	if err != nil {
+		return addresses, err
+	}
+
+	for index := range addresses {
+		// Increment the last octet to determine the next address in the block.
+		baseAddressComponents[3] = strconv.Itoa(baseOctet + index)
+		addresses[index] = strings.Join(baseAddressComponents, ".")
+	}
+
+	return addresses, nil
 }
