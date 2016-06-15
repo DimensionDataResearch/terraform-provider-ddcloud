@@ -165,37 +165,8 @@ func resourceFirewallRuleCreate(data *schema.ResourceData, provider interface{})
 	}
 	configuration.Action = action
 
-	// For firewall source matching, only the 'source_address' property is supported for now.
-	sourceAddress := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourceAddress, false)
-	sourcePort, err := parseFirewallPort(
-		data.Get(resourceKeyFirewallRuleSourcePort).(string),
-	)
-	if err != nil {
-		return err
-	}
-	if sourceAddress != nil {
-		log.Printf("Rule will match source address '%s'.", *sourceAddress)
-		configuration.MatchSourceAddressAndPort(*sourceAddress, sourcePort) // Port ranges not supported yet.
-	} else {
-		log.Print("Rule will match any source address.")
-		configuration.MatchAnySource() // TODO: MUST support matching on port only.
-	}
-
-	// For firewall destination matching, only the 'destination_address' property is supported for now.
-	destinationAddress := propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationAddress, false)
-	destinationPort, err := parseFirewallPort(
-		data.Get(resourceKeyFirewallRuleDestinationPort).(string),
-	)
-	if err != nil {
-		return err
-	}
-	if destinationAddress != nil {
-		log.Printf("Rule will match destination address '%s'.", *destinationAddress)
-		configuration.MatchDestinationAddressAndPort(*destinationAddress, destinationPort) // Port ranges not supported yet.
-	} else {
-		log.Print("Rule will match any destination address.")
-		configuration.MatchAnyDestination() // TODO: MUST support matching on port only.
-	}
+	configureSourceScope(propertyHelper, configuration)
+	configureDestinationScope(propertyHelper, configuration)
 
 	log.Printf("Create firewall rule '%s' in network domain '%s'.", configuration.Name, configuration.NetworkDomainID)
 	log.Printf("Firewall rule configuration: '%#v'", configuration)
@@ -246,9 +217,23 @@ func resourceFirewallRuleUpdate(data *schema.ResourceData, provider interface{})
 	log.Printf("Update firewall rule '%s' in network domain '%s'.", id, networkDomainID)
 
 	providerClient := provider.(*compute.Client)
-	providerClient.Reset() // TODO: Replace call to Reset with appropriate API call(s).
 
-	// TODO: Implement EditFirewallRule (which is how rules are enabled / disabled).
+	if data.HasChange(resourceKeyFirewallRuleEnabled) {
+		enable := data.Get(resourceKeyFirewallRuleEnabled).(bool)
+
+		if enable {
+			log.Printf("Enabling firewall rule '%s'...", id)
+		} else {
+			log.Printf("Disabling firewall rule '%s'...", id)
+		}
+
+		err := providerClient.EditFirewallRule(id, enable)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Updated configuration for firewall rule '%s'.", id)
+	}
 
 	return nil
 }
@@ -267,6 +252,46 @@ func resourceFirewallRuleDelete(data *schema.ResourceData, provider interface{})
 	}
 
 	return providerClient.WaitForDelete(compute.ResourceTypeFirewallRule, id, resourceDeleteTimeoutFirewallRule)
+}
+
+func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *compute.FirewallRuleConfiguration) error {
+	sourceAddress := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourceAddress, false)
+	sourcePort, err := parseFirewallPort(
+		propertyHelper.data.Get(resourceKeyFirewallRuleSourcePort).(string),
+	)
+	if err != nil {
+		return err
+	}
+	if sourceAddress != nil {
+		log.Printf("Rule will match source address '%s'.", *sourceAddress)
+		configuration.MatchSourceAddressAndPort(*sourceAddress, sourcePort) // Port ranges not supported yet.
+	} else {
+		// For firewall source matching, only the 'source_address' property is supported for now.
+		log.Print("Rule will match any source address.")
+		configuration.MatchAnySource() // TODO: MUST support matching on port only.
+	}
+
+	return nil
+}
+
+func configureDestinationScope(propertyHelper resourcePropertyHelper, configuration *compute.FirewallRuleConfiguration) error {
+	destinationAddress := propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationAddress, false)
+	destinationPort, err := parseFirewallPort(
+		propertyHelper.data.Get(resourceKeyFirewallRuleDestinationPort).(string),
+	)
+	if err != nil {
+		return err
+	}
+	if destinationAddress != nil {
+		log.Printf("Rule will match destination address '%s'.", *destinationAddress)
+		configuration.MatchDestinationAddressAndPort(*destinationAddress, destinationPort) // Port ranges not supported yet.
+	} else {
+		// For firewall destination matching, only the 'destination_address' property is supported for now.
+		log.Print("Rule will match any destination address.")
+		configuration.MatchAnyDestination() // TODO: MUST support matching on port only.
+	}
+
+	return nil
 }
 
 func parseFirewallAction(action string) (string, error) {
