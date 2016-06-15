@@ -153,19 +153,39 @@ func resourceNetworkDomainUpdate(data *schema.ResourceData, provider interface{}
 
 // Delete a network domain resource.
 func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}) error {
-	id := data.Id()
+	var err error
+
+	networkDomainID := data.Id()
 	name := data.Get(resourceKeyNetworkDomainName).(string)
 	dataCenterID := data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
-	log.Printf("Delete network domain '%s' ('%s') in data center '%s'.", id, name, dataCenterID)
+	log.Printf("Delete network domain '%s' ('%s') in data center '%s'.", networkDomainID, name, dataCenterID)
 
 	providerClient := provider.(*compute.Client)
-	err := providerClient.DeleteNetworkDomain(id)
+
+	// First, check if the network domain has any allocated public IP blocks.
+	publicIPBlocks, err := providerClient.ListPublicIPBlocks(networkDomainID)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Network domain '%s' is being deleted...", id)
+	for _, block := range publicIPBlocks.Blocks {
+		log.Printf("Removing public IP block '%s' (%s+%d) from network domain '%s'...", block.ID, block.BaseIP, block.Size, networkDomainID)
 
-	return providerClient.WaitForDelete(compute.ResourceTypeNetworkDomain, id, resourceDeleteTimeoutServer)
+		err := providerClient.RemovePublicIPBlock(block.ID)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Successfully deleted public IP block '%s' from network domain '%s'.", block.ID, networkDomainID)
+	}
+
+	err = providerClient.DeleteNetworkDomain(networkDomainID)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Network domain '%s' is being deleted...", networkDomainID)
+
+	return providerClient.WaitForDelete(compute.ResourceTypeNetworkDomain, networkDomainID, resourceDeleteTimeoutServer)
 }
