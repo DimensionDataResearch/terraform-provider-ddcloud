@@ -41,6 +41,9 @@ func Provider() terraform.ResourceProvider {
 
 			// A Network Address Translation (NAT) rule.
 			"ddcloud_nat": resourceNAT(),
+
+			// A firewall rule.
+			"ddcloud_netacl": resourceNetACL(),
 		},
 
 		// Provider configuration
