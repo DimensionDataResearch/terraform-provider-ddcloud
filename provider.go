@@ -2,8 +2,10 @@ package main
 
 import (
 	"compute-api/compute"
+	"fmt"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
+	"os"
 	"strings"
 )
 
@@ -15,16 +17,20 @@ func Provider() terraform.ResourceProvider {
 		// Provider settings schema
 		Schema: map[string]*schema.Schema{
 			"region": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "The region code that identifies the target end-point for the Dimension Data Cloud Compute API.",
 			},
 			"username": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     nil,
+				Description: "The user name used to authenticate to the Dimension Data Cloud Compute API (if not specified, then the DD_COMPUTE_USER environment variable will be used).",
 			},
 			"password": &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "The password used to authenticate to the Dimension Data Cloud Compute API (if not specified, then the DD_COMPUTE_PASSWORD environment variable will be used).",
 			},
 		},
 
@@ -56,18 +62,35 @@ func Provider() terraform.ResourceProvider {
 func configureProvider(providerSettings *schema.ResourceData) (interface{}, error) {
 	var (
 		region   string
-		username string
-		password string
+		username *string
+		password *string
 		client   *compute.Client
 	)
 
 	region = providerSettings.Get("region").(string)
 	region = strings.ToLower(region)
 
-	username = providerSettings.Get("username").(string)
-	password = providerSettings.Get("password").(string)
+	propertyHelper := propertyHelper(providerSettings)
+	username = propertyHelper.GetOptionalString("username", false)
+	if username == nil {
+		computeUser := os.Getenv("DD_COMPUTE_USER")
+		if len(computeUser) == 0 {
+			return nil, fmt.Errorf("The 'username' property was not specified for the 'ddcloud' provider, and the 'DD_COMPUTE_USER' environment variable is not present. Please supply either one of these to configure the user name used to authenticate to Dimension Data Cloud Compute.")
+		}
 
-	client = compute.NewClient(region, username, password)
+		username = &computeUser
+	}
+	password = propertyHelper.GetOptionalString("password", false)
+	if password == nil {
+		computePassword := os.Getenv("DD_COMPUTE_PASSWORD")
+		if len(computePassword) == 0 {
+			return nil, fmt.Errorf("The 'password' property was not specified for the 'ddcloud' provider, and the 'DD_COMPUTE_PASSWORD' environment variable is not present. Please supply either one of these to configure the password used to authenticate to Dimension Data Cloud Compute.")
+		}
+
+		password = &computePassword
+	}
+
+	client = compute.NewClient(region, *username, *password)
 
 	return client, nil
 }
