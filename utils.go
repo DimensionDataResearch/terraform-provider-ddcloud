@@ -15,3 +15,7 @@ func newStringSet() *schema.Set {
 func stringToPtr(value string) *string {
 	return &value
 }
+
+func isEmpty(value string) bool {
+	return len(value) == 0
+}
