@@ -32,6 +32,7 @@ Create a folder containing a single `.tf` file:
  */
 
 provider "ddcloud" {
+	# User name and password can also be specified via DD_COMPUTE_USER and DD_COMPUTE_PASSWORD environment variables.
 	"username"				= "my_username"
 	"password"				= "my_password" # Watch out for escaping if your password contains characters such as "$".
 	"region"				= "AU" # The DD compute region code (e.g. "AU", "NA", "EU")
@@ -62,6 +63,7 @@ resource "ddcloud_server" "my-server" {
 	admin_password			= "password"
 
 	memory_gb				= 8
+	cpu_count				= 2
 
 	networkdomain 			= "${ddcloud_networkdomain.test-domain.id}"
 	primary_adapter_ipv4	= "192.168.17.10"
@@ -111,5 +113,3 @@ resource "ddcloud_firewall_rule" "test-vm-http-in" {
 5. Run `terraform plan -destroy -out tf.plan`
 6. Verify that everything looks ok.
 7. Run `terraform apply tf.plan`
-
-When I get time, I'll also enable specifying credentials via environment variables.
