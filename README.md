@@ -63,13 +63,6 @@ resource "ddcloud_server" "my-server" {
 
 	memory_gb				= 8
 
-	# Support for additional disks are a work-in-progress.
-	additional_disk {
-		size_gb				= 100
-		scsi_unit_id		= 1
-		speed				= "STANDARD"
-	}
-
 	networkdomain 			= "${ddcloud_networkdomain.test-domain.id}"
 	primary_adapter_ipv4	= "192.168.17.10"
 	dns_primary				= "8.8.8.8"
