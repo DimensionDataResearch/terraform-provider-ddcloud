@@ -19,19 +19,19 @@ func Provider() terraform.ResourceProvider {
 			"region": &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "The region code that identifies the target end-point for the Dimension Data Cloud Compute API.",
+				Description: "The region code that identifies the target end-point for the Dimension Data CloudControl API.",
 			},
 			"username": &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "",
-				Description: "The user name used to authenticate to the Dimension Data Cloud Compute API (if not specified, then the DD_COMPUTE_USER environment variable will be used).",
+				Description: "The user name used to authenticate to the Dimension Data CloudControl API (if not specified, then the DD_COMPUTE_USER environment variable will be used).",
 			},
 			"password": &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "",
-				Description: "The password used to authenticate to the Dimension Data Cloud Compute API (if not specified, then the DD_COMPUTE_PASSWORD environment variable will be used).",
+				Description: "The password used to authenticate to the Dimension Data CloudControl API (if not specified, then the DD_COMPUTE_PASSWORD environment variable will be used).",
 			},
 		},
 
@@ -75,7 +75,7 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	if isEmpty(username) {
 		username = os.Getenv("DD_COMPUTE_USER")
 		if isEmpty(username) {
-			return nil, fmt.Errorf("The 'username' property was not specified for the 'ddcloud' provider, and the 'DD_COMPUTE_USER' environment variable is not present. Please supply either one of these to configure the user name used to authenticate to Dimension Data Cloud Compute.")
+			return nil, fmt.Errorf("The 'username' property was not specified for the 'ddcloud' provider, and the 'DD_COMPUTE_USER' environment variable is not present. Please supply either one of these to configure the user name used to authenticate to Dimension Data CloudControl.")
 		}
 	}
 
@@ -83,7 +83,7 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	if isEmpty(password) {
 		password = os.Getenv("DD_COMPUTE_PASSWORD")
 		if isEmpty(password) {
-			return nil, fmt.Errorf("The 'password' property was not specified for the 'ddcloud' provider, and the 'DD_COMPUTE_PASSWORD' environment variable is not present. Please supply either one of these to configure the password used to authenticate to Dimension Data Cloud Compute.")
+			return nil, fmt.Errorf("The 'password' property was not specified for the 'ddcloud' provider, and the 'DD_COMPUTE_PASSWORD' environment variable is not present. Please supply either one of these to configure the password used to authenticate to Dimension Data CloudControl.")
 		}
 	}
 
