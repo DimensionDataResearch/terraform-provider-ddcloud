@@ -1,4 +1,4 @@
-package main
+package ddcloud
 
 import (
 	"compute-api/compute"
@@ -9,28 +9,24 @@ import (
 )
 
 const (
-	resourceKeyServerName                 = "name"
-	resourceKeyServerDescription          = "description"
-	resourceKeyServerAdminPassword        = "admin_password"
-	resourceKeyServerNetworkDomainID      = "networkdomain"
-	resourceKeyServerMemoryGB             = "memory_gb"
-	resourceKeyServerCPUCount             = "cpu_count"
-	resourceKeyServerAdditionalDisk       = "additional_disk"
-	resourceKeyServerAdditionalDiskID     = "disk_id"
-	resourceKeyServerAdditionalDiskSizeGB = "size_gb"
-	resourceKeyServerAdditionalDiskUnitID = "scsi_unit_id"
-	resourceKeyServerAdditionalDiskSpeed  = "speed"
-	resourceKeyServerOSImageID            = "osimage_id"
-	resourceKeyServerOSImageName          = "osimage_name"
-	resourceKeyServerPrimaryVLAN          = "primary_adapter_vlan"
-	resourceKeyServerPrimaryIPv4          = "primary_adapter_ipv4"
-	resourceKeyServerPrimaryIPv6          = "primary_adapter_ipv6"
-	resourceKeyServerPrimaryDNS           = "dns_primary"
-	resourceKeyServerSecondaryDNS         = "dns_secondary"
-	resourceKeyServerAutoStart            = "auto_start"
-	resourceCreateTimeoutServer           = 30 * time.Minute
-	resourceUpdateTimeoutServer           = 10 * time.Minute
-	resourceDeleteTimeoutServer           = 15 * time.Minute
+	resourceKeyServerName            = "name"
+	resourceKeyServerDescription     = "description"
+	resourceKeyServerAdminPassword   = "admin_password"
+	resourceKeyServerNetworkDomainID = "networkdomain"
+	resourceKeyServerMemoryGB        = "memory_gb"
+	resourceKeyServerCPUCount        = "cpu_count"
+	resourceKeyServerOSImageID       = "osimage_id"
+	resourceKeyServerOSImageName     = "osimage_name"
+	resourceKeyServerPrimaryVLAN     = "primary_adapter_vlan"
+	resourceKeyServerPrimaryIPv4     = "primary_adapter_ipv4"
+	resourceKeyServerPrimaryIPv6     = "primary_adapter_ipv6"
+	resourceKeyServerPrimaryDNS      = "dns_primary"
+	resourceKeyServerSecondaryDNS    = "dns_secondary"
+	resourceKeyServerAutoStart       = "auto_start"
+	resourceCreateTimeoutServer      = 30 * time.Minute
+	resourceUpdateTimeoutServer      = 10 * time.Minute
+	resourceDeleteTimeoutServer      = 15 * time.Minute
+	serverShutdownTimeout            = 5 * time.Minute
 )
 
 func resourceServer() *schema.Resource {
@@ -67,33 +63,6 @@ func resourceServer() *schema.Resource {
 				Optional: true,
 				Computed: true,
 				Default:  nil,
-			},
-			resourceKeyServerAdditionalDisk: &schema.Schema{
-				Type:     schema.TypeList,
-				Optional: true,
-				Computed: true,
-				Default:  nil,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						resourceKeyServerAdditionalDiskID: &schema.Schema{
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						resourceKeyServerAdditionalDiskSizeGB: &schema.Schema{
-							Type:     schema.TypeInt,
-							Required: true,
-						},
-						resourceKeyServerAdditionalDiskUnitID: &schema.Schema{
-							Type:     schema.TypeInt,
-							Required: true,
-						},
-						resourceKeyServerAdditionalDiskSpeed: &schema.Schema{
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "STANDARD",
-						},
-					},
-				},
 			},
 			resourceKeyServerNetworkDomainID: &schema.Schema{
 				Type:     schema.TypeString,
@@ -275,18 +244,6 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	serverIPv6Address := *server.Network.PrimaryAdapter.PrivateIPv6Address
 	data.Set(resourceKeyServerPrimaryIPv6, serverIPv6Address)
 
-	disks := server.Disks
-	diskProperties := make([]map[string]interface{}, len(disks))
-	for index, disk := range disks {
-		diskProperties[index] = map[string]interface{}{
-			resourceKeyServerAdditionalDiskID:     *disk.ID,
-			resourceKeyServerAdditionalDiskSizeGB: disk.SizeGB,
-			resourceKeyServerAdditionalDiskUnitID: disk.SCSIUnitID,
-			resourceKeyServerAdditionalDiskSpeed:  disk.Speed,
-		}
-	}
-	data.Set(resourceKeyServerAdditionalDisk, diskProperties)
-
 	return nil
 }
 
@@ -323,13 +280,6 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	data.Set(resourceKeyServerPrimaryIPv4, *server.Network.PrimaryAdapter.PrivateIPv4Address)
 	data.Set(resourceKeyServerPrimaryIPv6, *server.Network.PrimaryAdapter.PrivateIPv6Address)
 	data.Set(resourceKeyServerNetworkDomainID, server.Network.NetworkDomainID)
-
-	disks := server.Disks
-	diskProperties := make([]map[string]interface{}, len(disks))
-	for index, disk := range disks {
-		diskProperties[index] = buildDiskProperties(disk)
-	}
-	data.Set(resourceKeyServerAdditionalDisk, diskProperties)
 
 	return nil
 }
@@ -426,12 +376,37 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Delete server '%s' ('%s') in network domain '%s'.", id, name, networkDomainID)
 
 	apiClient := provider.(*compute.Client)
-	err := apiClient.DeleteServer(id)
+	server, err := apiClient.GetServer(id)
 	if err != nil {
 		return err
 	}
 
+	if server == nil {
+		log.Printf("Server '%s' not found; will treat the server as having already been deleted.", id)
+
+		return nil
+	}
+
+	if server.Started {
+		log.Printf("Server '%s' is currently running. The server will be shut down.", id)
+
+		err = apiClient.ShutdownServer(id)
+		if err != nil {
+			return err
+		}
+
+		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, id, "Shut down server", serverShutdownTimeout)
+		if err != nil {
+			return err
+		}
+	}
+
 	log.Printf("Server '%s' is being deleted...", id)
+
+	err = apiClient.DeleteServer(id)
+	if err != nil {
+		return err
+	}
 
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
 }
@@ -503,18 +478,4 @@ func mergeDisks(imageDisks []compute.VirtualMachineDisk, additionalDisks []compu
 	}
 
 	return mergedDisks
-}
-
-func buildDiskProperties(disk compute.VirtualMachineDisk) map[string]interface{} {
-	diskProperties := map[string]interface{}{
-		resourceKeyServerAdditionalDiskSizeGB: disk.SizeGB,
-		resourceKeyServerAdditionalDiskUnitID: disk.SCSIUnitID,
-		resourceKeyServerAdditionalDiskSpeed:  disk.Speed,
-	}
-
-	if disk.ID != nil {
-		diskProperties[resourceKeyServerAdditionalDiskID] = *disk.ID
-	}
-
-	return diskProperties
 }

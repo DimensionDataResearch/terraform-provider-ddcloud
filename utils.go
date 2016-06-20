@@ -1,6 +1,8 @@
-package main
+package ddcloud
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 func newStringSet() *schema.Set {
 	return &schema.Set{
