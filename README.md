@@ -1,7 +1,7 @@
 # dd-cloud-compute-terraform
-Terraform provider Dimension Data cloud compute.
+Terraform provider for Dimension Data cloud compute.
 
-This is a work in progress. Currently, the following resource types are supported:
+Currently, the following resource types are supported:
 
 * `ddcloud_networkdomain`: A network domain
 * `ddcloud_vlan`: A VLAN
@@ -11,20 +11,20 @@ This is a work in progress. Currently, the following resource types are supporte
 
 To get started:
 
-* On windows, create / update `$HOME\terraform.rc`
-* On Linux / OSX, create / update `~/.terraformrc`
+* On windows, run `./build.ps1`, then create / update `$HOME\terraform.rc`
+* On Linux / OSX, run `./build.sh`, create / update `~/.terraformrc`
 
 And add the following contents:
 
-```
+```hcl
 providers {
-	ddcloud = "path-to-the-folder/containing/terraform-provider-ddcloud"
+	ddcloud = "path-to-the-folder/containing/dd-cloud-compute-terraform/_bin/terraform-provider-ddcloud"
 }
 ```
 
-Create a folder containing a single `.tf` file:
+To test it out, create a folder containing a single `.tf` file:
 
-```
+```hcl
 /*
  * This configuration will create a single server running CentOS and expose it to the internet on port 80.
  *
