@@ -1,4 +1,4 @@
-package ddcloud
+package main
 
 import (
 	"compute-api/compute"

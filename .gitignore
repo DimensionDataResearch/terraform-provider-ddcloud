@@ -26,3 +26,6 @@ _testmain.go
 
 # Mac
 .DS_Store
+
+# Version info
+version-info.go

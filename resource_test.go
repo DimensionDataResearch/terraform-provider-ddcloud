@@ -1,4 +1,4 @@
-package ddcloud
+package main
 
 import (
 	"fmt"
