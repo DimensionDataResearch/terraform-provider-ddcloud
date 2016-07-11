@@ -1,4 +1,4 @@
-default: build test
+default: test build
 
 fmt:
 	go fmt github.com/DimensionDataResearch/dd-cloud-compute-terraform/...
