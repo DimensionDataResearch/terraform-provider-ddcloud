@@ -1,6 +1,7 @@
 package main
 
 import (
+	"ddcloud"
 	"fmt"
 	"github.com/hashicorp/terraform/plugin"
 	"os"
@@ -16,6 +17,6 @@ func main() {
 	}
 
 	plugin.Serve(&plugin.ServeOpts{
-		ProviderFunc: Provider,
+		ProviderFunc: ddcloud.Provider,
 	})
 }
