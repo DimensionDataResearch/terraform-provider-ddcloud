@@ -66,8 +66,12 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 	}
 	log.Printf("Create NAT rule (from public IP '%s' to private IP '%s') in network domain '%s'.", publicIPDescription, privateIP, networkDomainID)
 
-	apiClient := provider.(*compute.Client)
-	apiClient.Reset() // TODO: Replace call to Reset with appropriate API call(s).
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	domainLock := providerState.GetDomainLock(networkDomainID, "resourceNATCreate(%s -> %s)", privateIP, publicIPDescription)
+	domainLock.Lock()
+	defer domainLock.Unlock()
 
 	// First, work out if we have any free public IP addresses.
 	freeIPs := newStringSet()
@@ -77,8 +81,9 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 	if err != nil {
 		return err
 	}
+	var blockAddresses []string
 	for _, block := range publicIPBlocks.Blocks {
-		blockAddresses, err := calculateBlockAddresses(block)
+		blockAddresses, err = calculateBlockAddresses(block)
 		if err != nil {
 			return err
 		}
@@ -104,12 +109,14 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 	if freeIPs.Len() == 0 {
 		log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
 
-		blockID, err := apiClient.AddPublicIPBlock(networkDomainID)
+		var blockID string
+		blockID, err = apiClient.AddPublicIPBlock(networkDomainID)
 		if err != nil {
 			return err
 		}
 
-		block, err := apiClient.GetPublicIPBlock(blockID)
+		var block *compute.PublicIPBlock
+		block, err = apiClient.GetPublicIPBlock(blockID)
 		if err != nil {
 			return err
 		}
@@ -152,7 +159,7 @@ func resourceNATRead(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("Read NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIP, networkDomainID)
 
-	apiClient := provider.(*compute.Client)
+	apiClient := provider.(*providerState).Client()
 	apiClient.Reset() // TODO: Replace call to Reset with appropriate API call(s).
 
 	return nil
@@ -167,8 +174,13 @@ func resourceNATUpdate(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("Update NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIP, networkDomainID)
 
-	apiClient := provider.(*compute.Client)
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
 	apiClient.Reset() // TODO: Replace call to Reset with appropriate API call(s).
+
+	domainLock := providerState.GetDomainLock(networkDomainID, "resourceNATUpdate(%s -> %s)", privateIP, publicIP)
+	domainLock.Lock()
+	defer domainLock.Unlock()
 
 	return nil
 }
@@ -182,7 +194,12 @@ func resourceNATDelete(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("Delete NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIP, networkDomainID)
 
-	apiClient := provider.(*compute.Client)
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	domainLock := providerState.GetDomainLock(networkDomainID, "resourceNATDelete(%s -> %s)", privateIP, publicIP)
+	domainLock.Lock()
+	defer domainLock.Unlock()
 
 	return apiClient.DeleteNATRule(id)
 }

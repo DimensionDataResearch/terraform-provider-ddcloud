@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
+	"log"
 	"os"
 	"strings"
+	"sync"
 )
 
 // Provider creates the Dimension Data Cloud resource provider.
@@ -67,6 +69,7 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 		username string
 		password string
 		client   *compute.Client
+		provider *providerState
 	)
 
 	region = providerSettings.Get("region").(string)
@@ -89,6 +92,69 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	}
 
 	client = compute.NewClient(region, username, password)
+	provider = newProvider(client)
 
-	return client, nil
+	return provider, nil
+}
+
+type providerState struct {
+	// The CloudControl API client.
+	apiClient *compute.Client
+
+	// Global lock for provider state.
+	stateLock *sync.Mutex
+
+	// Lock per network domain (prevent parallel provisioning for some resource types).
+	domainLocks map[string]*sync.Mutex
+}
+
+func newProvider(client *compute.Client) *providerState {
+	return &providerState{
+		apiClient:   client,
+		stateLock:   &sync.Mutex{},
+		domainLocks: make(map[string]*sync.Mutex),
+	}
+}
+
+// Client retrieves the CloudControl API client from provider state.
+func (state *providerState) Client() *compute.Client {
+	return state.apiClient
+}
+
+// GetDomainLock retrieves the global lock for the specified network domain.
+func (state *providerState) GetDomainLock(id string, ownerNameOrFormat string, formatArgs ...interface{}) *providerDomainLock {
+	state.stateLock.Lock()
+	defer state.stateLock.Unlock()
+
+	lock, ok := state.domainLocks[id]
+	if !ok {
+		lock = &sync.Mutex{}
+		state.domainLocks[id] = lock
+	}
+
+	return &providerDomainLock{
+		domainID:  id,
+		ownerName: fmt.Sprintf(ownerNameOrFormat, formatArgs...),
+		lock:      lock,
+	}
+}
+
+type providerDomainLock struct {
+	domainID  string
+	ownerName string
+	lock      *sync.Mutex
+}
+
+// Acquire the network domain lock.
+func (domainLock *providerDomainLock) Lock() {
+	log.Printf("%s acquiring lock for domain '%s'...", domainLock.ownerName, domainLock.domainID)
+	domainLock.lock.Lock()
+	log.Printf("%s acquired lock for domain '%s'.", domainLock.ownerName, domainLock.domainID)
+}
+
+// Release the network domain lock.
+func (domainLock *providerDomainLock) Unlock() {
+	log.Printf("%s releasing lock for domain '%s'...", domainLock.ownerName, domainLock.domainID)
+	domainLock.lock.Unlock()
+	log.Printf("%s released lock for domain '%s'.", domainLock.ownerName, domainLock.domainID)
 }
