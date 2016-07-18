@@ -1,8 +1,8 @@
 package ddcloud
 
 import (
-	"compute-api/compute"
 	"fmt"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"time"
@@ -15,6 +15,7 @@ const (
 	resourceKeyServerNetworkDomainID = "networkdomain"
 	resourceKeyServerMemoryGB        = "memory_gb"
 	resourceKeyServerCPUCount        = "cpu_count"
+	resourceKeyServerImageDisk       = "image_disk"
 	resourceKeyServerAdditionalDisk  = "additional_disk"
 	resourceKeyServerDiskID          = "disk_id"
 	resourceKeyServerDiskSizeGB      = "size_gb"
@@ -28,6 +29,9 @@ const (
 	resourceKeyServerPrimaryDNS      = "dns_primary"
 	resourceKeyServerSecondaryDNS    = "dns_secondary"
 	resourceKeyServerAutoStart       = "auto_start"
+	resourceKeyServerTag             = "tag"
+	resourceKeyServerTagName         = "name"
+	resourceKeyServerTagValue        = "value"
 	resourceCreateTimeoutServer      = 30 * time.Minute
 	resourceUpdateTimeoutServer      = 10 * time.Minute
 	resourceDeleteTimeoutServer      = 15 * time.Minute
@@ -68,34 +72,9 @@ func resourceServer() *schema.Resource {
 				Computed: true,
 				Default:  nil,
 			},
-			resourceKeyServerAdditionalDisk: &schema.Schema{
-				Type:     schema.TypeSet,
-				Optional: true,
-				Computed: true,
-				Default:  nil,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						resourceKeyServerDiskID: &schema.Schema{
-							Type:     schema.TypeString,
-							Computed: true,
-						},
-						resourceKeyServerDiskSizeGB: &schema.Schema{
-							Type:     schema.TypeInt,
-							Required: true,
-						},
-						resourceKeyServerDiskUnitID: &schema.Schema{
-							Type:     schema.TypeInt,
-							Required: true,
-						},
-						resourceKeyServerDiskSpeed: &schema.Schema{
-							Type:     schema.TypeString,
-							Optional: true,
-							Default:  "STANDARD",
-						},
-					},
-				},
-				Set: hashDiskUnitID,
-			},
+			// TODO: Merge "image_disk" and "additional_disk" so there's just "disk".
+			resourceKeyServerImageDisk:      schemaServerDisk(),
+			resourceKeyServerAdditionalDisk: schemaServerDisk(),
 			resourceKeyServerNetworkDomainID: &schema.Schema{
 				Type:     schema.TypeString,
 				ForceNew: true,
@@ -150,6 +129,24 @@ func resourceServer() *schema.Resource {
 				ForceNew: true,
 				Optional: true,
 				Default:  false,
+			},
+			resourceKeyServerTag: &schema.Schema{
+				Type:     schema.TypeSet,
+				Optional: true,
+				Default:  nil,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						resourceKeyServerTagName: &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						resourceKeyServerTagValue: &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+						},
+					},
+				},
+				Set: hashServerTag,
 			},
 		},
 	}
@@ -264,8 +261,6 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Server '%s' is being provisioned...", name)
 
-	data.Partial(true)
-
 	resource, err := apiClient.WaitForDeploy(compute.ResourceTypeServer, serverID, resourceCreateTimeoutServer)
 	if err != nil {
 		return err
@@ -273,6 +268,8 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	// Capture additional properties that may only be available after deployment.
 	server := resource.(*compute.Server)
+
+	data.Partial(true)
 
 	serverIPv4Address := server.Network.PrimaryAdapter.PrivateIPv4Address
 	data.Set(resourceKeyServerPrimaryIPv4, serverIPv4Address)
@@ -282,11 +279,18 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	data.Set(resourceKeyServerPrimaryIPv6, serverIPv6Address)
 	data.SetPartial(resourceKeyServerPrimaryIPv6)
 
-	// Additional disks
-	additionalDisks := propertyHelper.GetServerAdditionalDisks()
-	if len(additionalDisks) == 0 {
-		data.Partial(false)
+	// Adjust image size for image disk(s) if they were explicitly specified in the configuration.
+	log.Printf("Configuring image disks for server '%s'...", serverID)
+	imageDisksByUnitID := getDisksByUnitID(server.Disks)
+	err = createImageDisks(imageDisksByUnitID, data, apiClient)
+	if err != nil {
+		return err
+	}
 
+	// Additional disks
+	log.Printf("Configuring additional disks for server '%s'...", serverID)
+	additionalDisks := propertyHelper.GetServerDisks(resourceKeyServerAdditionalDisk)
+	if len(additionalDisks) == 0 {
 		return nil
 	}
 
@@ -307,7 +311,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		disk.ID = &diskID
 
 		addedDisks = append(addedDisks, *disk)
-		propertyHelper.SetServerAdditionalDisks(addedDisks)
+		propertyHelper.SetServerDisks(resourceKeyServerAdditionalDisk, addedDisks)
 		data.SetPartial(resourceKeyServerAdditionalDisk)
 
 		_, err = apiClient.WaitForChange(
@@ -322,6 +326,12 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 		log.Printf("Added disk with SCSI unit ID %d to server '%s' as disk '%s'.", disk.SCSIUnitID, serverID, diskID)
 	}
+
+	err = applyServerTags(data, apiClient)
+	if err != nil {
+		return err
+	}
+	data.SetPartial(resourceKeyServerTag)
 
 	data.Partial(false)
 
@@ -358,12 +368,41 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	data.Set(resourceKeyServerMemoryGB, server.MemoryGB)
 	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
 
-	// TODO: Update disks once we store both image and additional disks (until then we can't tell which disks are actually additional disks).
+	disksByUnitID := getDisksByUnitID(server.Disks)
+
+	// Match up image disks with server image disks.
+	propertyHelper := propertyHelper(data)
+	configuredImageDisks := propertyHelper.GetServerDisks(resourceKeyServerImageDisk)
+	imageDisks := configuredImageDisks[:0]
+	for _, imageDisk := range configuredImageDisks {
+		disk, ok := disksByUnitID[imageDisk.SCSIUnitID]
+		if !ok {
+			continue
+		}
+
+		delete(disksByUnitID, imageDisk.SCSIUnitID)
+
+		imageDisks = append(imageDisks, *disk)
+	}
+	propertyHelper.SetServerDisks(resourceKeyServerImageDisk, imageDisks)
+
+	// TODO: Update additional disks.
+	// Any disks remaining in disksByUnitID are, by process of elimination, additional disks.
+	var additionalDisks []compute.VirtualMachineDisk
+	for _, additionalDisk := range disksByUnitID {
+		additionalDisks = append(additionalDisks, *additionalDisk)
+	}
+	propertyHelper.SetServerDisks(resourceKeyServerAdditionalDisk, additionalDisks)
 
 	data.Set(resourceKeyServerPrimaryVLAN, *server.Network.PrimaryAdapter.VLANID)
 	data.Set(resourceKeyServerPrimaryIPv4, *server.Network.PrimaryAdapter.PrivateIPv4Address)
 	data.Set(resourceKeyServerPrimaryIPv6, *server.Network.PrimaryAdapter.PrivateIPv6Address)
 	data.Set(resourceKeyServerNetworkDomainID, server.Network.NetworkDomainID)
+
+	err = readServerTags(data, apiClient)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -419,7 +458,15 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
-	// TODO: Handle disk changes.
+	if data.HasChange(resourceKeyServerImageDisk) {
+		existingDisksByUnitID := getDisksByUnitID(server.Disks)
+		err = updateImageDisks(existingDisksByUnitID, data, apiClient)
+		if err != nil {
+			return err
+		}
+	}
+
+	// TODO: Handle additional disk changes.
 
 	var primaryIPv4, primaryIPv6 *string
 	if data.HasChange(resourceKeyServerPrimaryIPv4) {
@@ -444,6 +491,15 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		if data.HasChange(resourceKeyServerPrimaryIPv6) {
 			data.SetPartial(resourceKeyServerPrimaryIPv6)
 		}
+	}
+
+	if data.HasChange(resourceKeyServerTag) {
+		err = applyServerTags(data, apiClient)
+		if err != nil {
+			return err
+		}
+
+		data.SetPartial(resourceKeyServerTag)
 	}
 
 	data.Partial(false)
@@ -474,14 +530,14 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	}
 
 	if server.Started {
-		log.Printf("Server '%s' is currently running. The server will be shut down.", id)
+		log.Printf("Server '%s' is currently running. The server will be powered off.", id)
 
-		err = apiClient.ShutdownServer(id)
+		err = apiClient.PowerOffServer(id)
 		if err != nil {
 			return err
 		}
 
-		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, id, "Shut down server", serverShutdownTimeout)
+		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, id, "Power off server", serverShutdownTimeout)
 		if err != nil {
 			return err
 		}
@@ -537,26 +593,190 @@ func updateServerIPAddress(apiClient *compute.Client, server *compute.Server, pr
 	return err
 }
 
-// Parse and append additional disks to those specified by the image being deployed.
-func mergeDisks(imageDisks []compute.VirtualMachineDisk, additionalDisks []compute.VirtualMachineDisk) []compute.VirtualMachineDisk {
-	diskSet := schema.NewSet(hashDiskUnitID, []interface{}{})
+// When creating a server resource, synchronise the server's image disk attributes with its resource data
+func createImageDisks(existingDisksByUnitID map[int]*compute.VirtualMachineDisk, data *schema.ResourceData, apiClient *compute.Client) error {
+	propertyHelper := propertyHelper(data)
 
-	for _, disk := range imageDisks {
-		log.Printf("Merge image disk with SCSI unit Id %d.", disk.SCSIUnitID)
-		diskSet.Add(disk)
+	serverID := data.Id()
+
+	log.Printf("Create image disks for server '%s'...", serverID)
+
+	imageDisks := propertyHelper.GetServerDisks(resourceKeyServerImageDisk)
+	if len(imageDisks) == 0 {
+		// Since this is the first time, populate image disks.
+		var serverDisks []compute.VirtualMachineDisk
+		for _, disk := range serverDisks {
+			serverDisks = append(serverDisks, disk)
+		}
+
+		propertyHelper.SetServerDisks(resourceKeyServerImageDisk, serverDisks)
+		propertyHelper.SetPartial(resourceKeyServerImageDisk)
+
+		return nil
 	}
 
-	for _, disk := range additionalDisks {
-		log.Printf("Merge additional disk with SCSI unit Id %d.", disk.SCSIUnitID)
-		diskSet.Add(disk)
+	for _, imageDisk := range imageDisks {
+		serverImageDisk, ok := existingDisksByUnitID[imageDisk.SCSIUnitID]
+		if !ok {
+			return fmt.Errorf("No disk was found with SCSI unit Id %d for server '%s'.", imageDisk.SCSIUnitID, serverID)
+		}
+
+		diskID := *serverImageDisk.ID
+
+		if imageDisk.SizeGB == serverImageDisk.SizeGB {
+			continue // Nothing to do.
+		}
+
+		if imageDisk.SizeGB < serverImageDisk.SizeGB {
+
+			// Can't shrink disk, only grow it.
+			return fmt.Errorf(
+				"Cannot resize disk '%s' for server '%s' from %d to GB to %d (for now, disks can only be expanded).",
+				diskID,
+				serverID,
+				serverImageDisk.SizeGB,
+				imageDisk.SizeGB,
+			)
+		}
+
+		// Do we need to expand the disk?
+		if imageDisk.SizeGB > serverImageDisk.SizeGB {
+			log.Printf(
+				"Expanding disk '%s' for server '%s' (from %d GB to %d GB)...",
+				diskID,
+				serverID,
+				serverImageDisk.SizeGB,
+				imageDisk.SizeGB,
+			)
+
+			response, err := apiClient.ResizeServerDisk(serverID, diskID, imageDisk.SizeGB)
+			if err != nil {
+				return err
+			}
+			if response.Result != compute.ResultSuccess {
+				return response.ToError("Unexpected result '%s' when resizing server disk '%s' for server '%s'.", response.Result, diskID, serverID)
+			}
+
+			resource, err := apiClient.WaitForChange(
+				compute.ResourceTypeServer,
+				serverID,
+				"Resize disk",
+				resourceUpdateTimeoutServer,
+			)
+			if err != nil {
+				return err
+			}
+
+			server := resource.(*compute.Server)
+
+			propertyHelper.SetServerDisks(resourceKeyServerImageDisk, server.Disks)
+			propertyHelper.SetPartial(resourceKeyServerImageDisk)
+
+			log.Printf(
+				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
+				diskID,
+				serverID,
+				serverImageDisk.SizeGB,
+				imageDisk.SizeGB,
+			)
+
+		}
 	}
 
-	mergedDisks := make([]compute.VirtualMachineDisk, diskSet.Len())
-	for index, disk := range diskSet.List() {
-		mergedDisks[index] = disk.(compute.VirtualMachineDisk)
+	return nil
+}
+
+// When updating a server resource, synchronise the server's image disk attributes with its resource data
+func updateImageDisks(existingDisksByUnitID map[int]*compute.VirtualMachineDisk, data *schema.ResourceData, apiClient *compute.Client) error {
+	propertyHelper := propertyHelper(data)
+
+	serverID := data.Id()
+
+	log.Printf("Update image disks for server '%s'...", serverID)
+
+	imageDisks := propertyHelper.GetServerDisks(resourceKeyServerImageDisk)
+	if len(imageDisks) == 0 {
+		return fmt.Errorf("Invalid resource data for server '%s' (server has no image disks).", serverID)
 	}
 
-	return mergedDisks
+	for _, imageDisk := range imageDisks {
+		serverImageDisk, ok := existingDisksByUnitID[imageDisk.SCSIUnitID]
+		if !ok {
+			return fmt.Errorf("No disk was found with SCSI unit Id %d for server '%s'.", imageDisk.SCSIUnitID, serverID)
+		}
+
+		diskID := *serverImageDisk.ID
+
+		if imageDisk.SizeGB == serverImageDisk.SizeGB {
+			continue // Nothing to do.
+		}
+
+		if imageDisk.SizeGB < serverImageDisk.SizeGB {
+			// Can't shrink disk, only grow it.
+
+			return fmt.Errorf(
+				"Cannot shrink disk '%s' for server '%s' from %d to GB to %d (for now, disks can only be expanded).",
+				diskID,
+				serverID,
+				serverImageDisk.SizeGB,
+				imageDisk.SizeGB,
+			)
+		}
+
+		// Do we need to expand the disk?
+		if imageDisk.SizeGB > serverImageDisk.SizeGB {
+			log.Printf(
+				"Expanding disk '%s' for server '%s' (from %d GB to %d GB)...",
+				diskID,
+				serverID,
+				serverImageDisk.SizeGB,
+				imageDisk.SizeGB,
+			)
+
+			response, err := apiClient.ResizeServerDisk(serverID, diskID, imageDisk.SizeGB)
+			if err != nil {
+				return err
+			}
+			if response.Result != compute.ResultSuccess {
+				return response.ToError("Unexpected result '%s' when resizing server disk '%s' for server '%s'.", response.Result, diskID, serverID)
+			}
+
+			resource, err := apiClient.WaitForChange(
+				compute.ResourceTypeServer,
+				serverID,
+				"Resize disk",
+				resourceUpdateTimeoutServer,
+			)
+			if err != nil {
+				return err
+			}
+
+			server := resource.(*compute.Server)
+
+			propertyHelper.SetServerDisks(resourceKeyServerImageDisk, server.Disks)
+			propertyHelper.SetPartial(resourceKeyServerImageDisk)
+
+			log.Printf(
+				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
+				diskID,
+				serverID,
+				serverImageDisk.SizeGB,
+				imageDisk.SizeGB,
+			)
+
+		}
+	}
+
+	return nil
+}
+
+func getDisksByUnitID(disks []compute.VirtualMachineDisk) map[int]*compute.VirtualMachineDisk {
+	disksByUnitID := make(map[int]*compute.VirtualMachineDisk)
+	for _, disk := range disks {
+		disksByUnitID[disk.SCSIUnitID] = &disk
+	}
+
+	return disksByUnitID
 }
 
 func hashDiskUnitID(item interface{}) int {
@@ -568,4 +788,133 @@ func hashDiskUnitID(item interface{}) int {
 	diskData := item.(map[string]interface{})
 
 	return diskData[resourceKeyServerDiskUnitID].(int)
+}
+
+func hashServerTag(item interface{}) int {
+	tagData := item.(map[string]interface{})
+
+	return schema.HashString(
+		tagData[resourceKeyServerTagName].(string),
+	)
+}
+
+// Apply configured tags to a server.
+func applyServerTags(data *schema.ResourceData, apiClient *compute.Client) error {
+	propertyHelper := propertyHelper(data)
+
+	serverID := data.Id()
+
+	log.Printf("Configuring tags for server '%s'...", serverID)
+
+	configuredTags := propertyHelper.GetTags(resourceKeyServerTag)
+
+	// TODO: Support multiple pages of results.
+	serverTags, err := apiClient.GetAssetTags(serverID, compute.AssetTypeServer, nil)
+	if err != nil {
+		return err
+	}
+
+	// Capture any tags that are no-longer needed.
+	unusedTags := &schema.Set{
+		F: schema.HashString,
+	}
+	for _, tag := range serverTags.Items {
+		unusedTags.Add(tag.Name)
+	}
+	for _, tag := range configuredTags {
+		unusedTags.Remove(tag.Name)
+	}
+
+	log.Printf("Applying %d tags to server '%s'...", len(configuredTags), serverID)
+
+	response, err := apiClient.ApplyAssetTags(serverID, compute.AssetTypeServer, configuredTags...)
+	if err != nil {
+		return err
+	}
+
+	if response.ResponseCode != compute.ResponseCodeOK {
+		return response.ToError("Failed to apply %d tags to server '%s' (response code '%s'): %s", len(configuredTags), serverID, response.ResponseCode, response.Message)
+	}
+
+	// Trim unused tags (currently-configured tags will overwrite any existing values).
+	if unusedTags.Len() > 0 {
+		unusedTagNames := make([]string, unusedTags.Len())
+		for index, unusedTagName := range unusedTags.List() {
+			unusedTagNames[index] = unusedTagName.(string)
+		}
+
+		log.Printf("Removing %d unused tags from server '%s'...", len(unusedTagNames), serverID)
+
+		response, err = apiClient.RemoveAssetTags(serverID, compute.AssetTypeServer, unusedTagNames...)
+		if err != nil {
+			return err
+		}
+
+		if response.ResponseCode != compute.ResponseCodeOK {
+			return response.ToError("Failed to remove %d tags from server '%s' (response code '%s'): %s", len(configuredTags), serverID, response.ResponseCode, response.Message)
+		}
+	}
+
+	return nil
+}
+
+// Read tags from a server and update resource data accordingly.
+func readServerTags(data *schema.ResourceData, apiClient *compute.Client) error {
+	propertyHelper := propertyHelper(data)
+
+	serverID := data.Id()
+
+	log.Printf("Reading tags for server '%s'...", serverID)
+
+	result, err := apiClient.GetAssetTags(serverID, compute.AssetTypeServer, nil)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Read %d tags for server '%s'.", result.PageCount, serverID)
+
+	// TODO: Handle multiple pages of results.
+
+	tags := make([]compute.Tag, len(result.Items))
+	for index, tagDetail := range result.Items {
+		tags[index] = compute.Tag{
+			Name:  tagDetail.Name,
+			Value: tagDetail.Value,
+		}
+	}
+
+	propertyHelper.SetTags(resourceKeyServerTag, tags)
+
+	return nil
+}
+
+func schemaServerDisk() *schema.Schema {
+	return &schema.Schema{
+		Type:     schema.TypeSet,
+		Optional: true,
+		Computed: true,
+		Default:  nil,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				resourceKeyServerDiskID: &schema.Schema{
+					Type:     schema.TypeString,
+					Computed: true,
+				},
+				resourceKeyServerDiskSizeGB: &schema.Schema{
+					Type:     schema.TypeInt,
+					Required: true,
+				},
+				resourceKeyServerDiskUnitID: &schema.Schema{
+					Type:     schema.TypeInt,
+					Required: true,
+				},
+				resourceKeyServerDiskSpeed: &schema.Schema{
+					Type:     schema.TypeString,
+					Optional: true,
+					Default:  "STANDARD",
+				},
+			},
+		},
+		Set: hashDiskUnitID,
+	}
 }

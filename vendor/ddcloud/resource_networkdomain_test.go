@@ -1,8 +1,8 @@
 package ddcloud
 
 import (
-	"compute-api/compute"
 	"fmt"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
 	"testing"

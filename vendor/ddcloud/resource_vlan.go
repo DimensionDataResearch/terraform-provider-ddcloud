@@ -1,7 +1,7 @@
 package ddcloud
 
 import (
-	"compute-api/compute"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"time"
