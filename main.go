@@ -1,8 +1,8 @@
 package main
 
 import (
-	"ddcloud"
 	"fmt"
+	"github.com/hashicorp/terraform/builtin/providers/ddcloud"
 	"github.com/hashicorp/terraform/plugin"
 	"os"
 	"path"
