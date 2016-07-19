@@ -72,6 +72,12 @@ resource "ddcloud_server" "my-server" {
 
 	osimage_name			= "CentOS 7 64-bit 2 CPU"
 
+	# An additional disk (disk 0 is part of the original server image)
+	disk {
+		scsi_id             = 1
+		size_gb             = 20
+	}
+
 	depends_on				= [ "ddcloud_vlan.my-vlan" ]
 }
 
