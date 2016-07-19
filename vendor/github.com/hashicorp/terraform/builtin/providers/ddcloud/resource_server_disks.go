@@ -156,8 +156,10 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 	// By process of elimination, any remaining disks must be additional disks.
 	log.Printf("Configure additional disks for server '%s'...", serverID)
 
-	for _, additionalDisk := range disksByUnitID {
-		log.Printf("Adding disk with SCSI unit ID %d to server '%s'...", additionalDisk.SCSIUnitID, serverID)
+	for additionalDiskUnitID := range disksByUnitID {
+		log.Printf("Add disk with SCSI unit ID %d to server '%s'...", additionalDiskUnitID, serverID)
+
+		additionalDisk := disksByUnitID[additionalDiskUnitID]
 
 		var additionalDiskID string
 		additionalDiskID, err = apiClient.AddDiskToServer(
@@ -341,7 +343,8 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 
 func getDisksByUnitID(disks []compute.VirtualMachineDisk) map[int]*compute.VirtualMachineDisk {
 	disksByUnitID := make(map[int]*compute.VirtualMachineDisk)
-	for _, disk := range disks {
+	for index := range disks {
+		disk := disks[index]
 		disksByUnitID[disk.SCSIUnitID] = &disk
 	}
 
