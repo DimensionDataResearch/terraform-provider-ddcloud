@@ -36,9 +36,10 @@ func schemaServerDisk() *schema.Schema {
 					Required: true,
 				},
 				resourceKeyServerDiskSpeed: &schema.Schema{
-					Type:     schema.TypeString,
-					Optional: true,
-					Default:  "STANDARD",
+					Type:      schema.TypeString,
+					Optional:  true,
+					Default:   "STANDARD",
+					StateFunc: normalizeSpeed,
 				},
 			},
 		},
@@ -56,6 +57,7 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 	log.Printf("Configuring image disks for server '%s'...", serverID)
 
 	configuredDisks := propertyHelper.GetServerDisks()
+	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
 
 	if len(configuredDisks) == 0 {
 		// Since this is the first time, populate image disks.
@@ -67,114 +69,121 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 		propertyHelper.SetServerDisks(serverDisks)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
+		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(serverDisks), serverDisks)
+
 		return
 	}
 
 	// First, handle disks that were part of the original server image.
 	log.Printf("Configure image disks for server '%s'...", serverID)
 
-	disksByUnitID := getDisksByUnitID(configuredDisks)
-	for _, imageDisk := range imageDisks {
-		serverImageDisk, ok := disksByUnitID[imageDisk.SCSIUnitID]
+	configuredDisksByUnitID := getDisksByUnitID(configuredDisks)
+	for _, actualImageDisk := range imageDisks {
+		configuredImageDisk, ok := configuredDisksByUnitID[actualImageDisk.SCSIUnitID]
 		if !ok {
 			// This is not an image disk.
-			log.Printf("No existing disk was found with SCSI unit Id %d for server '%s'; this disk will be treated as an additional disk.", imageDisk.SCSIUnitID, serverID)
+			log.Printf("No configuration was found for disk with SCSI unit Id %d for server '%s'; this disk will be treated as an additional disk.", actualImageDisk.SCSIUnitID, serverID)
 
 			continue
 		}
 
 		// This is an image disk, so we don't want to see it when we're configuring additional disks
-		delete(disksByUnitID, serverImageDisk.SCSIUnitID)
+		delete(configuredDisksByUnitID, configuredImageDisk.SCSIUnitID)
 
-		imageDiskID := *serverImageDisk.ID
+		imageDiskID := *actualImageDisk.ID
 
-		if imageDisk.SizeGB == serverImageDisk.SizeGB {
+		if configuredImageDisk.SizeGB == actualImageDisk.SizeGB {
 			continue // Nothing to do.
 		}
 
-		if imageDisk.SizeGB < serverImageDisk.SizeGB {
-
+		if configuredImageDisk.SizeGB < actualImageDisk.SizeGB {
 			// Can't shrink disk, only grow it.
 			err = fmt.Errorf(
 				"Cannot resize disk '%s' for server '%s' from %d to GB to %d (for now, disks can only be expanded).",
 				imageDiskID,
 				serverID,
-				serverImageDisk.SizeGB,
-				imageDisk.SizeGB,
+				actualImageDisk.SizeGB,
+				configuredImageDisk.SizeGB,
 			)
 
 			return
 		}
 
-		// Do we need to expand the disk?
-		if imageDisk.SizeGB > serverImageDisk.SizeGB {
-			log.Printf(
-				"Expanding disk '%s' for server '%s' (from %d GB to %d GB)...",
+		// We need to expand the disk.
+		log.Printf(
+			"Expanding disk '%s' for server '%s' (from %d GB to %d GB)...",
+			imageDiskID,
+			serverID,
+			actualImageDisk.SizeGB,
+			configuredImageDisk.SizeGB,
+		)
+
+		response, err := apiClient.ResizeServerDisk(serverID, imageDiskID, configuredImageDisk.SizeGB)
+		if err != nil {
+			return err
+		}
+		if response.Result != compute.ResultSuccess {
+			return response.ToError(
+				"Unexpected result '%s' when resizing server disk '%s' for server '%s'.",
+				response.Result,
 				imageDiskID,
 				serverID,
-				serverImageDisk.SizeGB,
-				imageDisk.SizeGB,
-			)
-
-			response, err := apiClient.ResizeServerDisk(serverID, imageDiskID, imageDisk.SizeGB)
-			if err != nil {
-				return err
-			}
-			if response.Result != compute.ResultSuccess {
-				return response.ToError(
-					"Unexpected result '%s' when resizing server disk '%s' for server '%s'.",
-					response.Result,
-					imageDiskID,
-					serverID,
-				)
-			}
-
-			resource, err := apiClient.WaitForChange(
-				compute.ResourceTypeServer,
-				serverID,
-				"Resize disk",
-				resourceUpdateTimeoutServer,
-			)
-			if err != nil {
-				return err
-			}
-
-			server := resource.(*compute.Server)
-			propertyHelper.SetServerDisks(server.Disks)
-			propertyHelper.SetPartial(resourceKeyServerDisk)
-
-			log.Printf(
-				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
-				imageDiskID,
-				serverID,
-				serverImageDisk.SizeGB,
-				imageDisk.SizeGB,
 			)
 		}
+
+		resource, err := apiClient.WaitForChange(
+			compute.ResourceTypeServer,
+			serverID,
+			"Resize disk",
+			resourceUpdateTimeoutServer,
+		)
+		if err != nil {
+			return err
+		}
+
+		server := resource.(*compute.Server)
+		propertyHelper.SetServerDisks(server.Disks)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
+
+		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
+
+		log.Printf(
+			"Resized disk '%s' for server '%s' (from %d to GB to %d).",
+			imageDiskID,
+			serverID,
+			actualImageDisk.SizeGB,
+			configuredImageDisk.SizeGB,
+		)
 	}
 
 	// By process of elimination, any remaining disks must be additional disks.
 	log.Printf("Configure additional disks for server '%s'...", serverID)
 
-	for additionalDiskUnitID := range disksByUnitID {
+	for additionalDiskUnitID := range configuredDisksByUnitID {
 		log.Printf("Add disk with SCSI unit ID %d to server '%s'...", additionalDiskUnitID, serverID)
 
-		additionalDisk := disksByUnitID[additionalDiskUnitID]
+		configuredAdditionalDisk := configuredDisksByUnitID[additionalDiskUnitID]
 
 		var additionalDiskID string
 		additionalDiskID, err = apiClient.AddDiskToServer(
 			serverID,
-			additionalDisk.SCSIUnitID,
-			additionalDisk.SizeGB,
-			additionalDisk.Speed,
+			configuredAdditionalDisk.SCSIUnitID,
+			configuredAdditionalDisk.SizeGB,
+			configuredAdditionalDisk.Speed,
 		)
 		if err != nil {
 			return
 		}
 
-		log.Printf("Adding disk '%s' with SCSI unit ID %d to server '%s'...", additionalDiskID, additionalDisk.SCSIUnitID, serverID)
+		log.Printf("Adding disk '%s' (%dGB, speed = '%s') with SCSI unit ID %d to server '%s'...",
+			additionalDiskID,
+			configuredAdditionalDisk.SizeGB,
+			configuredAdditionalDisk.Speed,
+			configuredAdditionalDisk.SCSIUnitID,
+			serverID,
+		)
 
-		additionalDisk.ID = &additionalDiskID
+		configuredAdditionalDisk.ID = &additionalDiskID
 
 		var resource compute.Resource
 		resource, err = apiClient.WaitForChange(
@@ -191,10 +200,11 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 		propertyHelper.SetServerDisks(server.Disks)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
-		log.Printf(
-			"Added disk '%s' with SCSI unit ID %d to server '%s'.",
+		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
+
+		log.Printf("Added disk '%s' with SCSI unit ID %d to server '%s'.",
 			additionalDiskID,
-			additionalDisk.SCSIUnitID,
+			configuredAdditionalDisk.SCSIUnitID,
 			serverID,
 		)
 	}
@@ -222,38 +232,48 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 	}
 
 	configuredDisks := propertyHelper.GetServerDisks()
+	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
+
 	if len(configuredDisks) == 0 {
 		// No explicitly-configured disks.
 		propertyHelper.SetServerDisks(server.Disks)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
+		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
+
 		return nil
 	}
 
-	disksByUnitID := getDisksByUnitID(server.Disks)
+	actualDisksByUnitID := getDisksByUnitID(server.Disks)
 	for _, configuredDisk := range configuredDisks {
-		existingDisk, ok := disksByUnitID[configuredDisk.SCSIUnitID]
+		// We don't want to see this disk when we're looking for disks that don't appear in the configuration.
+		delete(actualDisksByUnitID, configuredDisk.SCSIUnitID)
+
+		actualDisk, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
 		if ok {
-			diskID := *existingDisk.ID
+
+			diskID := *actualDisk.ID
 
 			// Existing disk.
-			log.Printf("Examining existing disk '%s' with SCSI unit Id %d in server '%s'...", diskID, existingDisk.SCSIUnitID, serverID)
+			log.Printf("Examining existing disk '%s' with SCSI unit Id %d in server '%s'...", diskID, actualDisk.SCSIUnitID, serverID)
 
-			if configuredDisk.SizeGB == existingDisk.SizeGB {
-				log.Printf("Disk '%s' with SCSI unit Id %d in server '%s' is up-to-date; nothing to do.", diskID, existingDisk.SCSIUnitID, serverID)
+			if configuredDisk.SizeGB == actualDisk.SizeGB && configuredDisk.Speed == actualDisk.Speed {
+				log.Printf("Disk '%s' with SCSI unit Id %d in server '%s' is up-to-date; nothing to do.", diskID, actualDisk.SCSIUnitID, serverID)
 
 				continue // Nothing to do.
 			}
 
+			// We don't support changing disk speed yet.
+
 			// Currently we can't shrink a disk, only grow it.
-			if configuredDisk.SizeGB < existingDisk.SizeGB {
-				log.Printf("Disk '%s' with SCSI unit Id %d in server '%s' is larger than the size specified in the server configuration; this is currently unsupported.", diskID, existingDisk.SCSIUnitID, serverID)
+			if configuredDisk.SizeGB < actualDisk.SizeGB {
+				log.Printf("Disk '%s' with SCSI unit Id %d in server '%s' is larger than the size specified in the server configuration; this is currently unsupported.", diskID, actualDisk.SCSIUnitID, serverID)
 
 				return fmt.Errorf(
 					"Cannot shrink disk '%s' for server '%s' from %d to GB to %d (for now, disks can only be expanded).",
 					diskID,
 					serverID,
-					existingDisk.SizeGB,
+					actualDisk.SizeGB,
 					configuredDisk.SizeGB,
 				)
 			}
@@ -263,7 +283,7 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 				"Expanding disk '%s' for server '%s' (from %d GB to %d GB)...",
 				diskID,
 				serverID,
-				existingDisk.SizeGB,
+				actualDisk.SizeGB,
 				configuredDisk.SizeGB,
 			)
 
@@ -290,11 +310,13 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 			propertyHelper.SetServerDisks(server.Disks)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
+			log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
+
 			log.Printf(
 				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
 				diskID,
 				serverID,
-				existingDisk.SizeGB,
+				actualDisk.SizeGB,
 				configuredDisk.SizeGB,
 			)
 		} else {
@@ -329,6 +351,8 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 			propertyHelper.SetServerDisks(server.Disks)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
+			log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
+
 			log.Printf(
 				"Added disk '%s' with SCSI unit ID %d to server '%s'.",
 				diskID,
@@ -336,6 +360,21 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 				serverID,
 			)
 		}
+	}
+
+	// By process of elimination, any remaining actual disks do not appear in the configuration and should be removed.
+	for unconfiguredDiskUnitID := range actualDisksByUnitID {
+		unconfiguredDisk := actualDisksByUnitID[unconfiguredDiskUnitID]
+
+		unconfiguredDiskID := *unconfiguredDisk.ID
+
+		log.Printf(
+			"Disk '%s' does not appear in the configuration for server '%s' and will be removed.",
+			unconfiguredDiskID,
+			serverID,
+		)
+
+		// TODO: Implement server disk removal.
 	}
 
 	return nil

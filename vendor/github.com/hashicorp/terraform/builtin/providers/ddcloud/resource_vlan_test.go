@@ -142,7 +142,7 @@ func testCheckDDCloudVLANExists(name string, exists bool) resource.TestCheckFunc
 
 		vlanID := res.Primary.ID
 
-		client := testAccProvider.Meta().(*compute.Client)
+		client := testAccProvider.Meta().(*providerState).Client()
 		vlan, err := client.GetVLAN(vlanID)
 		if err != nil {
 			return fmt.Errorf("Bad: Get VLAN: %s", err)
@@ -169,7 +169,7 @@ func testCheckDDCloudVLANMatches(name string, expected compute.VLAN) resource.Te
 
 		vlanID := res.Primary.ID
 
-		client := testAccProvider.Meta().(*compute.Client)
+		client := testAccProvider.Meta().(*providerState).Client()
 		vlan, err := client.GetVLAN(vlanID)
 		if err != nil {
 			return fmt.Errorf("Bad: Get VLAN: %s", err)
@@ -213,7 +213,7 @@ func testCheckDDCloudVLANDestroy(state *terraform.State) error {
 
 		vlanID := res.Primary.ID
 
-		client := testAccProvider.Meta().(*compute.Client)
+		client := testAccProvider.Meta().(*providerState).Client()
 		vlan, err := client.GetVLAN(vlanID)
 		if err != nil {
 			return nil

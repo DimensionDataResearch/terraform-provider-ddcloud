@@ -114,7 +114,7 @@ func testCheckDDCloudNetworkDomainExists(name string, exists bool) resource.Test
 
 		networkDomainID := res.Primary.ID
 
-		client := testAccProvider.Meta().(*compute.Client)
+		client := testAccProvider.Meta().(*providerState).Client()
 		networkDomain, err := client.GetNetworkDomain(networkDomainID)
 		if err != nil {
 			return fmt.Errorf("Bad: Get network domain: %s", err)
@@ -141,7 +141,7 @@ func testCheckDDCloudNetworkDomainMatches(name string, expected compute.NetworkD
 
 		networkDomainID := res.Primary.ID
 
-		client := testAccProvider.Meta().(*compute.Client)
+		client := testAccProvider.Meta().(*providerState).Client()
 		networkDomain, err := client.GetNetworkDomain(networkDomainID)
 		if err != nil {
 			return fmt.Errorf("Bad: Get network domain: %s", err)
@@ -173,7 +173,7 @@ func testCheckDDCloudNetworkDomainDestroy(state *terraform.State) error {
 
 		networkDomainID := res.Primary.ID
 
-		client := testAccProvider.Meta().(*compute.Client)
+		client := testAccProvider.Meta().(*providerState).Client()
 		networkDomain, err := client.GetNetworkDomain(networkDomainID)
 		if err != nil {
 			return nil

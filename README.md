@@ -72,7 +72,14 @@ resource "ddcloud_server" "my-server" {
 
 	osimage_name			= "CentOS 7 64-bit 2 CPU"
 
-	# An additional disk (disk 0 is part of the original server image)
+	# The image disk (part of the original server image). If size_gb is larger than the image disk's original size, it will be expanded (specifying a smaller size is not supported).
+	# You don't have to specify this but, if you don't, then Terraform will keep treating the ddcloud_server resource as modified.
+	disk {
+		scsi_id             = 0
+		size_gb             = 10
+	}
+
+	# An additional disk.
 	disk {
 		scsi_id             = 1
 		size_gb             = 20
