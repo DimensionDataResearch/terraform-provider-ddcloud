@@ -11,7 +11,7 @@ import (
 func getAllTagKeys(apiClient *compute.Client, tagName string) (allTagKeys map[string]compute.TagKey, err error) {
 	allTagKeys = make(map[string]compute.TagKey)
 
-	paging := compute.PagingInfo{
+	paging := compute.Paging{
 		PageNumber: 1,
 		PageSize:   10,
 	}
