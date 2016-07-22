@@ -77,29 +77,49 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 	freeIPs := newStringSet()
 
 	// Public IPs are allocated in blocks.
-	publicIPBlocks, err := apiClient.ListPublicIPBlocks(networkDomainID)
-	if err != nil {
-		return err
-	}
-	var blockAddresses []string
-	for _, block := range publicIPBlocks.Blocks {
-		blockAddresses, err = calculateBlockAddresses(block)
+	page := compute.DefaultPaging()
+	for {
+		var publicIPBlocks *compute.PublicIPBlocks
+		publicIPBlocks, err = apiClient.ListPublicIPBlocks(networkDomainID, page)
 		if err != nil {
 			return err
 		}
-
-		for _, address := range blockAddresses {
-			freeIPs.Add(address)
+		if publicIPBlocks.IsEmpty() {
+			break // We're done
 		}
+
+		var blockAddresses []string
+		for _, block := range publicIPBlocks.Blocks {
+			blockAddresses, err = calculateBlockAddresses(block)
+			if err != nil {
+				return err
+			}
+
+			for _, address := range blockAddresses {
+				freeIPs.Add(address)
+			}
+		}
+
+		page.Next()
 	}
 
 	// Some of those IPs may be reserved for other NAT rules or VIPs.
-	reservedIPs, err := apiClient.ListReservedPublicIPAddresses(networkDomainID)
-	if err != nil {
-		return err
-	}
-	for _, reservedIP := range reservedIPs.IPs {
-		freeIPs.Remove(reservedIP.Address)
+	page.First()
+	for {
+		var reservedIPs *compute.ReservedPublicIPs
+		reservedIPs, err = apiClient.ListReservedPublicIPAddresses(networkDomainID, page)
+		if err != nil {
+			return err
+		}
+		if reservedIPs.IsEmpty() {
+			break // We're done
+		}
+
+		for _, reservedIP := range reservedIPs.IPs {
+			freeIPs.Remove(reservedIP.Address)
+		}
+
+		page.Next()
 	}
 
 	// Anything left is free to use.

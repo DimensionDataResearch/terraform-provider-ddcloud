@@ -158,9 +158,15 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	var osImage *compute.OSImage
 	if osImageID != nil {
-		// TODO: Look up OS image by Id (first, implement in compute API client).
+		log.Printf("Looking up OS image '%s' by Id...", *osImageID)
 
-		return fmt.Errorf("Specifying osimage_id is not supported yet.")
+		osImage, err = apiClient.GetOSImage(*osImageID)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').", osImage.Name, osImage.ID)
+		data.Set(resourceKeyServerOSImageName, osImage.Name)
 	} else if osImageName != nil {
 		log.Printf("Looking up OS image '%s' by name...", *osImageName)
 
@@ -175,7 +181,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 			return fmt.Errorf("Unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *osImageName, dataCenterID, networkDomainID)
 		}
 
-		log.Printf("Server will be deployed from OS image with Id '%s'.", osImage.ID)
+		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').", osImage.Name, osImage.ID)
 		data.Set(resourceKeyServerOSImageID, osImage.ID)
 	} else {
 		return fmt.Errorf("Must specify either osimage_id or osimage_name.")

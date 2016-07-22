@@ -170,20 +170,29 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 	apiClient := provider.(*providerState).Client()
 
 	// First, check if the network domain has any allocated public IP blocks.
-	publicIPBlocks, err := apiClient.ListPublicIPBlocks(networkDomainID)
-	if err != nil {
-		return err
-	}
-
-	for _, block := range publicIPBlocks.Blocks {
-		log.Printf("Removing public IP block '%s' (%s+%d) from network domain '%s'...", block.ID, block.BaseIP, block.Size, networkDomainID)
-
-		err := apiClient.RemovePublicIPBlock(block.ID)
+	page := compute.DefaultPaging()
+	for {
+		var publicIPBlocks *compute.PublicIPBlocks
+		publicIPBlocks, err = apiClient.ListPublicIPBlocks(networkDomainID, page)
 		if err != nil {
 			return err
 		}
+		if publicIPBlocks.IsEmpty() {
+			break // We're done
+		}
 
-		log.Printf("Successfully deleted public IP block '%s' from network domain '%s'.", block.ID, networkDomainID)
+		for _, block := range publicIPBlocks.Blocks {
+			log.Printf("Removing public IP block '%s' (%s+%d) from network domain '%s'...", block.ID, block.BaseIP, block.Size, networkDomainID)
+
+			err := apiClient.RemovePublicIPBlock(block.ID)
+			if err != nil {
+				return err
+			}
+
+			log.Printf("Successfully deleted public IP block '%s' from network domain '%s'.", block.ID, networkDomainID)
+		}
+
+		page.Next()
 	}
 
 	// TODO: Handle RESOURCE_BUSY response (retry?)
