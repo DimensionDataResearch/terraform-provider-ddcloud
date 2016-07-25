@@ -20,6 +20,7 @@ const (
 	resourceKeyServerPrimaryVLAN     = "primary_adapter_vlan"
 	resourceKeyServerPrimaryIPv4     = "primary_adapter_ipv4"
 	resourceKeyServerPrimaryIPv6     = "primary_adapter_ipv6"
+	resourceKeyServerPublicIPv4      = "public_ipv4"
 	resourceKeyServerPrimaryDNS      = "dns_primary"
 	resourceKeyServerSecondaryDNS    = "dns_secondary"
 	resourceKeyServerAutoStart       = "auto_start"
@@ -80,6 +81,11 @@ func resourceServer() *schema.Resource {
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Optional: true,
+				Computed: true,
+				Default:  nil,
+			},
+			resourceKeyServerPublicIPv4: &schema.Schema{
+				Type:     schema.TypeString,
 				Computed: true,
 				Default:  nil,
 			},
@@ -250,6 +256,22 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	data.Partial(true)
 
+	var publicIPv4Address string
+	publicIPv4Address, err = findPublicIPv4Address(apiClient,
+		networkDomainID,
+		*server.Network.PrimaryAdapter.PrivateIPv4Address,
+	)
+	if err != nil {
+		return err
+	}
+	if !isEmpty(publicIPv4Address) {
+		data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
+	} else {
+		data.Set(resourceKeyServerPublicIPv4, nil)
+	}
+
+	data.SetPartial(resourceKeyServerPublicIPv4)
+
 	err = applyServerTags(data, apiClient)
 	if err != nil {
 		return err
@@ -297,6 +319,20 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
 
 	captureServerNetworkConfiguration(server, data, false)
+
+	var publicIPv4Address string
+	publicIPv4Address, err = findPublicIPv4Address(apiClient,
+		networkDomainID,
+		*server.Network.PrimaryAdapter.PrivateIPv4Address,
+	)
+	if err != nil {
+		return err
+	}
+	if !isEmpty(publicIPv4Address) {
+		data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
+	} else {
+		data.Set(resourceKeyServerPublicIPv4, nil)
+	}
 
 	err = readServerTags(data, apiClient)
 	if err != nil {
@@ -383,6 +419,20 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		if data.HasChange(resourceKeyServerPrimaryIPv6) {
 			data.SetPartial(resourceKeyServerPrimaryIPv6)
 		}
+
+		var publicIPv4Address string
+		publicIPv4Address, err = findPublicIPv4Address(apiClient,
+			server.Network.NetworkDomainID,
+			*server.Network.PrimaryAdapter.PrivateIPv4Address,
+		)
+		if err != nil {
+			return err
+		}
+		if !isEmpty(publicIPv4Address) {
+			data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
+		} else {
+			data.Set(resourceKeyServerPublicIPv4, nil)
+		}
 	}
 
 	if data.HasChange(resourceKeyServerTag) {
@@ -450,4 +500,28 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	}
 
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
+}
+
+func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, privateIPv4Address string) (publicIPv4Address string, err error) {
+	page := compute.DefaultPaging()
+	for {
+		var natRules *compute.NATRules
+		natRules, err = apiClient.ListNATRules(networkDomainID, page)
+		if err != nil {
+			return
+		}
+		if natRules.IsEmpty() {
+			break // We're done
+		}
+
+		for _, natRule := range natRules.Rules {
+			if natRule.InternalIPAddress == privateIPv4Address {
+				return natRule.ExternalIPAddress, nil
+			}
+		}
+
+		page.Next()
+	}
+
+	return
 }
