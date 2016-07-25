@@ -20,6 +20,7 @@ const (
 	resourceKeyServerPrimaryVLAN     = "primary_adapter_vlan"
 	resourceKeyServerPrimaryIPv4     = "primary_adapter_ipv4"
 	resourceKeyServerPrimaryIPv6     = "primary_adapter_ipv6"
+	resourceKeyServerPublicIPv4      = "public_ipv4"
 	resourceKeyServerPrimaryDNS      = "dns_primary"
 	resourceKeyServerSecondaryDNS    = "dns_secondary"
 	resourceKeyServerAutoStart       = "auto_start"
@@ -80,6 +81,11 @@ func resourceServer() *schema.Resource {
 				Type:     schema.TypeString,
 				ForceNew: true,
 				Optional: true,
+				Computed: true,
+				Default:  nil,
+			},
+			resourceKeyServerPublicIPv4: &schema.Schema{
+				Type:     schema.TypeString,
 				Computed: true,
 				Default:  nil,
 			},
@@ -158,9 +164,15 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	var osImage *compute.OSImage
 	if osImageID != nil {
-		// TODO: Look up OS image by Id (first, implement in compute API client).
+		log.Printf("Looking up OS image '%s' by Id...", *osImageID)
 
-		return fmt.Errorf("Specifying osimage_id is not supported yet.")
+		osImage, err = apiClient.GetOSImage(*osImageID)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').", osImage.Name, osImage.ID)
+		data.Set(resourceKeyServerOSImageName, osImage.Name)
 	} else if osImageName != nil {
 		log.Printf("Looking up OS image '%s' by name...", *osImageName)
 
@@ -175,7 +187,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 			return fmt.Errorf("Unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *osImageName, dataCenterID, networkDomainID)
 		}
 
-		log.Printf("Server will be deployed from OS image with Id '%s'.", osImage.ID)
+		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').", osImage.Name, osImage.ID)
 		data.Set(resourceKeyServerOSImageID, osImage.ID)
 	} else {
 		return fmt.Errorf("Must specify either osimage_id or osimage_name.")
@@ -244,6 +256,22 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	data.Partial(true)
 
+	var publicIPv4Address string
+	publicIPv4Address, err = findPublicIPv4Address(apiClient,
+		networkDomainID,
+		*server.Network.PrimaryAdapter.PrivateIPv4Address,
+	)
+	if err != nil {
+		return err
+	}
+	if !isEmpty(publicIPv4Address) {
+		data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
+	} else {
+		data.Set(resourceKeyServerPublicIPv4, nil)
+	}
+
+	data.SetPartial(resourceKeyServerPublicIPv4)
+
 	err = applyServerTags(data, apiClient)
 	if err != nil {
 		return err
@@ -291,6 +319,20 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
 
 	captureServerNetworkConfiguration(server, data, false)
+
+	var publicIPv4Address string
+	publicIPv4Address, err = findPublicIPv4Address(apiClient,
+		networkDomainID,
+		*server.Network.PrimaryAdapter.PrivateIPv4Address,
+	)
+	if err != nil {
+		return err
+	}
+	if !isEmpty(publicIPv4Address) {
+		data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
+	} else {
+		data.Set(resourceKeyServerPublicIPv4, nil)
+	}
 
 	err = readServerTags(data, apiClient)
 	if err != nil {
@@ -377,6 +419,20 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		if data.HasChange(resourceKeyServerPrimaryIPv6) {
 			data.SetPartial(resourceKeyServerPrimaryIPv6)
 		}
+
+		var publicIPv4Address string
+		publicIPv4Address, err = findPublicIPv4Address(apiClient,
+			server.Network.NetworkDomainID,
+			*server.Network.PrimaryAdapter.PrivateIPv4Address,
+		)
+		if err != nil {
+			return err
+		}
+		if !isEmpty(publicIPv4Address) {
+			data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
+		} else {
+			data.Set(resourceKeyServerPublicIPv4, nil)
+		}
 	}
 
 	if data.HasChange(resourceKeyServerTag) {
@@ -444,4 +500,28 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	}
 
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
+}
+
+func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, privateIPv4Address string) (publicIPv4Address string, err error) {
+	page := compute.DefaultPaging()
+	for {
+		var natRules *compute.NATRules
+		natRules, err = apiClient.ListNATRules(networkDomainID, page)
+		if err != nil {
+			return
+		}
+		if natRules.IsEmpty() {
+			break // We're done
+		}
+
+		for _, natRule := range natRules.Rules {
+			if natRule.InternalIPAddress == privateIPv4Address {
+				return natRule.ExternalIPAddress, nil
+			}
+		}
+
+		page.Next()
+	}
+
+	return
 }

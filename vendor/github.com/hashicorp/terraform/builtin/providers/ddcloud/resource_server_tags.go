@@ -35,16 +35,21 @@ func schemaServerTag() *schema.Schema {
 
 // Apply configured tags to a server.
 func applyServerTags(data *schema.ResourceData, apiClient *compute.Client) error {
-	propertyHelper := propertyHelper(data)
+	var (
+		response *compute.APIResponseV2
+		err      error
+	)
 
 	serverID := data.Id()
 
 	log.Printf("Configuring tags for server '%s'...", serverID)
 
+	propertyHelper := propertyHelper(data)
 	configuredTags := propertyHelper.GetTags(resourceKeyServerTag)
 
 	// TODO: Support multiple pages of results.
-	serverTags, err := apiClient.GetAssetTags(serverID, compute.AssetTypeServer, nil)
+	var serverTags *compute.TagDetails
+	serverTags, err = apiClient.GetAssetTags(serverID, compute.AssetTypeServer, nil)
 	if err != nil {
 		return err
 	}
@@ -60,15 +65,19 @@ func applyServerTags(data *schema.ResourceData, apiClient *compute.Client) error
 		unusedTags.Remove(tag.Name)
 	}
 
-	log.Printf("Applying %d tags to server '%s'...", len(configuredTags), serverID)
+	if len(configuredTags) > 0 {
+		log.Printf("Applying %d tags to server '%s'...", len(configuredTags), serverID)
 
-	response, err := apiClient.ApplyAssetTags(serverID, compute.AssetTypeServer, configuredTags...)
-	if err != nil {
-		return err
-	}
+		response, err = apiClient.ApplyAssetTags(serverID, compute.AssetTypeServer, configuredTags...)
+		if err != nil {
+			return err
+		}
 
-	if response.ResponseCode != compute.ResponseCodeOK {
-		return response.ToError("Failed to apply %d tags to server '%s' (response code '%s'): %s", len(configuredTags), serverID, response.ResponseCode, response.Message)
+		if response.ResponseCode != compute.ResponseCodeOK {
+			return response.ToError("Failed to apply %d tags to server '%s' (response code '%s'): %s", len(configuredTags), serverID, response.ResponseCode, response.Message)
+		}
+	} else {
+		log.Printf("No tags need to be added to server '%s'.", serverID)
 	}
 
 	// Trim unused tags (currently-configured tags will overwrite any existing values).

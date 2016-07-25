@@ -29,3 +29,6 @@ _testmain.go
 
 # Version info
 version-info.go
+
+# Test logs
+AccTest.log

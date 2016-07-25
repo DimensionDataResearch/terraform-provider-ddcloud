@@ -30,7 +30,12 @@ test: fmt
 
 # Run acceptance tests.
 testacc: fmt
-	TF_ACC=1 go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform -timeout 120m
+	rm -f "${PWD}/AccTest.log"
+	TF_ACC=1 TF_LOG=DEBUG TF_LOG_PATH="${PWD}/AccTest.log" \
+		go test -v \
+		./vendor/github.com/hashicorp/terraform/builtin/providers/ddcloud \
+		-timeout 120m \
+		-run=TestAcc${TEST}
 
 version:
 	echo "package main\n\n// ProviderVersion is the current version of the ddcloud terraform provider.\nconst ProviderVersion = \"v0.2 (`git rev-parse HEAD`)\"" > ./version-info.go

@@ -3,6 +3,7 @@ package ddcloud
 import (
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
+	"strings"
 )
 
 // resourcePropertyHelper provides commonly-used functionality for working with Terraform's schema.ResourceData.
@@ -142,4 +143,10 @@ func (helper resourcePropertyHelper) SetServerDisks(disks []compute.VirtualMachi
 		})
 	}
 	helper.data.Set(resourceKeyServerDisk, diskProperties)
+}
+
+func normalizeSpeed(value interface{}) string {
+	speed := value.(string)
+
+	return strings.ToUpper(speed)
 }
