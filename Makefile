@@ -33,7 +33,7 @@ testacc: fmt
 	rm -f "${PWD}/AccTest.log"
 	TF_ACC=1 TF_LOG=DEBUG TF_LOG_PATH="${PWD}/AccTest.log" \
 		go test -v \
-		./vendor/github.com/hashicorp/terraform/builtin/providers/ddcloud \
+		github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/ddcloud \
 		-timeout 120m \
 		-run=TestAcc${TEST}
 

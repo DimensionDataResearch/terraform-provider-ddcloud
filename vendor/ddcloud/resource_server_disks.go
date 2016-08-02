@@ -17,7 +17,7 @@ const (
 
 func schemaServerDisk() *schema.Schema {
 	return &schema.Schema{
-		Type:     schema.TypeSet,
+		Type:     schema.TypeList,
 		Optional: true,
 		Computed: true,
 		Default:  nil,
@@ -43,7 +43,6 @@ func schemaServerDisk() *schema.Schema {
 				},
 			},
 		},
-		Set: hashDiskUnitID,
 	}
 }
 
@@ -246,10 +245,11 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 
 	actualDisksByUnitID := getDisksByUnitID(server.Disks)
 	for _, configuredDisk := range configuredDisks {
+		actualDisk, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
+
 		// We don't want to see this disk when we're looking for disks that don't appear in the configuration.
 		delete(actualDisksByUnitID, configuredDisk.SCSIUnitID)
 
-		actualDisk, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
 		if ok {
 
 			diskID := *actualDisk.ID

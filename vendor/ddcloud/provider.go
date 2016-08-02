@@ -13,8 +13,6 @@ import (
 
 // Provider creates the Dimension Data Cloud resource provider.
 func Provider() terraform.ResourceProvider {
-	// TODO: Define schema and resources.
-
 	return &schema.Provider{
 		// Provider settings schema
 		Schema: map[string]*schema.Schema{

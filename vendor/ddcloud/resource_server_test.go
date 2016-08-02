@@ -308,6 +308,42 @@ func TestAccServerImageDisk1ResizeCreate(t *testing.T) {
 
 // Acceptance test for ddcloud_server (1 additional disk):
 //
+// Create a server with a single image disk, then update it and verify that the image disk is resized.
+func TestAccServerImageDisk1ResizeUpdate(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		CheckDestroy: resource.ComposeTestCheckFunc(
+			testCheckDDCloudServerDestroy,
+			testCheckDDCloudVLANDestroy,
+			testCheckDDCloudNetworkDomainDestroy,
+		),
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccDDCloudServerImageDisk1(10, "STANDARD"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						testImageDiskCentOS7(10, "STANDARD"),
+					),
+				),
+			},
+			resource.TestStep{
+				Config: testAccDDCloudServerImageDisk1(15, "STANDARD"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						testImageDiskCentOS7(15, "STANDARD"),
+					),
+				),
+			},
+		},
+	})
+}
+
+// TODO: TestAccServerAdditionalDisk1RemoveUpdate
+
+// Acceptance test for ddcloud_server (1 additional disk):
+//
 // Create a server with a single additional disk and verify that it gets created with the correct configuration.
 func TestAccServerAdditionalDisk1Create(t *testing.T) {
 	resource.Test(t, resource.TestCase{
@@ -505,7 +541,7 @@ func testCheckDDCloudServerDiskMatches(name string, expected ...compute.VirtualM
 				))
 			}
 
-			if actualDisk.SizeGB != expectedDisk.SizeGB {
+			if actualDisk.Speed != expectedDisk.Speed {
 				validationMessages = append(validationMessages, fmt.Sprintf(
 					"server disk '%s' with SCSI unit ID %d has speed '%s' (expected '%s').",
 					*actualDisk.ID,

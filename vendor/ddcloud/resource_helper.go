@@ -98,7 +98,7 @@ func (helper resourcePropertyHelper) GetServerDisks() (disks []compute.VirtualMa
 	if !ok {
 		return
 	}
-	serverDisks := value.(*schema.Set).List()
+	serverDisks := value.([]interface{})
 
 	disks = make([]compute.VirtualMachineDisk, len(serverDisks))
 	for index, item := range serverDisks {
@@ -142,7 +142,7 @@ func (helper resourcePropertyHelper) SetServerDisks(disks []compute.VirtualMachi
 			resourceKeyServerDiskSpeed:  disk.Speed,
 		})
 	}
-	helper.data.Set(resourceKeyServerDisk, diskProperties)
+	helper.data.Set(resourceKeyServerDisk, diskProperties.List())
 }
 
 func normalizeSpeed(value interface{}) string {
