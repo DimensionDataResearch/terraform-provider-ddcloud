@@ -9,25 +9,27 @@ import (
 )
 
 const (
-	resourceKeyServerName            = "name"
-	resourceKeyServerDescription     = "description"
-	resourceKeyServerAdminPassword   = "admin_password"
-	resourceKeyServerNetworkDomainID = "networkdomain"
-	resourceKeyServerMemoryGB        = "memory_gb"
-	resourceKeyServerCPUCount        = "cpu_count"
-	resourceKeyServerOSImageID       = "osimage_id"
-	resourceKeyServerOSImageName     = "osimage_name"
-	resourceKeyServerPrimaryVLAN     = "primary_adapter_vlan"
-	resourceKeyServerPrimaryIPv4     = "primary_adapter_ipv4"
-	resourceKeyServerPrimaryIPv6     = "primary_adapter_ipv6"
-	resourceKeyServerPublicIPv4      = "public_ipv4"
-	resourceKeyServerPrimaryDNS      = "dns_primary"
-	resourceKeyServerSecondaryDNS    = "dns_secondary"
-	resourceKeyServerAutoStart       = "auto_start"
-	resourceCreateTimeoutServer      = 30 * time.Minute
-	resourceUpdateTimeoutServer      = 10 * time.Minute
-	resourceDeleteTimeoutServer      = 15 * time.Minute
-	serverShutdownTimeout            = 5 * time.Minute
+	resourceKeyServerName              = "name"
+	resourceKeyServerDescription       = "description"
+	resourceKeyServerAdminPassword     = "admin_password"
+	resourceKeyServerNetworkDomainID   = "networkdomain"
+	resourceKeyServerMemoryGB          = "memory_gb"
+	resourceKeyServerCPUCount          = "cpu_count"
+	resourceKeyServerOSImageID         = "os_image_id"
+	resourceKeyServerOSImageName       = "os_image_name"
+	resourceKeyServerCustomerImageID   = "customer_image_id"
+	resourceKeyServerCustomerImageName = "customer_image_name"
+	resourceKeyServerPrimaryVLAN       = "primary_adapter_vlan"
+	resourceKeyServerPrimaryIPv4       = "primary_adapter_ipv4"
+	resourceKeyServerPrimaryIPv6       = "primary_adapter_ipv6"
+	resourceKeyServerPublicIPv4        = "public_ipv4"
+	resourceKeyServerPrimaryDNS        = "dns_primary"
+	resourceKeyServerSecondaryDNS      = "dns_secondary"
+	resourceKeyServerAutoStart         = "auto_start"
+	resourceCreateTimeoutServer        = 30 * time.Minute
+	resourceUpdateTimeoutServer        = 10 * time.Minute
+	resourceDeleteTimeoutServer        = 15 * time.Minute
+	serverShutdownTimeout              = 5 * time.Minute
 )
 
 func resourceServer() *schema.Resource {
@@ -119,6 +121,20 @@ func resourceServer() *schema.Resource {
 				Computed: true,
 				Default:  nil,
 			},
+			resourceKeyServerCustomerImageID: &schema.Schema{
+				Type:     schema.TypeString,
+				ForceNew: true,
+				Optional: true,
+				Computed: true,
+				Default:  nil,
+			},
+			resourceKeyServerCustomerImageName: &schema.Schema{
+				Type:     schema.TypeString,
+				ForceNew: true,
+				Optional: true,
+				Computed: true,
+				Default:  nil,
+			},
 			resourceKeyServerAutoStart: &schema.Schema{
 				Type:     schema.TypeBool,
 				ForceNew: true,
@@ -156,13 +172,25 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	dataCenterID := networkDomain.DatacenterID
 	log.Printf("Server will be deployed in data centre '%s'.", dataCenterID)
 
+	deploymentConfiguration := compute.ServerDeploymentConfiguration{
+		Name:                  name,
+		Description:           description,
+		AdministratorPassword: adminPassword,
+		Start: autoStart,
+	}
+
 	propertyHelper := propertyHelper(data)
 
 	// Retrieve image details.
 	osImageID := propertyHelper.GetOptionalString(resourceKeyServerOSImageID, false)
 	osImageName := propertyHelper.GetOptionalString(resourceKeyServerOSImageName, false)
+	customerImageID := propertyHelper.GetOptionalString(resourceKeyServerCustomerImageID, false)
+	customerImageName := propertyHelper.GetOptionalString(resourceKeyServerCustomerImageName, false)
 
-	var osImage *compute.OSImage
+	var (
+		osImage       *compute.OSImage
+		customerImage *compute.CustomerImage
+	)
 	if osImageID != nil {
 		log.Printf("Looking up OS image '%s' by Id...", *osImageID)
 
@@ -189,19 +217,46 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').", osImage.Name, osImage.ID)
 		data.Set(resourceKeyServerOSImageID, osImage.ID)
-	} else {
-		return fmt.Errorf("Must specify either osimage_id or osimage_name.")
+	} else if customerImageID != nil {
+		log.Printf("Looking up customer image '%s' by Id...", *customerImageID)
+
+		customerImage, err = apiClient.GetCustomerImage(*customerImageID)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Server will be deployed from customer image named '%s' (Id = '%s').", customerImage.Name, customerImage.ID)
+		data.Set(resourceKeyServerOSImageName, osImage.Name)
+	} else if customerImageName != nil {
+		log.Printf("Looking up customer image '%s' by name...", *customerImageName)
+
+		osImage, err = apiClient.FindOSImage(*customerImageName, dataCenterID)
+		if err != nil {
+			return err
+		}
+
+		if osImage == nil {
+			log.Printf("Warning - unable to find a customer image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *customerImageName, dataCenterID, networkDomainID)
+
+			return fmt.Errorf("Unable to find a customer image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *customerImageName, dataCenterID, networkDomainID)
+		}
+
+		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').", osImage.Name, osImage.ID)
+		data.Set(resourceKeyServerOSImageID, osImage.ID)
 	}
 
-	deploymentConfiguration := compute.ServerDeploymentConfiguration{
-		Name:                  name,
-		Description:           description,
-		AdministratorPassword: adminPassword,
-		Start: autoStart,
-	}
-	err = deploymentConfiguration.ApplyImage(osImage)
-	if err != nil {
-		return err
+	if osImage != nil {
+		err = deploymentConfiguration.ApplyOSImage(osImage)
+		if err != nil {
+			return err
+		}
+	} else if customerImage != nil {
+		err = deploymentConfiguration.ApplyCustomerImage(customerImage)
+		if err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("Must specify either os_image_id, os_image_name, customer_image_id, or customer_image_name.")
 	}
 
 	// Memory and CPU

@@ -50,7 +50,7 @@ func testAccDDCloudServerBasic(name string, description string, primaryIPv4Addre
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
 
-			osimage_name		 = "CentOS 7 64-bit 2 CPU"
+			os_image_name		 = "CentOS 7 64-bit 2 CPU"
 
 			auto_start			 = false
 
@@ -101,7 +101,7 @@ func testAccDDCloudServerImageDisk1(sizeGB int, speed string) string {
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
 
-			osimage_name		 = "CentOS 7 64-bit 2 CPU"
+			os_image_name		 = "CentOS 7 64-bit 2 CPU"
 
 			auto_start			 = false
 
@@ -152,7 +152,7 @@ func testAccDDCloudServerAdditionalDisk1(scsiUnitID int, sizeGB int, speed strin
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
 
-			osimage_name		 = "CentOS 7 64-bit 2 CPU"
+			os_image_name		 = "CentOS 7 64-bit 2 CPU"
 
 			auto_start			 = false
 
@@ -221,7 +221,7 @@ func testAccDDCloudServerTag(tags map[string]string) string {
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
 
-			osimage_name		 = "CentOS 7 64-bit 2 CPU"
+			os_image_name		 = "CentOS 7 64-bit 2 CPU"
 
 			# Image disk
 			disk {
