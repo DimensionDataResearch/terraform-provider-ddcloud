@@ -1,6 +1,7 @@
 package ddcloud
 
 import (
+	"fmt"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"log"
@@ -132,10 +133,20 @@ func readServerTags(data *schema.ResourceData, apiClient *compute.Client) error 
 	return nil
 }
 
-func hashServerTag(item interface{}) int {
+func hashServerTagName(item interface{}) int {
 	tagData := item.(map[string]interface{})
 
 	return schema.HashString(
 		tagData[resourceKeyServerTagName].(string),
 	)
+}
+
+func hashServerTag(item interface{}) int {
+	tagData := item.(map[string]interface{})
+
+	return schema.HashString(fmt.Sprintf(
+		"%s=%s",
+		tagData[resourceKeyServerTagName].(string),
+		tagData[resourceKeyServerTagValue].(string),
+	))
 }

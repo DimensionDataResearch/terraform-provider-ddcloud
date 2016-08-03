@@ -65,12 +65,12 @@ func (helper resourcePropertyHelper) GetTags(key string) (tags []compute.Tag) {
 		tagProperties := item.(map[string]interface{})
 		tag := &compute.Tag{}
 
-		value, ok = tagProperties[resourceKeyServerTagName] // TODO: Move this out of servers.
+		value, ok = tagProperties[resourceKeyServerTagName]
 		if ok {
 			tag.Name = value.(string)
 		}
 
-		value, ok = tagProperties[resourceKeyServerTagValue] // TODO: Move this out of servers.
+		value, ok = tagProperties[resourceKeyServerTagValue]
 		if ok {
 			tag.Value = value.(string)
 		}
@@ -98,7 +98,7 @@ func (helper resourcePropertyHelper) GetServerDisks() (disks []compute.VirtualMa
 	if !ok {
 		return
 	}
-	serverDisks := value.([]interface{})
+	serverDisks := value.(*schema.Set).List()
 
 	disks = make([]compute.VirtualMachineDisk, len(serverDisks))
 	for index, item := range serverDisks {
@@ -132,7 +132,7 @@ func (helper resourcePropertyHelper) GetServerDisks() (disks []compute.VirtualMa
 }
 
 func (helper resourcePropertyHelper) SetServerDisks(disks []compute.VirtualMachineDisk) {
-	diskProperties := &schema.Set{F: hashDiskUnitID}
+	diskProperties := &schema.Set{F: hashDisk}
 
 	for _, disk := range disks {
 		diskProperties.Add(map[string]interface{}{
@@ -142,7 +142,7 @@ func (helper resourcePropertyHelper) SetServerDisks(disks []compute.VirtualMachi
 			resourceKeyServerDiskSpeed:  disk.Speed,
 		})
 	}
-	helper.data.Set(resourceKeyServerDisk, diskProperties.List())
+	helper.data.Set(resourceKeyServerDisk, diskProperties)
 }
 
 func normalizeSpeed(value interface{}) string {

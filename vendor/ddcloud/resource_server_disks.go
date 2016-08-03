@@ -17,7 +17,7 @@ const (
 
 func schemaServerDisk() *schema.Schema {
 	return &schema.Schema{
-		Type:     schema.TypeList,
+		Type:     schema.TypeSet,
 		Optional: true,
 		Computed: true,
 		Default:  nil,
@@ -43,6 +43,7 @@ func schemaServerDisk() *schema.Schema {
 				},
 			},
 		},
+		Set: hashDisk,
 	}
 }
 
@@ -405,4 +406,25 @@ func hashDiskUnitID(item interface{}) int {
 	diskData := item.(map[string]interface{})
 
 	return diskData[resourceKeyServerDiskUnitID].(int)
+}
+
+func hashDisk(item interface{}) int {
+	disk, ok := item.(compute.VirtualMachineDisk)
+	if ok {
+		return schema.HashString(fmt.Sprintf(
+			"%d/%d/%s",
+			disk.SCSIUnitID,
+			disk.SizeGB,
+			disk.Speed,
+		))
+	}
+
+	diskData := item.(map[string]interface{})
+
+	return schema.HashString(fmt.Sprintf(
+		"%d/%d/%s",
+		diskData[resourceKeyServerDiskUnitID].(int),
+		diskData[resourceKeyServerDiskSizeGB].(int),
+		diskData[resourceKeyServerDiskSpeed].(string),
+	))
 }

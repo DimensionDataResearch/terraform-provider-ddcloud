@@ -401,6 +401,48 @@ func TestAccServerTagCreate(t *testing.T) {
 	})
 }
 
+// Acceptance test for ddcloud_server (tags):
+//
+// Create a server with 2 tags and verify that it gets created with the correct tags.
+func TestAccServerTagUpdate(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		CheckDestroy: resource.ComposeTestCheckFunc(
+			testCheckDDCloudServerDestroy,
+			testCheckDDCloudVLANDestroy,
+			testCheckDDCloudNetworkDomainDestroy,
+		),
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccDDCloudServerTag(map[string]string{
+					"role":      "hello world",
+					"consul_dc": "goodbye moon",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerTagMatches("ddcloud_server.acc_test_server", map[string]string{
+						"role":      "hello world",
+						"consul_dc": "goodbye moon",
+					}),
+				),
+			},
+			resource.TestStep{
+				Config: testAccDDCloudServerTag(map[string]string{
+					"role":      "greetings, earth",
+					"consul_dc": "farewell, luna",
+				}),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerTagMatches("ddcloud_server.acc_test_server", map[string]string{
+						"role":      "greetings, earth",
+						"consul_dc": "farewell, luna",
+					}),
+				),
+			},
+		},
+	})
+}
+
 /*
  * Acceptance-test checks.
  */

@@ -2,7 +2,9 @@
 
 ## v.04
 
-* **BREAKING CHANGE**: `ddcloud_server` `disk` is now a list not a set.
+Fixes:
+
+* Changes to `ddcloud_server.tag` and `ddcloud_server.disk` are now correctly detected.
 
 ## v0.3
 
