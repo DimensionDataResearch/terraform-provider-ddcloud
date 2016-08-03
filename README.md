@@ -9,7 +9,13 @@ Currently, the following resource types are supported:
 * `ddcloud_nat`: A NAT rule (forwards traffic from a public IPv4 address to a server's internal IPv4 address)
 * `ddcloud_firewall_rule`: A firewall rule
 
-To get started:
+## Installing the provider
+
+Download the [latest release](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/releases) and place the provider executable in the same directory as the main Terraform executable.
+
+## Building the provider yourself
+
+If you want to build the provider yourself instead of installing a pre-built release:
 
 * On windows, run `./build.ps1`, then create / update `$HOME\terraform.rc`
 * On Linux / OSX, run `./build.sh`, create / update `~/.terraformrc`
@@ -22,7 +28,9 @@ providers {
 }
 ```
 
-To test it out, create a folder containing a single `.tf` file:
+## Testing the provider
+
+Create a folder containing a single `.tf` file:
 
 ```hcl
 /*
