@@ -7,8 +7,10 @@ import (
 	"github.com/hashicorp/terraform/terraform"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Provider creates the Dimension Data Cloud resource provider.
@@ -90,6 +92,18 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	}
 
 	client = compute.NewClient(region, username, password)
+
+	// Configure retry, if required.
+	maxRetryCount, err := strconv.Atoi(os.Getenv("DD_COMPUTE_MAX_RETRY"))
+	if err == nil {
+		retryDelay, err := strconv.Atoi(os.Getenv("DD_COMPUTE_RETRY_DELAY"))
+		if err != nil {
+			retryDelay = 10
+		}
+
+		client.ConfigureRetry(maxRetryCount, time.Duration(retryDelay)*time.Second)
+	}
+
 	provider = newProvider(client)
 
 	return provider, nil
