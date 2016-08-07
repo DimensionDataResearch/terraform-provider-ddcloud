@@ -60,6 +60,19 @@ func resourceVIPNode() *schema.Resource {
 				Type:     schema.TypeString,
 				Optional: true,
 				Default:  compute.VIPNodeStatusEnabled,
+				ValidateFunc: func(data interface{}, fieldName string) (messages []string, errors []error) {
+					status := data.(string)
+					switch status {
+					case compute.VIPNodeStatusEnabled:
+					case compute.VIPNodeStatusDisabled:
+					case compute.VIPNodeStatusForcedOffline:
+						return
+					default:
+						errors = append(errors, fmt.Errorf("Invalid VIP node status '%s'.", status))
+					}
+
+					return
+				},
 			},
 			resourceKeyVIPNodeHealthMonitorID: &schema.Schema{
 				Type:     schema.TypeString,
@@ -69,7 +82,7 @@ func resourceVIPNode() *schema.Resource {
 			resourceKeyVIPNodeConnectionLimit: &schema.Schema{
 				Type:     schema.TypeInt,
 				Optional: true,
-				Default:  10,
+				Default:  20000,
 				ValidateFunc: func(data interface{}, fieldName string) (messages []string, errors []error) {
 					connectionRate := data.(int)
 					if connectionRate > 0 {
@@ -86,7 +99,7 @@ func resourceVIPNode() *schema.Resource {
 			resourceKeyVIPNodeConnectionRateLimit: &schema.Schema{
 				Type:     schema.TypeInt,
 				Optional: true,
-				Default:  10,
+				Default:  2000,
 				ValidateFunc: func(data interface{}, fieldName string) (messages []string, errors []error) {
 					connectionRate := data.(int)
 					if connectionRate > 0 {
@@ -140,7 +153,11 @@ func resourceVIPNodeCreate(data *schema.ResourceData, provider interface{}) erro
 		return fmt.Errorf("Cannot find newly-added VIP node '%s'.", vipNodeID)
 	}
 
+	data.Set(resourceKeyVIPNodeDescription, vipNode.Description)
 	data.Set(resourceKeyVIPNodeStatus, vipNode.Status)
+	data.Set(resourceKeyVIPNodeHealthMonitorID, vipNode.HealthMonitorID)
+	data.Set(resourceKeyVIPNodeConnectionLimit, vipNode.ConnectionLimit)
+	data.Set(resourceKeyVIPNodeConnectionRateLimit, vipNode.ConnectionRateLimit)
 
 	return nil
 }
@@ -183,48 +200,42 @@ func resourceVIPNodeRead(data *schema.ResourceData, provider interface{}) error 
 		return nil
 	}
 
+	data.Set(resourceKeyVIPNodeStatus, vipNode.Status)
+
 	return nil
 }
 
 func resourceVIPNodeUpdate(data *schema.ResourceData, provider interface{}) error {
-	var description, status, healthMonitorID *string
-	var connectionLimit, connectionRateLimit *int
-
 	id := data.Id()
 	log.Printf("Update VIP node '%s'...", id)
 
-	propertyHelper := propertyHelper(data)
+	configuration := &compute.EditVIPNodeConfiguration{}
 
+	propertyHelper := propertyHelper(data)
 	if data.HasChange(resourceKeyVIPNodeDescription) {
-		description = propertyHelper.GetOptionalString(resourceKeyVIPNodeDescription, true)
+		configuration.Description = propertyHelper.GetOptionalString(resourceKeyVIPNodeDescription, true)
 	}
 
 	if data.HasChange(resourceKeyVIPNodeStatus) {
-		status = propertyHelper.GetOptionalString(resourceKeyVIPNodeStatus, false)
+		configuration.Status = propertyHelper.GetOptionalString(resourceKeyVIPNodeStatus, false)
 	}
 
 	if data.HasChange(resourceKeyVIPNodeHealthMonitorID) {
-		healthMonitorID = propertyHelper.GetOptionalString(resourceKeyVIPNodeHealthMonitorID, true)
+		configuration.HealthMonitorID = propertyHelper.GetOptionalString(resourceKeyVIPNodeHealthMonitorID, true)
 	}
 
 	if data.HasChange(resourceKeyVIPNodeConnectionLimit) {
-		connectionLimit = propertyHelper.GetOptionalInt(resourceKeyVIPNodeConnectionLimit, false)
+		configuration.ConnectionLimit = propertyHelper.GetOptionalInt(resourceKeyVIPNodeConnectionLimit, false)
 	}
 
 	if data.HasChange(resourceKeyVIPNodeHealthMonitorID) {
-		connectionRateLimit = propertyHelper.GetOptionalInt(resourceKeyVIPNodeConnectionRateLimit, false)
+		configuration.ConnectionRateLimit = propertyHelper.GetOptionalInt(resourceKeyVIPNodeConnectionRateLimit, false)
 	}
 
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	return apiClient.EditVIPNode(id, compute.EditVIPNodeConfiguration{
-		Description:         description,
-		Status:              status,
-		HealthMonitorID:     healthMonitorID,
-		ConnectionLimit:     connectionLimit,
-		ConnectionRateLimit: connectionRateLimit,
-	})
+	return apiClient.EditVIPNode(id, *configuration)
 }
 
 func resourceVIPNodeDelete(data *schema.ResourceData, provider interface{}) error {
