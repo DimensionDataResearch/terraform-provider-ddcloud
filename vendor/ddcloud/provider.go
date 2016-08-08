@@ -57,6 +57,9 @@ func Provider() terraform.ResourceProvider {
 
 			// A VIP node.
 			"ddcloud_vip_node": resourceVIPNode(),
+
+			// A VIP pool.
+			"ddcloud_vip_pool": resourceVIPPool(),
 		},
 
 		// Provider configuration

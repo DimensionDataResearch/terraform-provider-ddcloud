@@ -49,6 +49,32 @@ func (helper resourcePropertyHelper) GetOptionalBool(key string) *bool {
 	}
 }
 
+func (helper resourcePropertyHelper) GetStringSetItems(key string) (items []string) {
+	value, ok := helper.data.GetOk(key)
+	if !ok || value == nil {
+		return
+	}
+
+	rawItems := value.([]interface{})
+	items = make([]string, len(rawItems))
+	for index, item := range rawItems {
+		rawItems[index] = item.(string)
+	}
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetStringSetItems(key string, items []string) error {
+	rawItems := make([]interface{}, len(items))
+	for index, item := range items {
+		rawItems[index] = item
+	}
+
+	return helper.data.Set(key,
+		schema.NewSet(schema.HashString, rawItems),
+	)
+}
+
 func (helper resourcePropertyHelper) SetPartial(key string) {
 	helper.data.SetPartial(key)
 }

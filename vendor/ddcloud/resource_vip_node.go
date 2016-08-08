@@ -5,7 +5,6 @@ import (
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"log"
-	"time"
 )
 
 const (
@@ -18,8 +17,6 @@ const (
 	resourceKeyVIPNodeConnectionLimit     = "connection_limit"
 	resourceKeyVIPNodeConnectionRateLimit = "connection_rate_limit"
 	resourceKeyVIPNodeNetworkDomainID     = "networkdomain"
-	resourceCreateTimeoutVIPNode          = 3 * time.Minute
-	resourceDeleteTimeoutVIPNode          = 3 * time.Minute
 )
 
 func resourceVIPNode() *schema.Resource {
@@ -34,6 +31,7 @@ func resourceVIPNode() *schema.Resource {
 			resourceKeyVIPNodeName: &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 			resourceKeyVIPNodeDescription: &schema.Schema{
 				Type:     schema.TypeString,
@@ -113,6 +111,11 @@ func resourceVIPNode() *schema.Resource {
 					return
 				},
 			},
+			resourceKeyVIPNodeNetworkDomainID: &schema.Schema{
+				Type:     schema.TypeString,
+				Required: true,
+				ForceNew: true,
+			},
 		},
 	}
 }
@@ -129,6 +132,7 @@ func resourceVIPNodeCreate(data *schema.ResourceData, provider interface{}) erro
 	vipNodeID, err := apiClient.CreateVIPNode(compute.NewVIPNodeConfiguration{
 		Name:                name,
 		Description:         description,
+		Status:              data.Get(resourceKeyVIPNodeStatus).(string),
 		IPv4Address:         data.Get(resourceKeyVIPNodeIPv4Address).(string),
 		IPv6Address:         data.Get(resourceKeyVIPNodeIPv6Address).(string),
 		HealthMonitorID:     data.Get(resourceKeyVIPNodeHealthMonitorID).(string),
@@ -241,12 +245,48 @@ func resourceVIPNodeUpdate(data *schema.ResourceData, provider interface{}) erro
 func resourceVIPNodeDelete(data *schema.ResourceData, provider interface{}) error {
 	id := data.Id()
 	name := data.Get(resourceKeyVIPNodeName).(string)
-	networkDomainID := data.Get(resourceKeyVIPNodeNetworkDomainID)
+	networkDomainID := data.Get(resourceKeyVIPNodeNetworkDomainID).(string)
 
 	log.Printf("Delete VIP node '%s' ('%s') from network domain '%s'...", name, id, networkDomainID)
 
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	return apiClient.DeleteNATRule(id)
+	poolMemberships, err := getVIPNodePoolMemberships(apiClient, id, networkDomainID)
+	if err != nil {
+		return err
+	}
+	for _, membership := range poolMemberships {
+		log.Printf("Removing membership '%s' (pool '%s') for node '%s'...", membership.ID, membership.Pool.ID, id)
+		err = apiClient.RemoveVIPPoolMember(membership.ID)
+		if err != nil {
+			return err
+		}
+		log.Printf("Removed membership '%s' (pool '%s') for node '%s'.", membership.ID, membership.Pool.ID, id)
+	}
+
+	return apiClient.DeleteVIPNode(id)
+}
+
+func getVIPNodePoolMemberships(apiClient *compute.Client, nodeID string, networkDomainID string) (memberships []compute.VIPPoolMember, err error) {
+	page := compute.DefaultPaging()
+	page.PageSize = 50
+	for {
+		var members *compute.VIPPoolMembers
+		members, err = apiClient.ListVIPPoolMembershipsInNetworkDomain(networkDomainID, page)
+		if err != nil {
+			return
+		}
+		if members.IsEmpty() {
+			break // We're done.
+		}
+
+		for _, member := range members.Items {
+			if member.Node.ID == nodeID {
+				memberships = append(memberships, member)
+			}
+		}
+	}
+
+	return
 }
