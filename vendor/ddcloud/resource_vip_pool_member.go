@@ -69,7 +69,6 @@ func resourceVIPPoolMemberCreate(data *schema.ResourceData, provider interface{}
 
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
-	apiClient.Reset() // TODO: Replace call to Reset with appropriate API calls.
 
 	memberID, err := apiClient.AddVIPPoolMember(poolID, nodeID, status, port)
 	if err != nil {
