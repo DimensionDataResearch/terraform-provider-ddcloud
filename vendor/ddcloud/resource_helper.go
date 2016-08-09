@@ -3,6 +3,7 @@ package ddcloud
 import (
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
+	"strconv"
 	"strings"
 )
 
@@ -175,4 +176,12 @@ func normalizeSpeed(value interface{}) string {
 	speed := value.(string)
 
 	return strings.ToUpper(speed)
+}
+
+func normalizeVIPMemberPort(port *int) string {
+	if port != nil {
+		return strconv.Itoa(*port)
+	}
+
+	return "ANY"
 }

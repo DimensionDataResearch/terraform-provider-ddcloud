@@ -145,16 +145,16 @@ func resourceVIPPoolRead(data *schema.ResourceData, provider interface{}) error 
 		return err
 	}
 	if vipPool == nil {
-		data.SetId("") // VIP node has been deleted
+		data.SetId("") // VIP pool has been deleted
 
 		return nil
 	}
 
-	propertyHelper := propertyHelper(data)
-
 	data.Set(resourceKeyVIPPoolName, vipPool.Name)
 	data.Set(resourceKeyVIPPoolDescription, vipPool.Description)
 	data.Set(resourceKeyVIPPoolLoadBalanceMethod, vipPool.LoadBalanceMethod)
+
+	propertyHelper := propertyHelper(data)
 
 	healthMonitorIDs := make([]string, len(vipPool.HealthMonitors))
 	for index, healthMonitor := range vipPool.HealthMonitors {

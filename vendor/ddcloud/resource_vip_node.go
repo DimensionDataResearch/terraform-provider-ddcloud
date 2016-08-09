@@ -55,22 +55,10 @@ func resourceVIPNode() *schema.Resource {
 				},
 			},
 			resourceKeyVIPNodeStatus: &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  compute.VIPNodeStatusEnabled,
-				ValidateFunc: func(data interface{}, fieldName string) (messages []string, errors []error) {
-					status := data.(string)
-					switch status {
-					case compute.VIPNodeStatusEnabled:
-					case compute.VIPNodeStatusDisabled:
-					case compute.VIPNodeStatusForcedOffline:
-						return
-					default:
-						errors = append(errors, fmt.Errorf("Invalid VIP node status '%s'.", status))
-					}
-
-					return
-				},
+				Type:         schema.TypeString,
+				Optional:     true,
+				Default:      compute.VIPNodeStatusEnabled,
+				ValidateFunc: vipStatusValidator("VIP node"),
 			},
 			resourceKeyVIPNodeHealthMonitorID: &schema.Schema{
 				Type:     schema.TypeString,
@@ -286,7 +274,25 @@ func getVIPNodePoolMemberships(apiClient *compute.Client, nodeID string, network
 				memberships = append(memberships, member)
 			}
 		}
+
+		page.Next()
 	}
 
 	return
+}
+
+func vipStatusValidator(targetDescription string) schema.SchemaValidateFunc {
+	return func(data interface{}, fieldName string) (messages []string, errors []error) {
+		status := data.(string)
+		switch status {
+		case compute.VIPNodeStatusEnabled:
+		case compute.VIPNodeStatusDisabled:
+		case compute.VIPNodeStatusForcedOffline:
+			return
+		default:
+			errors = append(errors, fmt.Errorf("Invalid %s status value '%s' for field '%s'.", targetDescription, status, fieldName))
+		}
+
+		return
+	}
 }
