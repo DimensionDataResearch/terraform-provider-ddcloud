@@ -43,90 +43,90 @@ Create a folder containing a single `.tf` file:
  */
 
 provider "ddcloud" {
-	# User name and password can also be specified via DD_COMPUTE_USER and DD_COMPUTE_PASSWORD environment variables.
-	"username"			= "my_username"
-	"password"			= "my_password" # Watch out for escaping if your password contains characters such as "$".
-	"region"			= "AU" # The DD compute region code (e.g. "AU", "NA", "EU")
+  # User name and password can also be specified via DD_COMPUTE_USER and DD_COMPUTE_PASSWORD environment variables.
+  "username"           = "my_username"
+  "password"           = "my_password" # Watch out for escaping if your password contains characters such as "$".
+  "region"             = "AU" # The DD compute region code (e.g. "AU", "NA", "EU")
 }
 
 resource "ddcloud_networkdomain" "my-domain" {
-	name				= "terraform-test-domain"
-	description			= "This is my Terraform test network domain."
-	datacenter			= "AU9" # The ID of the data centre in which to create your network domain.
+  name                 = "terraform-test-domain"
+  description          = "This is my Terraform test network domain."
+  datacenter           = "AU9" # The ID of the data centre in which to create your network domain.
 }
 
 resource "ddcloud_vlan" "my-vlan" {
-	name				= "terraform-test-vlan"
-	description 			= "This is my Terraform test VLAN."
+  name                 = "terraform-test-vlan"
+  description          = "This is my Terraform test VLAN."
 
-	networkdomain 			= "${ddcloud_networkdomain.my-domain.id}"
+  networkdomain        = "${ddcloud_networkdomain.my-domain.id}"
 
-	# VLAN's default network: 192.168.17.1 -> 192.168.17.254 (netmask = 255.255.255.0)
-	ipv4_base_address		= "192.168.17.0"
-	ipv4_prefix_size		= 24
+  # VLAN's default network: 192.168.17.1 -> 192.168.17.254 (netmask = 255.255.255.0)
+  ipv4_base_address    = "192.168.17.0"
+  ipv4_prefix_size     = 24
 
-	depends_on			= [ "ddcloud_networkdomain.my-domain"]
+  depends_on           = [ "ddcloud_networkdomain.my-domain"]
 }
 
 resource "ddcloud_server" "my-server" {
-	name				= "terraform-server"
-	description 			= "This is my Terraform test server."
-	admin_password			= "password"
+  name                 = "terraform-server"
+  description          = "This is my Terraform test server."
+  admin_password       = "password"
 
-	memory_gb			= 8
-	cpu_count			= 2
+  memory_gb            = 8
+  cpu_count            = 2
 
-	networkdomain 			= "${ddcloud_networkdomain.my-domain.id}"
-	primary_adapter_ipv4		= "192.168.17.10"
-	dns_primary			= "8.8.8.8"
-	dns_secondary			= "8.8.4.4"
+  networkdomain        = "${ddcloud_networkdomain.my-domain.id}"
+  primary_adapter_ipv4 = "192.168.17.10"
+  dns_primary          = "8.8.8.8"
+  dns_secondary        = "8.8.4.4"
 
-	os_image_name			= "CentOS 7 64-bit 2 CPU"
+  os_image_name        = "CentOS 7 64-bit 2 CPU"
 
-	# The image disk (part of the original server image). If size_gb is larger than the image disk's original size, it will be expanded (specifying a smaller size is not supported).
-	# You don't have to specify this but, if you don't, then Terraform will keep treating the ddcloud_server resource as modified.
-	disk {
-		scsi_unit_id		= 0
-		size_gb			= 10
-	}
+  # The image disk (part of the original server image). If size_gb is larger than the image disk's original size, it will be expanded (specifying a smaller size is not supported).
+  # You don't have to specify this but, if you don't, then Terraform will keep treating the ddcloud_server resource as modified.
+  disk {
+    scsi_unit_id       = 0
+    size_gb            = 10
+  }
 
-	# An additional disk.
-	disk {
-		scsi_unit_id		= 1
-		size_gb			= 20
-	}
+  # An additional disk.
+  disk {
+    scsi_unit_id       = 1
+    size_gb            = 20
+  }
 
-	depends_on			= [ "ddcloud_vlan.my-vlan" ]
+  depends_on           = [ "ddcloud_vlan.my-vlan" ]
 }
 
 resource "ddcloud_nat" "my-server-nat" {
-	networkdomain 			= "${ddcloud_networkdomain.my-domain.id}"
-	private_ipv4			= "${ddcloud_server.my-server.primary_adapter_ipv4}"
+  networkdomain       = "${ddcloud_networkdomain.my-domain.id}"
+  private_ipv4        = "${ddcloud_server.my-server.primary_adapter_ipv4}"
 
-	# public_ipv4 is computed at deploy time.
+  # public_ipv4 is computed at deploy time.
 
-	depends_on			= [ "ddcloud_vlan.test-vlan" ]
+  depends_on          = [ "ddcloud_vlan.test-vlan" ]
 }
 
 resource "ddcloud_firewall_rule" "test-vm-http-in" {
-	name 				= "my_server.HTTP.Inbound"
-	placement			= "first"
-	action				= "accept" # Valid values are "accept" or "drop."
-	enabled				= true
+  name                = "my_server.HTTP.Inbound"
+  placement           = "first"
+  action              = "accept" # Valid values are "accept" or "drop."
+  enabled             = true
 
-	ip_version			= "ipv4"
-	protocol			= "tcp"
+  ip_version          = "ipv4"
+  protocol            = "tcp"
 
-	# source_address is computed at deploy time (not specified = "any").
-	# source_port is computed at deploy time (not specified = "any).
-	# You can also specify source_network (e.g. 10.2.198.0/24) or source_address_list instead of source_address.
-	# For a ddcloud_vlan, you can obtain these values using the ipv4_baseaddress and ipv4_prefixsize properties.
+  # source_address is computed at deploy time (not specified = "any").
+  # source_port is computed at deploy time (not specified = "any).
+  # You can also specify source_network (e.g. 10.2.198.0/24) or source_address_list instead of source_address.
+  # For a ddcloud_vlan, you can obtain these values using the ipv4_baseaddress and ipv4_prefixsize properties.
 
-	# You can also specify destination_network or destination_address_list instead of source_address.
-	destination_address		= "${ddcloud_nat.my-server-nat.public_ipv4}"
-	destination_port 		= "80"
+  # You can also specify destination_network or destination_address_list instead of source_address.
+  destination_address = "${ddcloud_nat.my-server-nat.public_ipv4}"
+  destination_port    = "80"
 
-	networkdomain 			= "${ddcloud_networkdomain.my-domain.id}"
+  networkdomain       = "${ddcloud_networkdomain.my-domain.id}"
 }
 ```
 
