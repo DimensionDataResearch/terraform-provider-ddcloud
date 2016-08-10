@@ -38,4 +38,4 @@ testacc: fmt
 		-run=TestAcc${TEST}
 
 version:
-	echo "package main\n\n// ProviderVersion is the current version of the ddcloud terraform provider.\nconst ProviderVersion = \"v0.2 (`git rev-parse HEAD`)\"" > ./version-info.go
+	echo "package main\n\n// ProviderVersion is the current version of the ddcloud terraform provider.\nconst ProviderVersion = \"v0.5 (`git rev-parse HEAD`)\"" > ./version-info.go
