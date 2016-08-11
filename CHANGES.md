@@ -1,5 +1,9 @@
 # Changes
 
+## v0.6
+
+* Extended logging of CloudControl API requests and responses can now be enabled by setting the `DD_COMPUTE_EXTENDED_LOGGING` environment variable to any non-empty value.
+
 ## v.04
 
 Fixes:
