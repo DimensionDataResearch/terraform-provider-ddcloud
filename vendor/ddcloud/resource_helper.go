@@ -55,11 +55,11 @@ func (helper resourcePropertyHelper) GetStringSetItems(key string) (items []stri
 	if !ok || value == nil {
 		return
 	}
+	rawItems := value.(*schema.Set).List()
 
-	rawItems := value.([]interface{})
 	items = make([]string, len(rawItems))
 	for index, item := range rawItems {
-		rawItems[index] = item.(string)
+		items[index] = item.(string)
 	}
 
 	return
@@ -74,6 +74,30 @@ func (helper resourcePropertyHelper) SetStringSetItems(key string, items []strin
 	return helper.data.Set(key,
 		schema.NewSet(schema.HashString, rawItems),
 	)
+}
+
+func (helper resourcePropertyHelper) GetStringListItems(key string) (items []string) {
+	value, ok := helper.data.GetOk(key)
+	if !ok || value == nil {
+		return
+	}
+
+	rawItems := value.([]interface{})
+	items = make([]string, len(rawItems))
+	for index, item := range rawItems {
+		items[index] = item.(string)
+	}
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetStringListItems(key string, items []string) error {
+	rawItems := make([]interface{}, len(items))
+	for index, item := range items {
+		rawItems[index] = item
+	}
+
+	return helper.data.Set(key, rawItems)
 }
 
 func (helper resourcePropertyHelper) SetPartial(key string) {
@@ -170,6 +194,16 @@ func (helper resourcePropertyHelper) SetServerDisks(disks []compute.VirtualMachi
 		})
 	}
 	helper.data.Set(resourceKeyServerDisk, diskProperties)
+}
+
+func (helper resourcePropertyHelper) SetVirtualListenerIRuleIDs(iRuleSummaries []compute.EntitySummary) {
+	iRuleSet := &schema.Set{F: schema.HashString}
+
+	for _, iRuleSummary := range iRuleSummaries {
+		iRuleSet.Add(iRuleSummary.ID)
+	}
+
+	helper.data.Set(resourceKeyVirtualListenerIRuleIDs, iRuleSet)
 }
 
 func normalizeSpeed(value interface{}) string {
