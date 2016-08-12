@@ -1,5 +1,13 @@
 # Changes
 
+## v0.7
+
+* Full support for load-balancer configuration:
+  * `ddcloud_vip_node`
+  * `ddcloud_vip_pool`
+  * `ddcloud_vip_pool_member`
+  * `ddcloud_virtual_listener`
+
 ## v0.6
 
 * Extended logging of CloudControl API requests and responses can now be enabled by setting the `DD_COMPUTE_EXTENDED_LOGGING` environment variable to any non-empty value.
