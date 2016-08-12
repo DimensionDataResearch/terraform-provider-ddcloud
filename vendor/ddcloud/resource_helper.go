@@ -196,14 +196,131 @@ func (helper resourcePropertyHelper) SetServerDisks(disks []compute.VirtualMachi
 	helper.data.Set(resourceKeyServerDisk, diskProperties)
 }
 
-func (helper resourcePropertyHelper) SetVirtualListenerIRuleIDs(iRuleSummaries []compute.EntitySummary) {
-	iRuleSet := &schema.Set{F: schema.HashString}
-
-	for _, iRuleSummary := range iRuleSummaries {
-		iRuleSet.Add(iRuleSummary.ID)
+func (helper resourcePropertyHelper) GetVirtualListenerIRuleIDs(apiClient *compute.Client) (iRuleIDs []string, err error) {
+	var iRules []compute.EntityReference
+	iRules, err = helper.GetVirtualListenerIRules(apiClient)
+	if err != nil {
+		return
 	}
 
-	helper.data.Set(resourceKeyVirtualListenerIRuleIDs, iRuleSet)
+	iRuleIDs = make([]string, len(iRules))
+	for index, iRule := range iRules {
+		iRuleIDs[index] = iRule.ID
+	}
+
+	return
+}
+
+func (helper resourcePropertyHelper) GetVirtualListenerIRuleNames(apiClient *compute.Client) (iRuleNames []string, err error) {
+	var iRules []compute.EntityReference
+	iRules, err = helper.GetVirtualListenerIRules(apiClient)
+	if err != nil {
+		return
+	}
+
+	iRuleNames = make([]string, len(iRules))
+	for index, iRule := range iRules {
+		iRuleNames[index] = iRule.Name
+	}
+
+	return
+}
+
+func (helper resourcePropertyHelper) GetVirtualListenerIRules(apiClient *compute.Client) (iRules []compute.EntityReference, err error) {
+	value, ok := helper.data.GetOk(resourceKeyVirtualListenerIRuleNames)
+	if !ok {
+		return
+	}
+	iRuleNames := value.(*schema.Set)
+	if iRuleNames.Len() == 0 {
+		return
+	}
+
+	networkDomainID := helper.data.Get(resourceKeyVirtualListenerNetworkDomainID).(string)
+
+	page := compute.DefaultPaging()
+	for {
+		var results *compute.IRules
+		results, err = apiClient.ListDefaultIRules(networkDomainID, page)
+		if err != nil {
+			return
+		}
+		if results.IsEmpty() {
+			break // We're done
+		}
+
+		for _, iRule := range results.Items {
+			if iRuleNames.Contains(iRule.Name) {
+				iRules = append(iRules, iRule.ToEntityReference())
+			}
+		}
+
+		page.Next()
+	}
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetVirtualListenerIRules(iRuleSummaries []compute.EntityReference) {
+	iRuleNames := &schema.Set{F: schema.HashString}
+
+	for _, iRuleSummary := range iRuleSummaries {
+		iRuleNames.Add(iRuleSummary.Name)
+	}
+
+	helper.data.Set(resourceKeyVirtualListenerIRuleNames, iRuleNames)
+}
+
+func (helper resourcePropertyHelper) GetVirtualListenerPersistenceProfileID(apiClient *compute.Client) (persistenceProfileID *string, err error) {
+	persistenceProfile, err := helper.GetVirtualListenerPersistenceProfile(apiClient)
+	if err != nil {
+		return nil, err
+	}
+
+	if persistenceProfile != nil {
+		return &persistenceProfile.ID, nil
+	}
+
+	return nil, nil
+}
+
+func (helper resourcePropertyHelper) GetVirtualListenerPersistenceProfile(apiClient *compute.Client) (persistenceProfile *compute.EntityReference, err error) {
+	value, ok := helper.data.GetOk(resourceKeyVirtualListenerPersistenceProfileName)
+	if !ok {
+		return
+	}
+	persistenceProfileName := value.(string)
+
+	networkDomainID := helper.data.Get(resourceKeyVirtualListenerNetworkDomainID).(string)
+
+	page := compute.DefaultPaging()
+	for {
+		var persistenceProfiles *compute.PersistenceProfiles
+		persistenceProfiles, err = apiClient.ListDefaultPersistenceProfiles(networkDomainID, page)
+		if err != nil {
+			return
+		}
+		if persistenceProfiles.IsEmpty() {
+			break // We're done
+		}
+
+		for _, profile := range persistenceProfiles.Items {
+			if profile.Name == persistenceProfileName {
+				persistenceProfileReference := profile.ToEntityReference()
+				persistenceProfile = &persistenceProfileReference
+
+				return
+			}
+		}
+
+		page.Next()
+	}
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetVirtualListenerPersistenceProfile(persistenceProfile compute.EntityReference) (err error) {
+	return helper.data.Set(resourceKeyVirtualListenerPersistenceProfileName, persistenceProfile.Name)
 }
 
 func normalizeSpeed(value interface{}) string {

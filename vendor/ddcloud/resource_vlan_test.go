@@ -63,7 +63,7 @@ func TestAccVLANBasicCreate(t *testing.T) {
 							BaseAddress: "192.168.17.0",
 							PrefixSize:  24,
 						},
-						NetworkDomain: compute.EntitySummary{
+						NetworkDomain: compute.EntityReference{
 							Name: "acc-test-networkdomain",
 						},
 					}),
@@ -98,7 +98,7 @@ func TestAccVLANBasicUpdate(test *testing.T) {
 					BaseAddress: "192.168.17.0",
 					PrefixSize:  24,
 				},
-				NetworkDomain: compute.EntitySummary{
+				NetworkDomain: compute.EntityReference{
 					Name: "acc-test-networkdomain",
 				},
 			}),
@@ -118,7 +118,7 @@ func TestAccVLANBasicUpdate(test *testing.T) {
 					BaseAddress: "192.168.17.0",
 					PrefixSize:  24,
 				},
-				NetworkDomain: compute.EntitySummary{
+				NetworkDomain: compute.EntityReference{
 					Name: "acc-test-networkdomain",
 				},
 			}),

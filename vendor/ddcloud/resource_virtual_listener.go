@@ -20,7 +20,7 @@ const (
 	resourceKeyVirtualListenerSourcePortPreservation = "source_port_preservation"
 	resourceKeyVirtualListenerPoolID                 = "pool"
 	resourceKeyVirtualListenerPersistenceProfileName = "persistence_profile"
-	resourceKeyVirtualListenerIRuleIDs               = "irules"
+	resourceKeyVirtualListenerIRuleNames             = "irules"
 	resourceKeyVirtualListenerOptimizationProfiles   = "optimization_profiles"
 	resourceKeyVirtualListenerNetworkDomainID        = "networkdomain"
 )
@@ -132,7 +132,7 @@ func resourceVirtualListener() *schema.Resource {
 				Optional: true,
 				Default:  "",
 			},
-			resourceKeyVirtualListenerIRuleIDs: &schema.Schema{
+			resourceKeyVirtualListenerIRuleNames: &schema.Schema{
 				Type:     schema.TypeSet,
 				Optional: true,
 				Default:  nil,
@@ -179,12 +179,19 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	persistenceProfileID, err := getPersistenceProfileID(apiClient, data)
+	propertyHelper := propertyHelper(data)
+
+	// Map from names to Ids, as required.
+
+	persistenceProfileID, err := propertyHelper.GetVirtualListenerPersistenceProfileID(apiClient)
 	if err != nil {
 		return err
 	}
 
-	propertyHelper := propertyHelper(data)
+	iRuleIDs, err := propertyHelper.GetVirtualListenerIRuleIDs(apiClient)
+	if err != nil {
+		return err
+	}
 
 	virtualListenerID, err := apiClient.CreateVirtualListener(compute.NewVirtualListenerConfiguration{
 		Name:                   name,
@@ -199,7 +206,7 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 		SourcePortPreservation: data.Get(resourceKeyVirtualListenerSourcePortPreservation).(string),
 		PoolID:                 propertyHelper.GetOptionalString(resourceKeyVirtualListenerPoolID, false),
 		PersistenceProfileID:   persistenceProfileID,
-		IRuleIDs:               propertyHelper.GetStringSetItems(resourceKeyVirtualListenerIRuleIDs),
+		IRuleIDs:               iRuleIDs,
 		OptimizationProfiles:   propertyHelper.GetStringSetItems(resourceKeyVirtualListenerOptimizationProfiles),
 		NetworkDomainID:        networkDomainID,
 	})
@@ -267,9 +274,10 @@ func resourceVirtualListenerRead(data *schema.ResourceData, provider interface{}
 	data.Set(resourceKeyVirtualListenerConnectionLimit, virtualListener.ConnectionLimit)
 	data.Set(resourceKeyVirtualListenerConnectionRateLimit, virtualListener.ConnectionRateLimit)
 	data.Set(resourceKeyVirtualListenerSourcePortPreservation, virtualListener.SourcePortPreservation)
+	data.Set(resourceKeyVirtualListenerPersistenceProfileName, virtualListener.PersistenceProfile.Name)
 
 	propertyHelper := propertyHelper(data)
-	propertyHelper.SetVirtualListenerIRuleIDs(virtualListener.IRules)
+	propertyHelper.SetVirtualListenerIRules(virtualListener.IRules)
 
 	// TODO: Capture other properties.
 
@@ -311,12 +319,21 @@ func resourceVirtualListenerUpdate(data *schema.ResourceData, provider interface
 	}
 
 	if data.HasChange(resourceKeyVirtualListenerPersistenceProfileName) {
-		persistenceProfileID, err := getPersistenceProfileID(apiClient, data)
+		persistenceProfile, err := propertyHelper.GetVirtualListenerPersistenceProfile(apiClient)
 		if err != nil {
 			return err
 		}
 
-		configuration.PersistenceProfileID = persistenceProfileID
+		configuration.PersistenceProfileID = &persistenceProfile.ID
+	}
+
+	if data.HasChange(resourceKeyVirtualListenerIRuleNames) {
+		iRuleIDs, err := propertyHelper.GetVirtualListenerIRuleIDs(apiClient)
+		if err != nil {
+			return err
+		}
+
+		configuration.IRuleIDs = &iRuleIDs
 	}
 
 	return apiClient.EditVirtualListener(id, *configuration)
@@ -333,38 +350,4 @@ func resourceVirtualListenerDelete(data *schema.ResourceData, provider interface
 	apiClient := providerState.Client()
 
 	return apiClient.DeleteVirtualListener(id)
-}
-
-func getPersistenceProfileID(apiClient *compute.Client, data *schema.ResourceData) (persistenceProfileID *string, err error) {
-	value, ok := data.GetOk(resourceKeyVirtualListenerPersistenceProfileName)
-	if !ok {
-		return
-	}
-	persistenceProfileName := value.(string)
-
-	networkDomainID := data.Get(resourceKeyVirtualListenerNetworkDomainID).(string)
-
-	page := compute.DefaultPaging()
-	for {
-		var persistenceProfiles *compute.PersistenceProfiles
-		persistenceProfiles, err = apiClient.ListDefaultPersistenceProfiles(networkDomainID, page)
-		if err != nil {
-			return
-		}
-		if persistenceProfiles.IsEmpty() {
-			break // We're done
-		}
-
-		for _, profile := range persistenceProfiles.Items {
-			if profile.Name == persistenceProfileName {
-				persistenceProfileID = &profile.ID
-
-				return
-			}
-		}
-
-		page.Next()
-	}
-
-	return
 }
