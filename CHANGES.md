@@ -2,11 +2,17 @@
 
 ## v0.7
 
+New features:
+
 * Full support for load-balancer configuration:
   * `ddcloud_vip_node`
   * `ddcloud_vip_pool`
   * `ddcloud_vip_pool_member`
   * `ddcloud_virtual_listener`
+
+Fixes:
+
+* `ddcloud_nat` resource is now fully idempotent (previously, if the NAT rule went missing, then Terraform did not correctly detect this).
 
 ## v0.6
 

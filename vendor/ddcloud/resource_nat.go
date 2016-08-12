@@ -21,6 +21,7 @@ const (
 
 func resourceNAT() *schema.Resource {
 	return &schema.Resource{
+		Exists: resourceNATExists,
 		Create: resourceNATCreate,
 		Read:   resourceNATRead,
 		Update: resourceNATUpdate,
@@ -48,6 +49,26 @@ func resourceNAT() *schema.Resource {
 			},
 		},
 	}
+}
+
+// Check if a NAT resource exists.
+func resourceNATExists(data *schema.ResourceData, provider interface{}) (bool, error) {
+	id := data.Id()
+	log.Printf("Check if NAT rule '%s' exists.", id)
+
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	natRule, err := apiClient.GetNATRule(id)
+	if err != nil {
+		return false, err
+	}
+
+	exists := natRule != nil
+
+	log.Printf("NAT rule '%s' exists: %t.", id, exists)
+
+	return exists, nil
 }
 
 // Create a NAT resource.
@@ -180,7 +201,16 @@ func resourceNATRead(data *schema.ResourceData, provider interface{}) error {
 	log.Printf("Read NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIP, networkDomainID)
 
 	apiClient := provider.(*providerState).Client()
-	apiClient.Reset() // TODO: Replace call to Reset with appropriate API call(s).
+
+	natRule, err := apiClient.GetNATRule(id)
+	if err != nil {
+		return err
+	}
+	if natRule == nil {
+		data.SetId("") // NAT rule has been deleted
+
+		return nil
+	}
 
 	return nil
 }
@@ -192,15 +222,7 @@ func resourceNATUpdate(data *schema.ResourceData, provider interface{}) error {
 	privateIP := data.Get(resourceKeyNATPrivateAddress).(string)
 	publicIP := data.Get(resourceKeyNATPublicAddress).(string)
 
-	log.Printf("Update NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIP, networkDomainID)
-
-	providerState := provider.(*providerState)
-	apiClient := providerState.Client()
-	apiClient.Reset() // TODO: Replace call to Reset with appropriate API call(s).
-
-	domainLock := providerState.GetDomainLock(networkDomainID, "resourceNATUpdate(%s -> %s)", privateIP, publicIP)
-	domainLock.Lock()
-	defer domainLock.Unlock()
+	log.Printf("Update NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s' - nothing to update (NAT rules are read-only)", id, privateIP, publicIP, networkDomainID)
 
 	return nil
 }
