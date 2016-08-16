@@ -27,18 +27,21 @@ func resourceNetworkDomain() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyNetworkDomainName: &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "A name for the network domain",
 			},
 			resourceKeyNetworkDomainDescription: &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
+				Description: "A description for the network domain",
 			},
 			resourceKeyNetworkDomainPlan: &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "ESSENTIALS",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "ESSENTIALS",
+				Description: "The plan (service level) for the network domain (ESSENTIALS or ADVANCED)",
 				StateFunc: func(value interface{}) string {
 					plan := value.(string)
 
@@ -46,13 +49,15 @@ func resourceNetworkDomain() *schema.Resource {
 				},
 			},
 			resourceKeyNetworkDomainDataCenter: &schema.Schema{
-				Type:     schema.TypeString,
-				ForceNew: true,
-				Required: true,
+				Type:        schema.TypeString,
+				ForceNew:    true,
+				Required:    true,
+				Description: "The Id of the MCP 2.0 datacenter in which the network domain is created",
 			},
 			resourceKeyNetworkDomainNatIPv4Address: &schema.Schema{
-				Type:     schema.TypeString,
-				Computed: true,
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The IPv4 address for the network domain's IPv6->IPv4 Source Network Address Translation (SNAT). This is the IPv4 address of the network domain's IPv4 egress",
 			},
 		},
 	}

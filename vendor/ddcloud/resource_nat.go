@@ -32,7 +32,7 @@ func resourceNAT() *schema.Resource {
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Required:    true,
-				Description: "The network domain that the NAT rule applies to.",
+				Description: "The Id of the network domain that the NAT rule applies to.",
 			},
 			resourceKeyNATPrivateAddress: &schema.Schema{
 				Type:        schema.TypeString,

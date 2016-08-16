@@ -10,36 +10,41 @@ import (
 const (
 	resourceKeyServerDisk       = "disk"
 	resourceKeyServerDiskID     = "disk_id"
-	resourceKeyServerDiskSizeGB = "size_gb"
 	resourceKeyServerDiskUnitID = "scsi_unit_id"
+	resourceKeyServerDiskSizeGB = "size_gb"
 	resourceKeyServerDiskSpeed  = "speed"
 )
 
 func schemaServerDisk() *schema.Schema {
 	return &schema.Schema{
-		Type:     schema.TypeSet,
-		Optional: true,
-		Computed: true,
-		Default:  nil,
+		Type:        schema.TypeSet,
+		Optional:    true,
+		Computed:    true,
+		Default:     nil,
+		Description: "The set of virtual disks attached to the server",
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				resourceKeyServerDiskID: &schema.Schema{
-					Type:     schema.TypeString,
-					Computed: true,
-				},
-				resourceKeyServerDiskSizeGB: &schema.Schema{
-					Type:     schema.TypeInt,
-					Required: true,
+					Type:        schema.TypeString,
+					Computed:    true,
+					Description: "The CloudControl identifier for the virtual disk (computed when the disk is first created)",
 				},
 				resourceKeyServerDiskUnitID: &schema.Schema{
-					Type:     schema.TypeInt,
-					Required: true,
+					Type:        schema.TypeInt,
+					Required:    true,
+					Description: "The SCSI Logical Unit Number (LUN) for the disk",
+				},
+				resourceKeyServerDiskSizeGB: &schema.Schema{
+					Type:        schema.TypeInt,
+					Required:    true,
+					Description: "The size (in GB) of the disk",
 				},
 				resourceKeyServerDiskSpeed: &schema.Schema{
-					Type:      schema.TypeString,
-					Optional:  true,
-					Default:   "STANDARD",
-					StateFunc: normalizeSpeed,
+					Type:        schema.TypeString,
+					Optional:    true,
+					Default:     "STANDARD",
+					StateFunc:   normalizeSpeed,
+					Description: "The disk speed",
 				},
 			},
 		},

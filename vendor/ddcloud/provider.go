@@ -36,6 +36,18 @@ func Provider() terraform.ResourceProvider {
 				Default:     "",
 				Description: "The password used to authenticate to the Dimension Data CloudControl API (if not specified, then the DD_COMPUTE_PASSWORD environment variable will be used).",
 			},
+			"retry_count": &schema.Schema{
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Default:     0,
+				Description: "The maximum number of times to retry operations that fail due to network connectivity errors.",
+			},
+			"retry_delay": &schema.Schema{
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Default:     5,
+				Description: "The number of seconds to delay between operation retries.",
+			},
 		},
 
 		// Provider resource definitions
@@ -82,6 +94,7 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 		password string
 		client   *compute.Client
 		provider *providerState
+		err      error
 	)
 
 	region = providerSettings.Get("region").(string)
@@ -106,15 +119,27 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	client = compute.NewClient(region, username, password)
 
 	// Configure retry, if required.
-	maxRetryCount, err := strconv.Atoi(os.Getenv("DD_COMPUTE_MAX_RETRY"))
-	if err == nil {
-		retryDelay, err := strconv.Atoi(os.Getenv("DD_COMPUTE_RETRY_DELAY"))
-		if err != nil {
-			retryDelay = 10
-		}
-
-		client.ConfigureRetry(maxRetryCount, time.Duration(retryDelay)*time.Second)
+	var (
+		retryCount int
+		retryDelay int
+	)
+	value, ok := providerSettings.GetOk("retry_count")
+	if ok {
+		retryCount = value.(int)
 	}
+
+	// Override retry configuration with environment variables, if required.
+	envValue, err := strconv.Atoi(os.Getenv("DD_COMPUTE_MAX_RETRY"))
+	if err == nil {
+		retryCount = envValue
+
+		envValue, err := strconv.Atoi(os.Getenv("DD_COMPUTE_RETRY_DELAY"))
+		if err == nil {
+			retryDelay = envValue
+		}
+	}
+
+	client.ConfigureRetry(retryCount, time.Duration(retryDelay)*time.Second)
 
 	provider = newProvider(client)
 

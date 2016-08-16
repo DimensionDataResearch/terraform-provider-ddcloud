@@ -12,6 +12,8 @@ Currently, the following resource types are supported:
 * `ddcloud_vip_pool`: A Virtual IP (VIP) pool.
 * `ddcloud_vip_pool_member`: A Virtual IP (VIP) pool membership (node -> pool).
 
+For more information, see the [provider documentation](docs/).
+
 ## Installing the provider
 
 Download the [latest release](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/releases) and place the provider executable in the same directory as the main Terraform executable.

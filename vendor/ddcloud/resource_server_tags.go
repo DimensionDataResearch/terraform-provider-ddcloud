@@ -15,18 +15,21 @@ const (
 
 func schemaServerTag() *schema.Schema {
 	return &schema.Schema{
-		Type:     schema.TypeSet,
-		Optional: true,
-		Default:  nil,
+		Type:        schema.TypeSet,
+		Optional:    true,
+		Default:     nil,
+		Description: "A set of tags to apply to the server",
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				resourceKeyServerTagName: &schema.Schema{
-					Type:     schema.TypeString,
-					Required: true,
+					Type:        schema.TypeString,
+					Required:    true,
+					Description: "The tag name",
 				},
 				resourceKeyServerTagValue: &schema.Schema{
-					Type:     schema.TypeString,
-					Required: true,
+					Type:        schema.TypeString,
+					Required:    true,
+					Description: "The tag value",
 				},
 			},
 		},
