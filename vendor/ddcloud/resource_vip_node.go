@@ -29,27 +29,31 @@ func resourceVIPNode() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyVIPNodeName: &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "A name for the VIP node",
 			},
 			resourceKeyVIPNodeDescription: &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
+				Description: "A description for the VIP node",
 			},
 			resourceKeyVIPNodeIPv4Address: &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
+				Description: "The VIP node's IPv4 address",
 				ConflictsWith: []string{
 					resourceKeyVIPNodeIPv6Address,
 				},
 			},
 			resourceKeyVIPNodeIPv6Address: &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
+				Description: "The VIP node's IPv6 address",
 				ConflictsWith: []string{
 					resourceKeyVIPNodeIPv4Address,
 				},
@@ -58,17 +62,20 @@ func resourceVIPNode() *schema.Resource {
 				Type:         schema.TypeString,
 				Optional:     true,
 				Default:      compute.VIPNodeStatusEnabled,
+				Description:  "The VIP node status",
 				ValidateFunc: vipStatusValidator("VIP node"),
 			},
 			resourceKeyVIPNodeHealthMonitorID: &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
+				Description: "The Id of the VIP node's associated health monitor (if any)",
 			},
 			resourceKeyVIPNodeConnectionLimit: &schema.Schema{
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  20000,
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Default:     20000,
+				Description: "The number of active connections that the node supports",
 				ValidateFunc: func(data interface{}, fieldName string) (messages []string, errors []error) {
 					connectionRate := data.(int)
 					if connectionRate > 0 {
@@ -83,9 +90,10 @@ func resourceVIPNode() *schema.Resource {
 				},
 			},
 			resourceKeyVIPNodeConnectionRateLimit: &schema.Schema{
-				Type:     schema.TypeInt,
-				Optional: true,
-				Default:  2000,
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Default:     2000,
+				Description: "The number of connections per second that the node supports",
 				ValidateFunc: func(data interface{}, fieldName string) (messages []string, errors []error) {
 					connectionRate := data.(int)
 					if connectionRate > 0 {
@@ -100,9 +108,10 @@ func resourceVIPNode() *schema.Resource {
 				},
 			},
 			resourceKeyVIPNodeNetworkDomainID: &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "The Id of the network domain in which the VIP node is created",
 			},
 		},
 	}
