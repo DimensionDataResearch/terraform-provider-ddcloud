@@ -58,6 +58,11 @@ func resourceFirewallRule() *schema.Resource {
 				ForceNew:    true,
 				Required:    true,
 				Description: "The action performed by the firewall rule",
+				StateFunc: func(value interface{}) string {
+					action := value.(string)
+
+					return normalizeFirewallRuleAction(action)
+				},
 			},
 			resourceKeyFirewallRuleEnabled: &schema.Schema{
 				Type:        schema.TypeBool,
@@ -95,7 +100,6 @@ func resourceFirewallRule() *schema.Resource {
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Optional:    true,
-				Default:     "any",
 				Description: "The source IP address to be matched by the rule",
 				ConflictsWith: []string{
 					resourceKeyFirewallRuleSourceNetwork,
@@ -114,7 +118,6 @@ func resourceFirewallRule() *schema.Resource {
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Optional:    true,
-				Default:     "any",
 				Description: "The source port to be matched by the rule",
 			},
 			resourceKeyFirewallRuleDestinationAddress: &schema.Schema{
@@ -153,6 +156,9 @@ func resourceFirewallRuleCreate(data *schema.ResourceData, provider interface{})
 
 	configuration := &compute.FirewallRuleConfiguration{
 		Name: data.Get(resourceKeyFirewallRuleName).(string),
+		Action: normalizeFirewallRuleAction(
+			data.Get(resourceKeyFirewallRuleAction).(string),
+		),
 		Placement: compute.FirewallRulePlacement{
 			Position: strings.ToUpper(
 				data.Get(resourceKeyFirewallRulePlacement).(string),
@@ -171,16 +177,16 @@ func resourceFirewallRuleCreate(data *schema.ResourceData, provider interface{})
 		),
 	}
 
-	action, err := parseFirewallAction(
-		data.Get(resourceKeyFirewallRuleAction).(string),
-	)
+	configuration.Action = data.Get(resourceKeyFirewallRuleAction).(string)
+
+	err = configureSourceScope(propertyHelper, configuration)
 	if err != nil {
 		return err
 	}
-	configuration.Action = action
-
-	configureSourceScope(propertyHelper, configuration)
-	configureDestinationScope(propertyHelper, configuration)
+	err = configureDestinationScope(propertyHelper, configuration)
+	if err != nil {
+		return err
+	}
 
 	log.Printf("Create firewall rule '%s' in network domain '%s'.", configuration.Name, configuration.NetworkDomainID)
 	log.Printf("Firewall rule configuration: '%#v'", configuration)
@@ -348,7 +354,7 @@ func configureDestinationScope(propertyHelper resourcePropertyHelper, configurat
 		}
 
 		configuration.MatchDestinationNetworkAndPort(baseAddress, prefixSize, destinationPort)
-	} else if destinationPort == nil {
+	} else if destinationPort != nil {
 		log.Printf("Rule will match any destination address with port %d.", *destinationPort)
 		configuration.MatchAnyDestinationAddress(destinationPort)
 	} else {
@@ -359,16 +365,25 @@ func configureDestinationScope(propertyHelper resourcePropertyHelper, configurat
 	return nil
 }
 
-func parseFirewallAction(action string) (string, error) {
+func normalizeFirewallRuleAction(action string) string {
 	switch strings.ToLower(action) {
 	case "accept":
-		return "ACCEPT_DECISIVELY", nil
+		return compute.FirewallRuleActionAccept
+
+	case "accept_decisively":
+		return compute.FirewallRuleActionAccept
+
+	case "allow":
+		return compute.FirewallRuleActionAccept
 
 	case "drop":
-		return "DROP", nil
+		return compute.FirewallRuleActionDrop
+
+	case "deny":
+		return compute.FirewallRuleActionDrop
 
 	default:
-		return "", fmt.Errorf("Invalid firewall action '%s'.", action)
+		return action
 	}
 }
 
@@ -401,7 +416,7 @@ func parsePortRange(portRange *string) (beginPort string, endPort *string) {
 
 func parseNetworkAndPrefix(networkAndPrefix string) (baseAddress string, prefixSize int, ok bool) {
 	networkComponents := strings.Split(networkAndPrefix, "/")
-	if len(networkAndPrefix) != 2 {
+	if len(networkComponents) != 2 {
 		return
 	}
 
