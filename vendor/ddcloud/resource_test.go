@@ -58,6 +58,32 @@ func testAccResourceUpdateInPlace(test *testing.T, testDefinition testAccResourc
 	})
 }
 
+// Aggregate test - update resource by replacing it (resource is destroyed and re-created).
+func testAccResourceUpdateReplace(test *testing.T, testDefinition testAccResourceUpdate) {
+	resourceData := newTestAccResourceData()
+
+	resource.Test(test, resource.TestCase{
+		Providers:    testAccProviders,
+		CheckDestroy: testDefinition.CheckDestroy,
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testDefinition.InitialConfig,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckCaptureID(testDefinition.ResourceName, &resourceData),
+					testDefinition.InitialCheck,
+				),
+			},
+			resource.TestStep{
+				Config: testDefinition.UpdateConfig,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckResourceReplaced(testDefinition.ResourceName, &resourceData),
+					testDefinition.UpdateCheck,
+				),
+			},
+		},
+	})
+}
+
 // Acceptance test check helper:
 //
 // Capture the resource's Id.
