@@ -151,7 +151,7 @@ func testCheckResourceReplaced(name string, testData *testAccResourceData) resou
 
 		currentResourceID := res.Primary.ID
 		if currentResourceID == capturedResourceID {
-			return fmt.Errorf("Bad: The update was expected to be performed by destroying and re-creating  %s but its Id has changed (was: %s, now: %s) which indicates that the resource was performed in-place", resourceType, capturedResourceID, currentResourceID)
+			return fmt.Errorf("Bad: The update was expected to be performed by destroying and re-creating %s but its Id has not changed (still %s) which indicates that the resource was performed in-place", resourceType, currentResourceID)
 		}
 
 		return nil

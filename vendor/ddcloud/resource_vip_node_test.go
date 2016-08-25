@@ -12,6 +12,7 @@ import (
  * Acceptance-test configurations.
  */
 
+// Acceptance test configuration - ddcloud_vip_node with status
 func testAccDDCloudVIPNodeBasic(resourceName string, nodeName string, status string) string {
 	return fmt.Sprintf(`
 		provider "ddcloud" {
