@@ -13,7 +13,7 @@ import (
  */
 
 // Acceptance test configuration - ddcloud_vip_pool with basic properties
-func testAccDDCloudVIPPoolBasic(resourceName string, poolName string, loadBalanceMethod string, serviceDownAction string, slowRampTime int) string {
+func testAccDDCloudVIPPoolBasic(poolName string, loadBalanceMethod string, serviceDownAction string, slowRampTime int) string {
 	return fmt.Sprintf(`
 		provider "ddcloud" {
 			region		= "AU"
@@ -27,7 +27,7 @@ func testAccDDCloudVIPPoolBasic(resourceName string, poolName string, loadBalanc
 			plan				= "ADVANCED"
 		}
 
-		resource "ddcloud_vip_pool" "%s" {
+		resource "ddcloud_vip_pool" "acc_test_pool" {
 			name					= "%s"
 			description 			= "VIP pool for Terraform acceptance test."
 			load_balance_method		= "%s"
@@ -36,7 +36,7 @@ func testAccDDCloudVIPPoolBasic(resourceName string, poolName string, loadBalanc
 
 			networkdomain 			= "${ddcloud_networkdomain.acc_test_domain.id}"
 		}
-	`, resourceName, poolName, loadBalanceMethod, serviceDownAction, slowRampTime)
+	`, poolName, loadBalanceMethod, serviceDownAction, slowRampTime)
 }
 
 /*
@@ -56,8 +56,7 @@ func TestAccVIPPoolBasicCreate(t *testing.T) {
 		Steps: []resource.TestStep{
 			resource.TestStep{
 				Config: testAccDDCloudVIPPoolBasic(
-					"acc_test_pool",
-					"acc_test_pool",
+					"AccTestPool",
 					compute.LoadBalanceMethodRoundRobin,
 					compute.ServiceDownActionDrop,
 					5,
@@ -65,7 +64,7 @@ func TestAccVIPPoolBasicCreate(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudVIPPoolExists("acc_test_pool", true),
 					testCheckDDCloudVIPPoolMatches("acc_test_pool", compute.VIPPool{
-						Name:              "acc_test_pool",
+						Name:              "AccTestPool",
 						LoadBalanceMethod: compute.LoadBalanceMethodRoundRobin,
 						ServiceDownAction: compute.ServiceDownActionDrop,
 						SlowRampTime:      5,
@@ -89,8 +88,7 @@ func TestAccVIPPoolBasicUpdateInline(t *testing.T) {
 
 		// Create
 		InitialConfig: testAccDDCloudVIPPoolBasic(
-			"acc_test_pool",
-			"acc_test_pool",
+			"AccTestPool",
 			compute.LoadBalanceMethodRoundRobin,
 			compute.ServiceDownActionDrop,
 			5,
@@ -98,7 +96,7 @@ func TestAccVIPPoolBasicUpdateInline(t *testing.T) {
 		InitialCheck: resource.ComposeTestCheckFunc(
 			testCheckDDCloudVIPPoolExists("acc_test_pool", true),
 			testCheckDDCloudVIPPoolMatches("acc_test_pool", compute.VIPPool{
-				Name:              "acc_test_pool",
+				Name:              "AccTestPool",
 				LoadBalanceMethod: compute.LoadBalanceMethodRoundRobin,
 				ServiceDownAction: compute.ServiceDownActionDrop,
 				SlowRampTime:      5,
@@ -107,8 +105,7 @@ func TestAccVIPPoolBasicUpdateInline(t *testing.T) {
 
 		// Update
 		UpdateConfig: testAccDDCloudVIPPoolBasic(
-			"acc_test_pool",
-			"acc_test_pool",
+			"AccTestPool",
 			compute.LoadBalanceMethodLeastConnectionsNode,
 			compute.ServiceDownActionNone,
 			10,
@@ -116,7 +113,7 @@ func TestAccVIPPoolBasicUpdateInline(t *testing.T) {
 		UpdateCheck: resource.ComposeTestCheckFunc(
 			testCheckDDCloudVIPPoolExists("acc_test_pool", true),
 			testCheckDDCloudVIPPoolMatches("acc_test_pool", compute.VIPPool{
-				Name:              "acc_test_pool",
+				Name:              "AccTestPool",
 				LoadBalanceMethod: compute.LoadBalanceMethodLeastConnectionsNode,
 				ServiceDownAction: compute.ServiceDownActionNone,
 				SlowRampTime:      10,
@@ -138,8 +135,7 @@ func TestAccVIPPoolBasicUpdateName(t *testing.T) {
 
 		// Create
 		InitialConfig: testAccDDCloudVIPPoolBasic(
-			"acc_test_pool",
-			"acc_test_pool",
+			"AccTestPool",
 			compute.LoadBalanceMethodRoundRobin,
 			compute.ServiceDownActionDrop,
 			5,
@@ -147,7 +143,7 @@ func TestAccVIPPoolBasicUpdateName(t *testing.T) {
 		InitialCheck: resource.ComposeTestCheckFunc(
 			testCheckDDCloudVIPPoolExists("acc_test_pool", true),
 			testCheckDDCloudVIPPoolMatches("acc_test_pool", compute.VIPPool{
-				Name:              "acc_test_pool",
+				Name:              "AccTestPool",
 				LoadBalanceMethod: compute.LoadBalanceMethodRoundRobin,
 				ServiceDownAction: compute.ServiceDownActionDrop,
 				SlowRampTime:      5,
@@ -156,8 +152,7 @@ func TestAccVIPPoolBasicUpdateName(t *testing.T) {
 
 		// Update
 		UpdateConfig: testAccDDCloudVIPPoolBasic(
-			"acc_test_pool",
-			"acc_test_pool1",
+			"AccTestPool1",
 			compute.LoadBalanceMethodRoundRobin,
 			compute.ServiceDownActionDrop,
 			5,
@@ -165,7 +160,7 @@ func TestAccVIPPoolBasicUpdateName(t *testing.T) {
 		UpdateCheck: resource.ComposeTestCheckFunc(
 			testCheckDDCloudVIPPoolExists("acc_test_pool", true),
 			testCheckDDCloudVIPPoolMatches("acc_test_pool", compute.VIPPool{
-				Name:              "acc_test_pool1",
+				Name:              "AccTestPool1",
 				LoadBalanceMethod: compute.LoadBalanceMethodRoundRobin,
 				ServiceDownAction: compute.ServiceDownActionDrop,
 				SlowRampTime:      5,
@@ -182,7 +177,7 @@ func TestAccVIPPoolBasicUpdateName(t *testing.T) {
 //
 // Check if the VIP pool exists.
 func testCheckDDCloudVIPPoolExists(name string, exists bool) resource.TestCheckFunc {
-	name = "ddcloud_vip_pool." + name
+	name = ensureResourceTypePrefix(name, "ddcloud_vip_pool")
 
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]
@@ -211,7 +206,7 @@ func testCheckDDCloudVIPPoolExists(name string, exists bool) resource.TestCheckF
 //
 // Check if the VIP pool's configuration matches the expected configuration.
 func testCheckDDCloudVIPPoolMatches(name string, expected compute.VIPPool) resource.TestCheckFunc {
-	name = "ddcloud_vip_pool." + name
+	name = ensureResourceTypePrefix(name, "ddcloud_vip_pool")
 
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]

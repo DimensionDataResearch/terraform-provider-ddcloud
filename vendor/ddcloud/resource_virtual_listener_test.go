@@ -27,7 +27,7 @@ func testAccDDCloudVirtualListenerBasic(name string, listenerIPAddress string, e
 			plan		= "ADVANCED"
 		}
 
-		resource "ddcloud_virtual_listener" "acc_test_virtual_listener" {
+		resource "ddcloud_virtual_listener" "acc_test_listener" {
 			name                 	= "%s"
 			protocol             	= "HTTP"
 			optimization_profiles 	= ["TCP"]
@@ -55,11 +55,15 @@ func TestAccVirtualListenerBasicCreate(t *testing.T) {
 		),
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudVirtualListenerBasic("acc-test-virtual-listener", "192.168.18.10", true),
+				Config: testAccDDCloudVirtualListenerBasic(
+					"AccTestListener",
+					"192.168.18.10",
+					true,
+				),
 				Check: resource.ComposeTestCheckFunc(
-					testCheckDDCloudVirtualListenerExists("ddcloud_virtual_listener.acc_test_virtual_listener", true),
-					testCheckDDCloudVirtualListenerMatches("ddcloud_virtual_listener.acc_test_virtual_listener", compute.VirtualListener{
-						Name:              "acc-test-virtual-listener",
+					testCheckDDCloudVirtualListenerExists("acc_test_listener", true),
+					testCheckDDCloudVirtualListenerMatches("acc_test_listener", compute.VirtualListener{
+						Name:              "AccTestListener",
 						Protocol:          compute.VirtualListenerStandardProtocolHTTP,
 						ListenerIPAddress: "192.168.18.10",
 						Enabled:           true,
@@ -73,6 +77,108 @@ func TestAccVirtualListenerBasicCreate(t *testing.T) {
 	})
 }
 
+// Acceptance test for ddcloud_virtual_listener (disabling causes in-place update):
+//
+// Create a virtual listener, then disable it, and verify that it gets updated in-place to Disabled.
+func TestAccVirtualListenerBasicUpdateDisable(t *testing.T) {
+	testAccResourceUpdateInPlace(t, testAccResourceUpdate{
+		ResourceName: "ddcloud_virtual_listener.acc_test_listener",
+		CheckDestroy: resource.ComposeTestCheckFunc(
+			testCheckDDCloudVirtualListenerDestroy,
+			testCheckDDCloudNetworkDomainDestroy,
+		),
+
+		// Create
+		InitialConfig: testAccDDCloudVirtualListenerBasic(
+			"AccTestListener",
+			"192.168.18.10",
+			true,
+		),
+		InitialCheck: resource.ComposeTestCheckFunc(
+			testCheckDDCloudVirtualListenerExists("acc_test_listener", true),
+			testCheckDDCloudVirtualListenerMatches("acc_test_listener", compute.VirtualListener{
+				Name:              "AccTestListener",
+				Protocol:          compute.VirtualListenerStandardProtocolHTTP,
+				ListenerIPAddress: "192.168.18.10",
+				Enabled:           true,
+				OptimizationProfiles: []string{
+					"TCP",
+				},
+			}),
+		),
+
+		// Update
+		UpdateConfig: testAccDDCloudVirtualListenerBasic(
+			"AccTestListener",
+			"192.168.18.10",
+			false,
+		),
+		UpdateCheck: resource.ComposeTestCheckFunc(
+			testCheckDDCloudVirtualListenerExists("acc_test_listener", true),
+			testCheckDDCloudVirtualListenerMatches("acc_test_listener", compute.VirtualListener{
+				Name:              "AccTestListener",
+				Protocol:          compute.VirtualListenerStandardProtocolHTTP,
+				ListenerIPAddress: "192.168.18.10",
+				Enabled:           false,
+				OptimizationProfiles: []string{
+					"TCP",
+				},
+			}),
+		),
+	})
+}
+
+// Acceptance test for ddcloud_virtual_listener (changing name causes destroy-and-recreate):
+//
+// Create a virtual listener, then change its name, and verify that it gets destroyed and recreated with the new name.
+func TestAccVirtualListenerBasicUpdateName(t *testing.T) {
+	testAccResourceUpdateReplace(t, testAccResourceUpdate{
+		ResourceName: "ddcloud_virtual_listener.acc_test_listener",
+		CheckDestroy: resource.ComposeTestCheckFunc(
+			testCheckDDCloudVirtualListenerDestroy,
+			testCheckDDCloudNetworkDomainDestroy,
+		),
+
+		// Create
+		InitialConfig: testAccDDCloudVirtualListenerBasic(
+			"AccTestListener",
+			"192.168.18.10",
+			true,
+		),
+		InitialCheck: resource.ComposeTestCheckFunc(
+			testCheckDDCloudVirtualListenerExists("acc_test_listener", true),
+			testCheckDDCloudVirtualListenerMatches("acc_test_listener", compute.VirtualListener{
+				Name:              "AccTestListener",
+				Protocol:          compute.VirtualListenerStandardProtocolHTTP,
+				ListenerIPAddress: "192.168.18.10",
+				Enabled:           true,
+				OptimizationProfiles: []string{
+					"TCP",
+				},
+			}),
+		),
+
+		// Update
+		UpdateConfig: testAccDDCloudVirtualListenerBasic(
+			"AccTestListener1",
+			"192.168.18.10",
+			true,
+		),
+		UpdateCheck: resource.ComposeTestCheckFunc(
+			testCheckDDCloudVirtualListenerExists("acc_test_listener", true),
+			testCheckDDCloudVirtualListenerMatches("acc_test_listener", compute.VirtualListener{
+				Name:              "AccTestListener1",
+				Protocol:          compute.VirtualListenerStandardProtocolHTTP,
+				ListenerIPAddress: "192.168.18.10",
+				Enabled:           true,
+				OptimizationProfiles: []string{
+					"TCP",
+				},
+			}),
+		),
+	})
+}
+
 /*
  * Acceptance-test checks.
  */
@@ -81,6 +187,8 @@ func TestAccVirtualListenerBasicCreate(t *testing.T) {
 //
 // Check if the virtual listener exists.
 func testCheckDDCloudVirtualListenerExists(name string, exists bool) resource.TestCheckFunc {
+	name = ensureResourceTypePrefix(name, "ddcloud_virtual_listener")
+
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]
 		if !ok {
@@ -108,6 +216,8 @@ func testCheckDDCloudVirtualListenerExists(name string, exists bool) resource.Te
 //
 // Check if the VirtualListener's configuration matches the expected configuration.
 func testCheckDDCloudVirtualListenerMatches(name string, expected compute.VirtualListener) resource.TestCheckFunc {
+	name = ensureResourceTypePrefix(name, "ddcloud_virtual_listener")
+
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]
 		if !ok {

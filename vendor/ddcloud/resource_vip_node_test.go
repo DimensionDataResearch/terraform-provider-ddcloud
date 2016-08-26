@@ -119,7 +119,7 @@ func TestAccVIPNodeBasicUpdateStatus(t *testing.T) {
 //
 // Check if the vip node exists.
 func testCheckDDCloudVIPNodeExists(name string, exists bool) resource.TestCheckFunc {
-	name = "ddcloud_vip_node." + name
+	name = ensureResourceTypePrefix(name, "ddcloud_vip_node")
 
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]
@@ -148,7 +148,7 @@ func testCheckDDCloudVIPNodeExists(name string, exists bool) resource.TestCheckF
 //
 // Check if the vip node's configuration matches the expected configuration.
 func testCheckDDCloudVIPNodeMatches(name string, expected compute.VIPNode) resource.TestCheckFunc {
-	name = "ddcloud_vip_node." + name
+	name = ensureResourceTypePrefix(name, "ddcloud_vip_node")
 
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]

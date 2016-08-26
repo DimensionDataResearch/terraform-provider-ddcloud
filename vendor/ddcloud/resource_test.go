@@ -166,3 +166,14 @@ func getResourceTypeFromName(name string) (string, error) {
 
 	return resourceNameComponents[0], nil
 }
+
+// Ensure that a resource name starts with the specified resource-type prefix.
+func ensureResourceTypePrefix(resourceName string, resourceType string) string {
+	prefix := resourceType + "."
+
+	if strings.HasPrefix(resourceName, prefix) {
+		return resourceName
+	}
+
+	return prefix + resourceName
+}

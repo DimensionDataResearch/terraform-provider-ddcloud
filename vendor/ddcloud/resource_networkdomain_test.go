@@ -46,8 +46,8 @@ func TestAccNetworkDomainBasicCreate(t *testing.T) {
 					"AU9",
 				),
 				Check: resource.ComposeTestCheckFunc(
-					testCheckDDCloudNetworkDomainExists("ddcloud_networkdomain.acc_test_domain", true),
-					testCheckDDCloudNetworkDomainMatches("ddcloud_networkdomain.acc_test_domain", compute.NetworkDomain{
+					testCheckDDCloudNetworkDomainExists("acc_test_domain", true),
+					testCheckDDCloudNetworkDomainMatches("acc_test_domain", compute.NetworkDomain{
 						Name:         "acc-test-domain",
 						Description:  "Network domain for Terraform acceptance test.",
 						DatacenterID: "AU9",
@@ -73,8 +73,8 @@ func TestAccNetworkDomainBasicUpdate(test *testing.T) {
 			"AU9",
 		),
 		InitialCheck: resource.ComposeTestCheckFunc(
-			testCheckDDCloudNetworkDomainExists("ddcloud_networkdomain.acc_test_domain", true),
-			testCheckDDCloudNetworkDomainMatches("ddcloud_networkdomain.acc_test_domain", compute.NetworkDomain{
+			testCheckDDCloudNetworkDomainExists("acc_test_domain", true),
+			testCheckDDCloudNetworkDomainMatches("acc_test_domain", compute.NetworkDomain{
 				Name:         "acc-test-domain",
 				Description:  "Network domain for Terraform acceptance test.",
 				DatacenterID: "AU9",
@@ -88,8 +88,8 @@ func TestAccNetworkDomainBasicUpdate(test *testing.T) {
 			"AU9",
 		),
 		UpdateCheck: resource.ComposeTestCheckFunc(
-			testCheckDDCloudNetworkDomainExists("ddcloud_networkdomain.acc_test_domain", true),
-			testCheckDDCloudNetworkDomainMatches("ddcloud_networkdomain.acc_test_domain", compute.NetworkDomain{
+			testCheckDDCloudNetworkDomainExists("acc_test_domain", true),
+			testCheckDDCloudNetworkDomainMatches("acc_test_domain", compute.NetworkDomain{
 				Name:         "acc-test-domain-updated",
 				Description:  "Updated network domain for Terraform acceptance test.",
 				DatacenterID: "AU9",
@@ -106,6 +106,8 @@ func TestAccNetworkDomainBasicUpdate(test *testing.T) {
 //
 // Check if the network domain exists.
 func testCheckDDCloudNetworkDomainExists(name string, exists bool) resource.TestCheckFunc {
+	name = ensureResourceTypePrefix(name, "ddcloud_networkdomain")
+
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]
 		if !ok {
@@ -133,6 +135,8 @@ func testCheckDDCloudNetworkDomainExists(name string, exists bool) resource.Test
 //
 // Check if the network domain's configuration matches the expected configuration.
 func testCheckDDCloudNetworkDomainMatches(name string, expected compute.NetworkDomain) resource.TestCheckFunc {
+	name = ensureResourceTypePrefix(name, "ddcloud_networkdomain")
+
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]
 		if !ok {
