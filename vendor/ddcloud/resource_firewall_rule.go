@@ -177,8 +177,6 @@ func resourceFirewallRuleCreate(data *schema.ResourceData, provider interface{})
 		),
 	}
 
-	configuration.Action = data.Get(resourceKeyFirewallRuleAction).(string)
-
 	err = configureSourceScope(propertyHelper, configuration)
 	if err != nil {
 		return err

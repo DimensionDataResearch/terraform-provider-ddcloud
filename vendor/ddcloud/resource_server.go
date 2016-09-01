@@ -153,7 +153,6 @@ func resourceServer() *schema.Resource {
 			},
 			resourceKeyServerAutoStart: &schema.Schema{
 				Type:        schema.TypeBool,
-				ForceNew:    true,
 				Optional:    true,
 				Default:     false,
 				Description: "Should the server be started automatically once it has been deployed",

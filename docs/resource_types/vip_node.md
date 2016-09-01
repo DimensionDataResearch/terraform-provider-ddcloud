@@ -1,4 +1,4 @@
-# vip\_node
+# ddcloud\_vip\_node
 
 A VIP Node is a low level component of a VIP and a NAT in an MCP 2.0 data centre.
 

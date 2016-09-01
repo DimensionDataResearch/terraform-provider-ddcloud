@@ -27,19 +27,22 @@ func resourceVIPPool() *schema.Resource {
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyVIPPoolName: &schema.Schema{
-				Type:     schema.TypeString,
-				Required: true,
-				ForceNew: true,
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "A name for the VIP pool",
 			},
 			resourceKeyVIPPoolDescription: &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  "",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
+				Description: "A description of the VIP pool",
 			},
 			resourceKeyVIPPoolLoadBalanceMethod: &schema.Schema{
-				Type:     schema.TypeString,
-				Optional: true,
-				Default:  compute.LoadBalanceMethodRoundRobin,
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     compute.LoadBalanceMethodRoundRobin,
+				Description: "The load-balancing method used by the VIP pool",
 			},
 			resourceKeyVIPPoolHealthMonitorIDs: &schema.Schema{
 				Type:     schema.TypeSet,

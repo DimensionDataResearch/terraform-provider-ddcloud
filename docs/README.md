@@ -16,3 +16,5 @@ The `ddcloud` provider supports the following resource types:
 * [ddcloud_nat](resource_types/nat.md) - A CloudControl Network Address Translation (NAT) rule.
 * [ddcloud_firewall_rule](resource_types/firewall_rule.md) - A CloudControl firewall rule.
 * [ddcloud_vip_node](resource_types/vip_node.md) - A CloudControl Virtual IP (VIP) node.
+* [ddcloud_vip_pool](resource_types/vip_pool.md) - A CloudControl Virtual IP (VIP) pool.
+* [ddcloud_virtual_listener](resource_types/virtual_listener.md) - A CloudControl Virtual Listener.
