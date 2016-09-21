@@ -70,6 +70,7 @@ func resourceVirtualListener() *schema.Resource {
 			resourceKeyVirtualListenerIPv4Address: &schema.Schema{
 				Type:     schema.TypeString,
 				Optional: true,
+				Computed: true,
 				Default:  nil,
 			},
 			resourceKeyVirtualListenerPort: &schema.Schema{
@@ -226,6 +227,7 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 		return fmt.Errorf("Cannot find newly-created virtual listener with Id '%s'.", virtualListenerID)
 	}
 
+	data.Set(resourceKeyVirtualListenerIPv4Address, virtualListener.ListenerIPAddress)
 	// TODO: Populate computed properties.
 
 	return nil
@@ -275,6 +277,7 @@ func resourceVirtualListenerRead(data *schema.ResourceData, provider interface{}
 	data.Set(resourceKeyVirtualListenerConnectionRateLimit, virtualListener.ConnectionRateLimit)
 	data.Set(resourceKeyVirtualListenerSourcePortPreservation, virtualListener.SourcePortPreservation)
 	data.Set(resourceKeyVirtualListenerPersistenceProfileName, virtualListener.PersistenceProfile.Name)
+	data.Set(resourceKeyVirtualListenerIPv4Address, virtualListener.ListenerIPAddress)
 
 	propertyHelper := propertyHelper(data)
 	propertyHelper.SetVirtualListenerIRules(virtualListener.IRules)
