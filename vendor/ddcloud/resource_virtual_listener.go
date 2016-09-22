@@ -2,9 +2,10 @@ package ddcloud
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
-	"log"
 )
 
 const (
@@ -174,6 +175,7 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 	networkDomainID := data.Get(resourceKeyVirtualListenerNetworkDomainID).(string)
 	name := data.Get(resourceKeyVirtualListenerName).(string)
 	description := data.Get(resourceKeyVirtualListenerDescription).(string)
+	listenerIPAddress := data.Get(resourceKeyVirtualListenerIPv4Address).(string)
 
 	log.Printf("Create virtual listener '%s' ('%s') in network domain '%s'.", name, description, networkDomainID)
 
@@ -194,6 +196,88 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 		return err
 	}
 
+	if len(listenerIPAddress) == 0 {
+		domainLock := providerState.GetDomainLock(networkDomainID, "resourceVirtualListenerCreate")
+		domainLock.Lock()
+		defer domainLock.Unlock()
+
+		// First, work out if we have any free public IP addresses.
+		freeIPs := newStringSet()
+
+		// Public IPs are allocated in blocks.
+		page := compute.DefaultPaging()
+		for {
+			var publicIPBlocks *compute.PublicIPBlocks
+			publicIPBlocks, err = apiClient.ListPublicIPBlocks(networkDomainID, page)
+			if err != nil {
+				return err
+			}
+			if publicIPBlocks.IsEmpty() {
+				break // We're done
+			}
+
+			var blockAddresses []string
+			for _, block := range publicIPBlocks.Blocks {
+				blockAddresses, err = calculateBlockAddresses(block)
+				if err != nil {
+					return err
+				}
+
+				for _, address := range blockAddresses {
+					freeIPs.Add(address)
+				}
+			}
+
+			page.Next()
+		}
+
+		// Some of those IPs may be reserved for other NAT rules or VIPs.
+		page.First()
+		for {
+			var reservedIPs *compute.ReservedPublicIPs
+			reservedIPs, err = apiClient.ListReservedPublicIPAddresses(networkDomainID, page)
+			if err != nil {
+				return err
+			}
+			if reservedIPs.IsEmpty() {
+				break // We're done
+			}
+
+			for _, reservedIP := range reservedIPs.IPs {
+				freeIPs.Remove(reservedIP.Address)
+			}
+
+			page.Next()
+		}
+
+		// Anything left is free to use.
+		// Note that there is still potentially a race condition here. Improved behaviour would be to handle the relevant error response from CreateNATRule and retry.
+
+		// If there are no free public IP's we'll need to request the allocation of a new block.
+		if freeIPs.Len() == 0 {
+			log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
+
+			var blockID string
+			blockID, err = apiClient.AddPublicIPBlock(networkDomainID)
+			if err != nil {
+				return err
+			}
+
+			var block *compute.PublicIPBlock
+			block, err = apiClient.GetPublicIPBlock(blockID)
+			if err != nil {
+				return err
+			}
+
+			if block == nil {
+				return fmt.Errorf("Cannot find newly-added public IPv4 address block '%s'.", blockID)
+			}
+
+			log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').", block.ID, block.Size, block.BaseIP)
+
+		}
+
+	}
 	virtualListenerID, err := apiClient.CreateVirtualListener(compute.NewVirtualListenerConfiguration{
 		Name:                   name,
 		Description:            description,
@@ -228,7 +312,6 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 	}
 
 	data.Set(resourceKeyVirtualListenerIPv4Address, virtualListener.ListenerIPAddress)
-	// TODO: Populate computed properties.
 
 	return nil
 }
