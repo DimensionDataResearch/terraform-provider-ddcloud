@@ -107,10 +107,10 @@ resource "ddcloud_nat" "my-server-nat" {
 
   # public_ipv4 is computed at deploy time.
 
-  depends_on          = [ "ddcloud_vlan.test-vlan" ]
+  depends_on          = [ "ddcloud_vlan.my-vlan" ]
 }
 
-resource "ddcloud_firewall_rule" "test-vm-http-in" {
+resource "ddcloud_firewall_rule" "my-vm-http-in" {
   name                = "my_server.HTTP.Inbound"
   placement           = "first"
   action              = "accept" # Valid values are "accept" or "drop."
