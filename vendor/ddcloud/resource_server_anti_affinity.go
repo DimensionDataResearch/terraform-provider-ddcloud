@@ -14,6 +14,7 @@ const (
 	resourceKeyServerAntiAffinityRuleServer2ID       = "server2"
 	resourceKeyServerAntiAffinityRuleServer2Name     = "server2_name"
 	resourceKeyServerAntiAffinityRuleNetworkDomainID = "networkdomain"
+	resourceCreateTimeoutServerAntiAffinityRule      = 5 * time.Minute
 	resourceDeleteTimeoutServerAntiAffinityRule      = 5 * time.Minute
 )
 
@@ -87,6 +88,8 @@ func resourceServerAntiAffinityRuleCreate(data *schema.ResourceData, provider in
 		return fmt.Errorf("Cannot create server anti-affinity rule (server '%s' is in network domain '%s', but server '%s' is in network domain '%s'", server1ID, server1.Network.NetworkDomainID, server2ID, server2.Network.NetworkDomainID)
 	}
 
+	networkDomainID := server1.Network.NetworkDomainID
+
 	// TODO: Handle RESOURCE_BUSY response (retry?)
 	ruleID, err := apiClient.CreateServerAntiAffinityRule(server1ID, server2ID)
 	if err != nil {
@@ -95,10 +98,37 @@ func resourceServerAntiAffinityRuleCreate(data *schema.ResourceData, provider in
 
 	data.SetId(ruleID)
 
+	qualifiedRuleID := networkDomainID + "/" + ruleID
+	resource, err := apiClient.WaitForChange(compute.ResourceTypeServerAntiAffinityRule, qualifiedRuleID, "Create", resourceCreateTimeoutServerAntiAffinityRule)
+	if err != nil {
+		return err
+	}
+
+	antiAffinityRule := resource.(*compute.ServerAntiAffinityRule)
+	if antiAffinityRule == nil {
+		return fmt.Errorf("Cannot find newly-created server anti-affinity rule '%s' in network domain '%s'.", ruleID, networkDomainID)
+	}
+
 	log.Printf("Created server anti-affinity rule '%s'.", ruleID)
 
-	data.Set(resourceKeyServerAntiAffinityRuleServer1Name, server1.Name)
-	data.Set(resourceKeyServerAntiAffinityRuleServer2Name, server2.Name)
+	// CloudControl makes no guarantees about the order in which the target servers are returned
+	serversByID := make(map[string]compute.ServerSummary)
+	for _, server := range antiAffinityRule.Servers {
+		serversByID[server.ID] = server
+	}
+
+	targetServer1, ok := serversByID[server1ID]
+	if !ok {
+		return fmt.Errorf("Anti-affinity rule '%s' targets unexpected server ('%s')", ruleID, server1ID)
+	}
+
+	targetServer2, ok := serversByID[server2ID]
+	if !ok {
+		return fmt.Errorf("Anti-affinity rule '%s' targets unexpected server ('%s')", ruleID, server2ID)
+	}
+
+	data.Set(resourceKeyServerAntiAffinityRuleServer1Name, targetServer1.Name)
+	data.Set(resourceKeyServerAntiAffinityRuleServer2Name, targetServer2.Name)
 	data.Set(resourceKeyServerAntiAffinityRuleNetworkDomainID, server1.Network.NetworkDomainID)
 
 	return nil
