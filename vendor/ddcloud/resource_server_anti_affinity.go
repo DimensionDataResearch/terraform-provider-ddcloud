@@ -108,7 +108,7 @@ func resourceServerAntiAffinityRuleCreate(data *schema.ResourceData, provider in
 func resourceServerAntiAffinityRuleRead(data *schema.ResourceData, provider interface{}) error {
 	ruleID := data.Id()
 	server1Name := data.Get(resourceKeyServerAntiAffinityRuleServer1Name).(string)
-	server2Name := data.Get(resourceKeyServerAntiAffinityRuleServer1Name).(string)
+	server2Name := data.Get(resourceKeyServerAntiAffinityRuleServer2Name).(string)
 	networkDomainID := data.Get(resourceKeyServerAntiAffinityRuleNetworkDomainID).(string)
 
 	log.Printf("Read server anti-affinity rule '%s' (servers '%s' and '%s').", ruleID, server1Name, server2Name)
@@ -127,10 +127,26 @@ func resourceServerAntiAffinityRuleRead(data *schema.ResourceData, provider inte
 			)
 		}
 
-		data.Set(resourceKeyServerAntiAffinityRuleServer1ID, antiAffinityRule.Servers[0].ID)
-		data.Set(resourceKeyServerAntiAffinityRuleServer1Name, antiAffinityRule.Servers[0].Name)
-		data.Set(resourceKeyServerAntiAffinityRuleServer2ID, antiAffinityRule.Servers[1].ID)
-		data.Set(resourceKeyServerAntiAffinityRuleServer2Name, antiAffinityRule.Servers[1].Name)
+		// CloudControl makes no guarantees about the order in which the target servers are returned
+		serversByID := make(map[string]compute.ServerSummary)
+		for _, server := range antiAffinityRule.Servers {
+			serversByID[server.ID] = server
+		}
+
+		server1ID := data.Get(resourceKeyServerAntiAffinityRuleServer1ID).(string)
+		server1, ok := serversByID[server1ID]
+		if !ok {
+			return fmt.Errorf("Anti-affinity rule '%s' relates to unexpected server ('%s')", ruleID, server1ID)
+		}
+
+		server2ID := data.Get(resourceKeyServerAntiAffinityRuleServer1ID).(string)
+		server2, ok := serversByID[server2ID]
+		if !ok {
+			return fmt.Errorf("Anti-affinity rule '%s' relates to unexpected server ('%s')", ruleID, server2ID)
+		}
+
+		data.Set(resourceKeyServerAntiAffinityRuleServer1Name, server1.Name)
+		data.Set(resourceKeyServerAntiAffinityRuleServer2Name, server2.Name)
 	} else {
 		data.SetId("") // Mark resource as deleted.
 	}
