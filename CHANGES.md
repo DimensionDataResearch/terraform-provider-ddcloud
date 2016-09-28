@@ -1,5 +1,11 @@
 # Changes
 
+## v1.0.2
+
+New features:
+
+* Implemented server anti-affinity rules (`ddcloud_server_anti_affinity` resource type).
+
 ## v1.0.1
 
 Fixes:
