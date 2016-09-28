@@ -13,6 +13,7 @@ The `ddcloud` provider supports the following resource types:
 * [ddcloud_networkdomain](resource_types/networkdomain.md) - A CloudControl network domain.
 * [ddcloud_vlan](resource_types/vlan.md) - A CloudControl Virtual LAN (VLAN).
 * [ddcloud_server](resource_types/server.md) - A CloudControl Server (virtual machine).
+* [ddcloud_server_anti_affinity](resource_types/server_anti_affinity.md) - Anti-affinity rule for 2 CloudControl Servers (virtual machines).
 * [ddcloud_nat](resource_types/nat.md) - A CloudControl Network Address Translation (NAT) rule.
 * [ddcloud_firewall_rule](resource_types/firewall_rule.md) - A CloudControl firewall rule.
 * [ddcloud_vip_node](resource_types/vip_node.md) - A CloudControl Virtual IP (VIP) node.
