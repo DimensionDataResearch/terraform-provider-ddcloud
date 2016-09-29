@@ -2,10 +2,11 @@ package ddcloud
 
 import (
 	"fmt"
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"time"
+
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (
@@ -40,6 +41,7 @@ func resourceServer() *schema.Resource {
 		Delete: resourceServerDelete,
 
 		Schema: map[string]*schema.Schema{
+
 			resourceKeyServerName: &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
@@ -382,7 +384,6 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 
 		return nil
 	}
-
 	data.Set(resourceKeyServerName, server.Name)
 	data.Set(resourceKeyServerDescription, server.Description)
 	data.Set(resourceKeyServerOSImageID, server.SourceImageID)

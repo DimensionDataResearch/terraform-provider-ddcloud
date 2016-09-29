@@ -1,19 +1,26 @@
 package ddcloud
 
-import "github.com/hashicorp/terraform/helper/schema"
+import (
+	"fmt"
+	"log"
+
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
+)
 
 const (
 	resourceKeyNicServerID     = "serverid"
 	resourceKeyNicID           = "id"
 	resourceKeyNicVLANID       = "vlan_id"
-	resourceKeyNicPriavateIPV4 = "private_ipv4"
+	resourceKeyNicPrivateIPV4  = "private_ipv4"
 	resourceKeyNicPrivateIPV6  = "private_ipv6"
-	resourceKeyIsShutdownOk    = "shutdown_ok"
+	resourceKeyNicIsShutdownOk = "shutdown_ok"
 )
 
 func resourceAdditionalNic() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceAdditionalNicCreate,
+		Exists: resourceAdditionalNicExists,
 		Read:   resourceAdditionalNicRead,
 		Update: resourceAdditionalNicUpdate,
 		Delete: resourceAdditionalNicDelete,
@@ -31,20 +38,29 @@ func resourceAdditionalNic() *schema.Resource {
 			},
 			resourceKeyNicVLANID: &schema.Schema{
 				Type:        schema.TypeString,
+				Computed:    true,
 				Optional:    true,
 				Description: "VLAN ID of the nic",
+				ForceNew:    true,
+				//ConflictsWith: []string{
+				//resourceKeyNicPrivateIPV4,
+				//},
 			},
-			resourceKeyNicPriavateIPV4: &schema.Schema{
+			resourceKeyNicPrivateIPV4: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
+				Computed:    true,
 				Description: "Private IPV4 address for the nic",
+				//ConflictsWith: []string{
+				//resourceKeyNicVLANID,
+				//},
 			},
 			resourceKeyNicPrivateIPV6: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Private IPV6 Address for the nic",
 			},
-			resourceKeyIsShutdownOk: &schema.Schema{
+			resourceKeyNicIsShutdownOk: &schema.Schema{
 				Type:        schema.TypeBool,
 				Required:    true,
 				Description: "Server needs to be shutdown to do any modifications for nic",
@@ -55,21 +71,314 @@ func resourceAdditionalNic() *schema.Resource {
 }
 
 func resourceAdditionalNicCreate(data *schema.ResourceData, provider interface{}) error {
-	var err error
-	return err
+	//propertyHelper := propertyHelper(data)
+	apiClient := provider.(*providerState).Client()
+	serverID := data.Get(resourceKeyNicServerID).(string)
+	ipv4Address := data.Get(resourceKeyNicPrivateIPV4).(string)
+	vlanID := data.Get(resourceKeyNicVLANID).(string)
+
+	shutdownOk := data.Get(resourceKeyNicIsShutdownOk).(bool)
+
+	log.Printf("Configure additional nics for server '%s'...", serverID)
+
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	isStarted := server.Started
+	if isStarted {
+		if shutdownOk {
+			err = apiClient.ShutdownServer(serverID)
+			if err != nil {
+				return err
+			}
+
+			_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shutdown server", serverShutdownTimeout)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	log.Printf("create nic in the server id %s", serverID)
+	nicID, err := apiClient.AddNicToServer(serverID, ipv4Address, vlanID)
+
+	if err != nil {
+		if isStarted {
+			err = apiClient.StartServer(serverID)
+			if err != nil {
+				return err
+			}
+			_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
+			if err != nil {
+				return err
+			}
+		}
+		return err
+	}
+
+	log.Printf("Adding nic with ID %s to server '%s'...",
+		nicID,
+		serverID,
+	)
+
+	_, err = apiClient.WaitForChange(
+		compute.ResourceTypeServer,
+		serverID,
+		"Add nic",
+		resourceUpdateTimeoutServer,
+	)
+	if err != nil {
+		return err
+	}
+
+	data.SetId(nicID) //Nic created
+	log.Printf("created the nic with the id %s", nicID)
+	data.Set(resourceKeyNicID, nicID)
+
+	if isStarted {
+		err = apiClient.StartServer(serverID)
+		if err != nil {
+			return err
+		}
+		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
+		if err != nil {
+			return err
+		}
+	}
+
+	log.Printf("read the nic with the id %s to set the computed properties", nicID)
+	server, err = apiClient.GetServer(serverID)
+
+	if server == nil {
+		log.Printf("server with the id %s cannot be found", serverID)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	serverNics := server.Network.AdditionalNetworkAdapters
+
+	nicExists := false
+	var serverNic compute.VirtualMachineNetworkAdapter
+	for _, nic := range serverNics {
+		if *nic.ID == nicID {
+			serverNic = nic
+			nicExists = true
+			break
+		}
+	}
+
+	if nicExists {
+		log.Printf("Nic with the id %s exists", nicID)
+	} else {
+		log.Printf("Nic with the id %s doesn't exists", nicID)
+	}
+
+	if serverNic.ID == nil {
+		data.SetId("") // Nic deleted
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	data.Set(resourceKeyNicPrivateIPV4, serverNic.PrivateIPv4Address)
+	data.Set(resourceKeyNicVLANID, serverNic.VLANID)
+	data.Set(resourceKeyNicPrivateIPV6, serverNic.PrivateIPv6Address)
+	data.Set(resourceKeyNicPrivateIPV4, serverNic.PrivateIPv4Address)
+
+	return nil
+}
+
+func resourceAdditionalNicExists(data *schema.ResourceData, provider interface{}) (bool, error) {
+
+	nicExists := false
+
+	serverID := data.Get(resourceKeyNicServerID).(string)
+
+	apiClient := provider.(*providerState).Client()
+
+	nicID := data.Id()
+
+	log.Printf("Get the server with the ID %s", serverID)
+
+	server, err := apiClient.GetServer(serverID)
+
+	if server == nil {
+		log.Printf("server with the id %s cannot be found", serverID)
+	}
+
+	if err != nil {
+		return nicExists, err
+	}
+	serverNics := server.Network.AdditionalNetworkAdapters
+	for _, nic := range serverNics {
+
+		if *nic.ID == nicID {
+			nicExists = true
+			break
+		}
+	}
+	return nicExists, nil
 }
 
 func resourceAdditionalNicRead(data *schema.ResourceData, provider interface{}) error {
-	var err error
-	return err
+
+	id := data.Id()
+
+	serverID := data.Get(resourceKeyNicServerID).(string)
+
+	apiClient := provider.(*providerState).Client()
+
+	log.Printf("Get the server with the ID %s", serverID)
+
+	server, err := apiClient.GetServer(serverID)
+
+	if server == nil {
+		log.Printf("server with the id %s cannot be found", serverID)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	serverNics := server.Network.AdditionalNetworkAdapters
+
+	nicExists := false
+	var serverNic compute.VirtualMachineNetworkAdapter
+	for _, nic := range serverNics {
+
+		if *nic.ID == id {
+			serverNic = nic
+			nicExists = true
+			break
+		}
+	}
+
+	if nicExists {
+		log.Printf("Nic with the id %s exists", id)
+	} else {
+		log.Printf("Nic with the id %s doesn't exists", id)
+	}
+
+	if serverNic.ID == nil {
+		data.SetId("") // Nic deleted
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	data.Set(resourceKeyNicPrivateIPV4, serverNic.PrivateIPv4Address)
+	data.Set(resourceKeyNicVLANID, serverNic.VLANID)
+	data.Set(resourceKeyNicPrivateIPV6, serverNic.PrivateIPv6Address)
+	data.Set(resourceKeyNicPrivateIPV4, serverNic.PrivateIPv4Address)
+	return nil
 }
 
 func resourceAdditionalNicUpdate(data *schema.ResourceData, provider interface{}) error {
-	var err error
-	return err
+	propertyHelper := propertyHelper(data)
+	nicID := data.Id()
+	serverID := data.Get(resourceKeyNicServerID).(string)
+	privateIPV4 := propertyHelper.GetOptionalString(resourceKeyNicPrivateIPV4, true)
+
+	if data.HasChange(resourceKeyNicPrivateIPV4) {
+		log.Printf("changing the ip address of the nic with the id %s to %s", nicID, *privateIPV4)
+		apiClient := provider.(*providerState).Client()
+		err := updateNicIPAddress(apiClient, serverID, nicID, privateIPV4)
+		if err != nil {
+			return err
+		}
+		log.Printf("IP address of the nic with the id %s changed to %s", nicID, *privateIPV4)
+	}
+	return nil
 }
 
 func resourceAdditionalNicDelete(data *schema.ResourceData, provider interface{}) error {
-	var err error
+	nicID := data.Id()
+	serverID := data.Get(resourceKeyNicServerID).(string)
+	apiClient := provider.(*providerState).Client()
+	shutdownOk := data.Get(resourceKeyNicIsShutdownOk).(bool)
+
+	log.Printf("Removing additional nics for server '%s'...", serverID)
+
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	isStarted := server.Started
+	if isStarted {
+		if shutdownOk {
+			err = apiClient.ShutdownServer(serverID)
+			if err != nil {
+				return err
+			}
+
+			_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shutdown server", serverShutdownTimeout)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	log.Printf("deleting the nic with the id %s", nicID)
+	err = apiClient.RemoveNicFromServer(nicID)
+	if err != nil {
+		if isStarted {
+			err = apiClient.StartServer(serverID)
+			if err != nil {
+				return err
+			}
+			_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
+			if err != nil {
+				return err
+			}
+		}
+		return err
+	}
+
+	log.Printf("Removing nic with ID %s to server '%s'...",
+		nicID,
+		serverID,
+	)
+
+	_, err = apiClient.WaitForChange(
+		compute.ResourceTypeServer,
+		serverID,
+		"Remove nic",
+		resourceUpdateTimeoutServer,
+	)
+	if err != nil {
+		return err
+	}
+
+	data.SetId("") //Nic Deleted
+	log.Printf("Deleted the nic with the id %s", nicID)
+
+	if isStarted {
+		err = apiClient.StartServer(serverID)
+		if err != nil {
+			return err
+		}
+		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// updateNicIPAddress notifies the compute infrastructure that a Nic's IP address has changed.
+func updateNicIPAddress(apiClient *compute.Client, serverID string, nicID string, primaryIPv4 *string) error {
+	log.Printf("Update IP address(es) for nic '%s'...", nicID)
+
+	err := apiClient.NotifyServerIPAddressChange(nicID, primaryIPv4, nil)
+	if err != nil {
+		return err
+	}
+
+	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, nicID)
+	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
+
 	return err
 }

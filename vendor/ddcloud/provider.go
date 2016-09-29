@@ -2,15 +2,16 @@ package ddcloud
 
 import (
 	"fmt"
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/hashicorp/terraform/terraform"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform/terraform"
 )
 
 // Provider creates the Dimension Data Cloud resource provider.
@@ -78,6 +79,9 @@ func Provider() terraform.ResourceProvider {
 
 			// A virtual listener is the top-level entity for load-balancing functionality.
 			"ddcloud_virtual_listener": resourceVirtualListener(),
+
+			// A additional nic is the additional network adapters to the server.
+			"ddcloud_additional_nics": resourceAdditionalNic(),
 		},
 
 		// Provider configuration
