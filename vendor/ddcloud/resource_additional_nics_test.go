@@ -18,7 +18,7 @@ func testAccDDCloudAdditionalNicToServerUsingIPV4Address(name string, descriptio
 		resource "ddcloud_networkdomain" "acc_test_domain" {
 			name		= "acc-test-networkdomain"
 			description	= "Network domain for Terraform acceptance test."
-			datacenter	= "AU9"
+			datacenter	= "AU10"
 		}
 
 		resource "ddcloud_vlan" "acc_test_vlan" {
@@ -29,6 +29,7 @@ func testAccDDCloudAdditionalNicToServerUsingIPV4Address(name string, descriptio
 
 			ipv4_base_address	= "192.168.17.0"
 			ipv4_prefix_size	= 24
+			depends_on = ["ddcloud_networkdomain.acc_test_domain"]
 		}
 
     resource "ddcloud_vlan" "acc_test_vlan1" {
@@ -39,6 +40,7 @@ func testAccDDCloudAdditionalNicToServerUsingIPV4Address(name string, descriptio
 
 			ipv4_base_address	= "192.168.18.0"
 			ipv4_prefix_size	= 24
+			depends_on = ["ddcloud_networkdomain.acc_test_domain"]
 		}
 
 		resource "ddcloud_server" "acc_test_server" {
@@ -65,6 +67,7 @@ func testAccDDCloudAdditionalNicToServerUsingIPV4Address(name string, descriptio
 				size_gb          = 10
 				speed            = "STANDARD"
 			}
+			depends_on = ["ddcloud_vlan.acc_test_vlan"]
 		}
 
     resource "ddcloud_additional_nics" "additional_nic_test" {
@@ -97,6 +100,7 @@ func testAccDDCloudAdditionalNicToServerUsingVLANID(name string, description str
 
 			ipv4_base_address	= "192.168.17.0"
 			ipv4_prefix_size	= 24
+			depends_on = ["ddcloud_networkdomain.acc_test_domain"]
 		}
 
 
@@ -108,6 +112,7 @@ func testAccDDCloudAdditionalNicToServerUsingVLANID(name string, description str
 
 			ipv4_base_address	= "192.168.18.0"
 			ipv4_prefix_size	= 24
+			depends_on = ["ddcloud_networkdomain.acc_test_domain"]
 		}
 
 		resource "ddcloud_server" "acc_test_server" {
@@ -134,6 +139,7 @@ func testAccDDCloudAdditionalNicToServerUsingVLANID(name string, description str
 				size_gb          = 10
 				speed            = "STANDARD"
 			}
+			depends_on = ["ddcloud_vlan.acc_test_vlan"]
 		}
 
     resource "ddcloud_additional_nics" "additional_nic_test" {
@@ -285,10 +291,13 @@ func testCheckDDCloudAdditionalNicDestroy(state *terraform.State) error {
 		if err != nil {
 			return nil
 		}
-		nics := server.Network.AdditionalNetworkAdapters
-		for _, nic := range nics {
-			return fmt.Errorf("Nic '%s' still exists", nic.ID)
+		if server != nil {
+			nics := server.Network.AdditionalNetworkAdapters
+			for _, nic := range nics {
+				return fmt.Errorf("Nic '%s' still exists", nic.ID)
+			}
 		}
+
 	}
 	return nil
 }
