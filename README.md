@@ -140,3 +140,9 @@ resource "ddcloud_firewall_rule" "my-vm-http-in" {
 5. Run `terraform plan -destroy -out tf.plan`
 6. Verify that everything looks ok.
 7. Run `terraform apply tf.plan`
+
+## Interactive Walkthrough for Using .tf Files
+
+For a more extensive learning experience in working with Terraform and .tf files, please reference the GitHub project below.  There are example files complete with commentary on each resource method currently available while it builds on prior builds before getting to a fully completed Terraform intrastructure build.
+
+https://github.com/wninobla/ddcloud-terraform-examples
