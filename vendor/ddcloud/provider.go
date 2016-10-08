@@ -48,6 +48,12 @@ func Provider() terraform.ResourceProvider {
 				Default:     5,
 				Description: "The number of seconds to delay between operation retries.",
 			},
+			"allow_server_reboot": &schema.Schema{
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     true,
+				Description: "Allow rebooting of ddcloud_server instances (e.g. for adding / removing NICs)?",
+			},
 		},
 
 		// Provider resource definitions
@@ -132,45 +138,76 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	}
 
 	// Override retry configuration with environment variables, if required.
-	envValue, err := strconv.Atoi(os.Getenv("DD_COMPUTE_MAX_RETRY"))
+	retryValue, err := strconv.Atoi(os.Getenv("DD_COMPUTE_MAX_RETRY"))
 	if err == nil {
-		retryCount = envValue
+		retryCount = retryValue
 
-		envValue, err := strconv.Atoi(os.Getenv("DD_COMPUTE_RETRY_DELAY"))
+		retryValue, err = strconv.Atoi(os.Getenv("DD_COMPUTE_RETRY_DELAY"))
 		if err == nil {
-			retryDelay = envValue
+			retryDelay = retryValue
 		}
 	}
 
 	client.ConfigureRetry(retryCount, time.Duration(retryDelay)*time.Second)
 
-	provider = newProvider(client)
+	settings := &ProviderSettings{
+		AllowServerReboots: providerSettings.Get("allow_server_reboot").(bool),
+	}
+
+	// Override server reboot with environment variables, if required.
+	allowRebootValue, err := strconv.ParseBool(os.Getenv("DD_COMPUTE_ALLOW_SERVER_REBOOT"))
+	if err != nil {
+		settings.AllowServerReboots = allowRebootValue
+	}
+
+	provider = newProvider(client, settings)
 
 	return provider, nil
+}
+
+// ProviderSettings represents the configuration for the ddcloud provider.
+type ProviderSettings struct {
+	// Allow rebooting of ddcloud_server instances if required during an update?
+	//
+	// For example, servers must be rebooted to add or remove network adapters.
+	AllowServerReboots bool
 }
 
 type providerState struct {
 	// The CloudControl API client.
 	apiClient *compute.Client
 
+	// The provider settings.
+	settings *ProviderSettings
+
 	// Global lock for provider state.
 	stateLock *sync.Mutex
 
 	// Lock per network domain (prevent parallel provisioning for some resource types).
 	domainLocks map[string]*sync.Mutex
+
+	// Lock per server (prevent parallel provisioning operations for a given ddcloud_server resource).
+	serverLocks map[string]*sync.Mutex
 }
 
-func newProvider(client *compute.Client) *providerState {
+func newProvider(client *compute.Client, settings *ProviderSettings) *providerState {
 	return &providerState{
 		apiClient:   client,
+		settings:    settings,
 		stateLock:   &sync.Mutex{},
 		domainLocks: make(map[string]*sync.Mutex),
+		serverLocks: make(map[string]*sync.Mutex),
 	}
 }
 
 // Client retrieves the CloudControl API client from provider state.
 func (state *providerState) Client() *compute.Client {
 	return state.apiClient
+}
+
+// Settings retrieves a copy of the provider settings.
+func (state *providerState) Settings() ProviderSettings {
+	return *state.settings // We return a copy because these settings should be read-only once the provider has been created.
 }
 
 // GetDomainLock retrieves the global lock for the specified network domain.
@@ -209,4 +246,42 @@ func (domainLock *providerDomainLock) Unlock() {
 	log.Printf("%s releasing lock for domain '%s'...", domainLock.ownerName, domainLock.domainID)
 	domainLock.lock.Unlock()
 	log.Printf("%s released lock for domain '%s'.", domainLock.ownerName, domainLock.domainID)
+}
+
+// GetServerLock retrieves the global lock for the specified server.
+func (state *providerState) GetServerLock(id string, ownerNameOrFormat string, formatArgs ...interface{}) *providerServerLock {
+	state.stateLock.Lock()
+	defer state.stateLock.Unlock()
+
+	lock, ok := state.serverLocks[id]
+	if !ok {
+		lock = &sync.Mutex{}
+		state.serverLocks[id] = lock
+	}
+
+	return &providerServerLock{
+		serverID:  id,
+		ownerName: fmt.Sprintf(ownerNameOrFormat, formatArgs...),
+		lock:      lock,
+	}
+}
+
+type providerServerLock struct {
+	serverID  string
+	ownerName string
+	lock      *sync.Mutex
+}
+
+// Acquire the server lock.
+func (serverLock *providerServerLock) Lock() {
+	log.Printf("%s acquiring lock for server '%s'...", serverLock.ownerName, serverLock.serverID)
+	serverLock.lock.Lock()
+	log.Printf("%s acquired lock for server '%s'.", serverLock.ownerName, serverLock.serverID)
+}
+
+// Release the server lock.
+func (serverLock *providerServerLock) Unlock() {
+	log.Printf("%s releasing lock for server '%s'...", serverLock.ownerName, serverLock.serverID)
+	serverLock.lock.Unlock()
+	log.Printf("%s released lock for server '%s'.", serverLock.ownerName, serverLock.serverID)
 }
