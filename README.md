@@ -21,18 +21,7 @@ Download the [latest release](https://github.com/DimensionDataResearch/dd-cloud-
 
 ## Building the provider yourself
 
-If you want to build the provider yourself instead of installing a pre-built release:
-
-* On windows, run `./build.ps1`, then create / update `$HOME\terraform.rc`
-* On Linux / OSX, run `./build.sh`, create / update `~/.terraformrc`
-
-And add the following contents:
-
-```hcl
-providers {
-	ddcloud = "path-to-the-folder/containing/dd-cloud-compute-terraform/_bin/terraform-provider-ddcloud"
-}
-```
+If you want to build the provider yourself instead of installing a pre-built release, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Testing the provider
 
