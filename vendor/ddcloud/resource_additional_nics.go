@@ -9,11 +9,10 @@ import (
 )
 
 const (
-	resourceKeyNicServerID     = "server"
-	resourceKeyNicVLANID       = "vlan_id"
-	resourceKeyNicPrivateIPV4  = "private_ipv4"
-	resourceKeyNicPrivateIPV6  = "private_ipv6"
-	resourceKeyNicIsShutdownOk = "shutdown_ok"
+	resourceKeyNicServerID    = "server"
+	resourceKeyNicVLANID      = "vlan_id"
+	resourceKeyNicPrivateIPV4 = "private_ipv4"
+	resourceKeyNicPrivateIPV6 = "private_ipv6"
 )
 
 func resourceAdditionalNic() *schema.Resource {
@@ -30,39 +29,24 @@ func resourceAdditionalNic() *schema.Resource {
 				Required:    true,
 				Description: "ID of the server to which the additional nics needs to be updated",
 			},
-			// resourceKeyNicID: &schema.Schema{
-			// 	Type:        schema.TypeString,
-			// 	Computed:    true,
-			// 	Description: "ID of the nic",
-			// },
+
 			resourceKeyNicVLANID: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
 				Optional:    true,
 				Description: "VLAN ID of the nic",
 				ForceNew:    true,
-				//ConflictsWith: []string{
-				//resourceKeyNicPrivateIPV4,
-				//},
 			},
 			resourceKeyNicPrivateIPV4: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Computed:    true,
 				Description: "Private IPV4 address for the nic",
-				//ConflictsWith: []string{
-				//resourceKeyNicVLANID,
-				//},
 			},
 			resourceKeyNicPrivateIPV6: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Private IPV6 Address for the nic",
-			},
-			resourceKeyNicIsShutdownOk: &schema.Schema{
-				Type:        schema.TypeBool,
-				Required:    true,
-				Description: "Server needs to be shutdown to do any modifications for nic",
 			},
 		},
 	}
@@ -76,17 +60,18 @@ func resourceAdditionalNicCreate(data *schema.ResourceData, provider interface{}
 	ipv4Address := data.Get(resourceKeyNicPrivateIPV4).(string)
 	vlanID := data.Get(resourceKeyNicVLANID).(string)
 
-	shutdownOk := data.Get(resourceKeyNicIsShutdownOk).(bool)
-
 	log.Printf("Configure additional nics for server '%s'...", serverID)
 
 	server, err := apiClient.GetServer(serverID)
 	if err != nil {
 		return err
 	}
+
+	settings := provider.(*providerState).Settings()
+
 	isStarted := server.Started
 	if isStarted {
-		if shutdownOk {
+		if settings.AllowServerReboots {
 			err = apiClient.ShutdownServer(serverID)
 			if err != nil {
 				return err
@@ -96,9 +81,10 @@ func resourceAdditionalNicCreate(data *schema.ResourceData, provider interface{}
 			if err != nil {
 				return err
 			}
+		} else {
+			return fmt.Errorf("Cannot reboot server '%s' because server reboots have been disabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
 		}
 	}
-
 	log.Printf("create nic in the server id %s", serverID)
 	nicID, err := apiClient.AddNicToServer(serverID, ipv4Address, vlanID)
 
@@ -296,7 +282,6 @@ func resourceAdditionalNicDelete(data *schema.ResourceData, provider interface{}
 	nicID := data.Id()
 	serverID := data.Get(resourceKeyNicServerID).(string)
 	apiClient := provider.(*providerState).Client()
-	shutdownOk := data.Get(resourceKeyNicIsShutdownOk).(bool)
 
 	log.Printf("Removing additional nics for server '%s'...", serverID)
 
@@ -304,9 +289,12 @@ func resourceAdditionalNicDelete(data *schema.ResourceData, provider interface{}
 	if err != nil {
 		return err
 	}
+
+	settings := provider.(*providerState).Settings()
+
 	isStarted := server.Started
 	if isStarted {
-		if shutdownOk {
+		if settings.AllowServerReboots {
 			err = apiClient.ShutdownServer(serverID)
 			if err != nil {
 				return err
@@ -316,7 +304,10 @@ func resourceAdditionalNicDelete(data *schema.ResourceData, provider interface{}
 			if err != nil {
 				return err
 			}
+		} else {
+			return fmt.Errorf("Cannot reboot server '%s' because server reboots have been disabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
 		}
+
 	}
 
 	log.Printf("deleting the nic with the id %s", nicID)

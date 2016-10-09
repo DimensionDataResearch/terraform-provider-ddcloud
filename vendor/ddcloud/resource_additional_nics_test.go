@@ -13,6 +13,7 @@ func testAccDDCloudAdditionalNicToServerUsingIPV4Address(name string, descriptio
 	return fmt.Sprintf(`
 		provider "ddcloud" {
 			region		= "AU"
+			allow_server_reboot = true
 		}
 
 		resource "ddcloud_networkdomain" "acc_test_domain" {
@@ -73,7 +74,6 @@ func testAccDDCloudAdditionalNicToServerUsingIPV4Address(name string, descriptio
     resource "ddcloud_additional_nics" "additional_nic_test" {
       server = "${ddcloud_server.acc_test_server.id}"
       private_ipv4 = "%s"
-      shutdown_ok = true
       depends_on = ["ddcloud_server.acc_test_server", "ddcloud_vlan.acc_test_vlan1"]
     }
 	`, name, description, primaryIPv4Address, secondNicIPAddress)
@@ -84,6 +84,7 @@ func testAccDDCloudAdditionalNicToServerUsingVLANID(name string, description str
 	return fmt.Sprintf(`
 		provider "ddcloud" {
 			region		= "AU"
+			allow_server_reboot = true
 		}
 
 		resource "ddcloud_networkdomain" "acc_test_domain" {
