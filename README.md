@@ -6,6 +6,7 @@ Currently, the following resource types are supported:
 * `ddcloud_networkdomain`: A network domain
 * `ddcloud_vlan`: A VLAN
 * `ddcloud_server`: A virtual machine
+* `ddcloud_server_anti_affinity`: An anti-affinity rule between 2 servers
 * `ddcloud_nat`: A NAT rule (forwards traffic from a public IPv4 address to a server's internal IPv4 address)
 * `ddcloud_firewall_rule`: A firewall rule
 * `ddcloud_vip_node`: A Virtual IP (VIP) node.
@@ -20,18 +21,7 @@ Download the [latest release](https://github.com/DimensionDataResearch/dd-cloud-
 
 ## Building the provider yourself
 
-If you want to build the provider yourself instead of installing a pre-built release:
-
-* On windows, run `./build.ps1`, then create / update `$HOME\terraform.rc`
-* On Linux / OSX, run `./build.sh`, create / update `~/.terraformrc`
-
-And add the following contents:
-
-```hcl
-providers {
-	ddcloud = "path-to-the-folder/containing/dd-cloud-compute-terraform/_bin/terraform-provider-ddcloud"
-}
-```
+If you want to build the provider yourself instead of installing a pre-built release, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Testing the provider
 
@@ -107,10 +97,10 @@ resource "ddcloud_nat" "my-server-nat" {
 
   # public_ipv4 is computed at deploy time.
 
-  depends_on          = [ "ddcloud_vlan.test-vlan" ]
+  depends_on          = [ "ddcloud_vlan.my-vlan" ]
 }
 
-resource "ddcloud_firewall_rule" "test-vm-http-in" {
+resource "ddcloud_firewall_rule" "my-vm-http-in" {
   name                = "my_server.HTTP.Inbound"
   placement           = "first"
   action              = "accept" # Valid values are "accept" or "drop."

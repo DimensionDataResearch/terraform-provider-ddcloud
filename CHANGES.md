@@ -1,5 +1,19 @@
 # Changes
 
+## v1.0.2
+
+New features:
+
+* Implemented server anti-affinity rules (`ddcloud_server_anti_affinity` resource type).
+
+## v1.0.1
+
+Fixes:
+
+* Fix for incorrect behaviour when adding VIP pool members with a specific port ([#17](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/pull/17/))
+* `ddcloud_virtual_listener`'s `ipv4` address property is now computable (and captured during create / read).
+* If there are no available public IP addresses when creating a `ddcloud_virtual_listener` without explicitly specifying an IPv4 address for the listener (i.e. CloudControl will allocate an IPv4 address), the provider will now automatically allocate a public IP block (similar to the behaviour of `ddcloud_nat_rule`).
+
 ## v0.7
 
 New features:
