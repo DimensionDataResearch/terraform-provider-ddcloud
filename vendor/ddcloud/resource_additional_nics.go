@@ -144,23 +144,16 @@ func resourceAdditionalNicCreate(data *schema.ResourceData, provider interface{}
 
 	serverNics := server.Network.AdditionalNetworkAdapters
 
-	nicExists := false
 	var serverNic compute.VirtualMachineNetworkAdapter
 	for _, nic := range serverNics {
 		if *nic.ID == nicID {
 			serverNic = nic
-			nicExists = true
 			break
 		}
 	}
 
-	if nicExists {
-		log.Printf("Nic with the id %s exists", nicID)
-	} else {
-		log.Printf("Nic with the id %s doesn't exists", nicID)
-	}
-
 	if serverNic.ID == nil {
+		log.Printf("Nic with the id %s doesn't exists", nicID)
 		data.SetId("") // Nic deleted
 		return nil
 	}
@@ -229,27 +222,20 @@ func resourceAdditionalNicRead(data *schema.ResourceData, provider interface{}) 
 
 	serverNics := server.Network.AdditionalNetworkAdapters
 
-	nicExists := false
 	var serverNic compute.VirtualMachineNetworkAdapter
 	for _, nic := range serverNics {
-
 		if *nic.ID == id {
 			serverNic = nic
-			nicExists = true
 			break
 		}
 	}
 
-	if nicExists {
-		log.Printf("Nic with the id %s exists", id)
-	} else {
-		log.Printf("Nic with the id %s doesn't exists", id)
-	}
-
 	if serverNic.ID == nil {
+		log.Printf("Nic with the id %s doesn't exists", id)
 		data.SetId("") // Nic deleted
 		return nil
 	}
+
 	if err != nil {
 		return err
 	}
