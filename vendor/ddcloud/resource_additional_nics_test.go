@@ -145,8 +145,7 @@ func testAccDDCloudAdditionalNicToServerUsingVLANID(name string, description str
 
     resource "ddcloud_additional_nics" "additional_nic_test" {
       server = "${ddcloud_server.acc_test_server.id}"
-      vlan_id = "${ddcloud_vlan.acc_test_vlan1.id}"
-      shutdown_ok = true
+      vlan = "${ddcloud_vlan.acc_test_vlan1.id}"
       depends_on =  ["ddcloud_server.acc_test_server", "ddcloud_vlan.acc_test_vlan1"]
     }
 	`, name, description, primaryIPv4Address)

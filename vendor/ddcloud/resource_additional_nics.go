@@ -10,7 +10,7 @@ import (
 
 const (
 	resourceKeyNicServerID    = "server"
-	resourceKeyNicVLANID      = "vlan_id"
+	resourceKeyNicVLANID      = "vlan"
 	resourceKeyNicPrivateIPV4 = "private_ipv4"
 	resourceKeyNicPrivateIPV6 = "private_ipv6"
 )
@@ -54,7 +54,6 @@ func resourceAdditionalNic() *schema.Resource {
 }
 
 func resourceAdditionalNicCreate(data *schema.ResourceData, provider interface{}) error {
-	//propertyHelper := propertyHelper(data)
 	apiClient := provider.(*providerState).Client()
 	serverID := data.Get(resourceKeyNicServerID).(string)
 	ipv4Address := data.Get(resourceKeyNicPrivateIPV4).(string)
@@ -85,6 +84,7 @@ func resourceAdditionalNicCreate(data *schema.ResourceData, provider interface{}
 			return fmt.Errorf("Cannot reboot server '%s' because server reboots have been disabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
 		}
 	}
+
 	log.Printf("create nic in the server id %s", serverID)
 	nicID, err := apiClient.AddNicToServer(serverID, ipv4Address, vlanID)
 
