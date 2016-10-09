@@ -82,3 +82,6 @@ If not specified, the `DD_COMPUTE_PASSWORD` environment variable will be used in
 * `region` - (Optional) The Managed Cloud Platform region code (e.g. 'AU' - Australia, 'EU' - Europe, 'NA' - North America) that identifies the CloudControl end-point to connect to.
 * `retry_count` - (Optional) The maximum number of times that the provider should retry operations that fail due to a network connectivity error.
 * `retry_delay` - (Optional) The time (in seconds) to delay between operation retries.
+* `allow_server_reboot` - (Optional) Allow servers to be rebooted due to configuration changes?  
+  If `false`, then the provider will fail any operation (except deletion) that requires a server to be rebooted.  
+  Default is `true`.

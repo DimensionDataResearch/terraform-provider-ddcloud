@@ -45,10 +45,9 @@ func resourceVIPPoolMember() *schema.Resource {
 				Computed: true,
 			},
 			resourceKeyVIPPoolMemberPort: &schema.Schema{
-				Type:     schema.TypeString,
+				Type:     schema.TypeInt,
 				Optional: true,
 				ForceNew: true,
-				Default:  "ANY",
 			},
 			resourceKeyVIPPoolMemberStatus: &schema.Schema{
 				Type:         schema.TypeString,

@@ -27,10 +27,11 @@ const (
 	resourceKeyServerPrimaryDNS        = "dns_primary"
 	resourceKeyServerSecondaryDNS      = "dns_secondary"
 	resourceKeyServerAutoStart         = "auto_start"
-	resourceCreateTimeoutServer        = 30 * time.Minute
-	resourceUpdateTimeoutServer        = 10 * time.Minute
-	resourceDeleteTimeoutServer        = 15 * time.Minute
-	serverShutdownTimeout              = 5 * time.Minute
+
+	resourceCreateTimeoutServer = 30 * time.Minute
+	resourceUpdateTimeoutServer = 10 * time.Minute
+	resourceDeleteTimeoutServer = 15 * time.Minute
+	serverShutdownTimeout       = 5 * time.Minute
 )
 
 func resourceServer() *schema.Resource {
@@ -433,11 +434,24 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Update server '%s'.", serverID)
 
-	apiClient := provider.(*providerState).Client()
+	providerState := provider.(*providerState)
+
+	apiClient := providerState.Client()
 	server, err := apiClient.GetServer(serverID)
 	if err != nil {
 		return err
 	}
+
+	if server == nil {
+		log.Printf("Server '%s' has been deleted.", serverID)
+		data.SetId("")
+
+		return nil
+	}
+
+	serverLock := providerState.GetServerLock(serverID, "resourceServerUpdate(id = '%s')", serverID)
+	serverLock.Lock()
+	defer serverLock.Unlock()
 
 	data.Partial(true)
 
@@ -538,7 +552,9 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Delete server '%s' ('%s') in network domain '%s'.", id, name, networkDomainID)
 
-	apiClient := provider.(*providerState).Client()
+	providerState := provider.(*providerState)
+
+	apiClient := providerState.Client()
 	server, err := apiClient.GetServer(id)
 	if err != nil {
 		return err
@@ -549,6 +565,10 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 
 		return nil
 	}
+
+	serverLock := providerState.GetServerLock(id, "resourceServerDelete(id = '%s')", id)
+	serverLock.Lock()
+	defer serverLock.Unlock()
 
 	if server.Started {
 		log.Printf("Server '%s' is currently running. The server will be powered off.", id)
