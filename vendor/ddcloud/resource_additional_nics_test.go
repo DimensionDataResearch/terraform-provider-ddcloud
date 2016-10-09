@@ -71,7 +71,7 @@ func testAccDDCloudAdditionalNicToServerUsingIPV4Address(name string, descriptio
 		}
 
     resource "ddcloud_additional_nics" "additional_nic_test" {
-      serverid = "${ddcloud_server.acc_test_server.id}"
+      server = "${ddcloud_server.acc_test_server.id}"
       private_ipv4 = "%s"
       shutdown_ok = true
       depends_on = ["ddcloud_server.acc_test_server", "ddcloud_vlan.acc_test_vlan1"]
@@ -89,7 +89,7 @@ func testAccDDCloudAdditionalNicToServerUsingVLANID(name string, description str
 		resource "ddcloud_networkdomain" "acc_test_domain" {
 			name		= "acc-test-networkdomain"
 			description	= "Network domain for Terraform acceptance test."
-			datacenter	= "AU9"
+			datacenter	= "AU10"
 		}
 
 		resource "ddcloud_vlan" "acc_test_vlan" {
@@ -143,7 +143,7 @@ func testAccDDCloudAdditionalNicToServerUsingVLANID(name string, description str
 		}
 
     resource "ddcloud_additional_nics" "additional_nic_test" {
-      serverid = "${ddcloud_server.acc_test_server.id}"
+      server = "${ddcloud_server.acc_test_server.id}"
       vlan_id = "${ddcloud_vlan.acc_test_vlan1.id}"
       shutdown_ok = true
       depends_on =  ["ddcloud_server.acc_test_server", "ddcloud_vlan.acc_test_vlan1"]

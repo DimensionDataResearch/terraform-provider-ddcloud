@@ -9,8 +9,7 @@ import (
 )
 
 const (
-	resourceKeyNicServerID     = "serverid"
-	resourceKeyNicID           = "id"
+	resourceKeyNicServerID     = "server"
 	resourceKeyNicVLANID       = "vlan_id"
 	resourceKeyNicPrivateIPV4  = "private_ipv4"
 	resourceKeyNicPrivateIPV6  = "private_ipv6"
@@ -31,11 +30,11 @@ func resourceAdditionalNic() *schema.Resource {
 				Required:    true,
 				Description: "ID of the server to which the additional nics needs to be updated",
 			},
-			resourceKeyNicID: &schema.Schema{
-				Type:        schema.TypeString,
-				Computed:    true,
-				Description: "ID of the nic",
-			},
+			// resourceKeyNicID: &schema.Schema{
+			// 	Type:        schema.TypeString,
+			// 	Computed:    true,
+			// 	Description: "ID of the nic",
+			// },
 			resourceKeyNicVLANID: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -134,7 +133,6 @@ func resourceAdditionalNicCreate(data *schema.ResourceData, provider interface{}
 
 	data.SetId(nicID) //Nic created
 	log.Printf("created the nic with the id %s", nicID)
-	data.Set(resourceKeyNicID, nicID)
 
 	if isStarted {
 		err = apiClient.StartServer(serverID)
