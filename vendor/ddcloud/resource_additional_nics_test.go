@@ -239,7 +239,7 @@ func testCheckDDCloudAdditionalNicMatchesIPV4(serverResourceName string, expecte
 			}
 		}
 		if !isNicExists {
-			return fmt.Errorf("Bad: Server '%s' has additional nic with the ip address %s (expected %s) ", serverID, server.Network.AdditionalNetworkAdapters[0].PrivateIPv4Address, expected)
+			return fmt.Errorf("Bad: Server '%s' doesn't have additional nic with the ip address (expected %s) ", serverID, expected)
 		}
 		return nil
 	}
@@ -282,7 +282,7 @@ func testCheckDDCloudAdditionalNicMatchesVLANID(serverResourceName string, vlanR
 			}
 		}
 		if !isNicExists {
-			return fmt.Errorf("Bad: Server '%s' has additional nic with the vlanID %s (expected %s) ", serverID, server.Network.AdditionalNetworkAdapters[0].VLANID, vlanID)
+			return fmt.Errorf("Bad: Server '%s' doesn't have additional nic with the vlanID (expected %s) ", serverID, vlanID)
 		}
 		return nil
 	}
