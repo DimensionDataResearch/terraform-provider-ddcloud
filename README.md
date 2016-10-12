@@ -23,10 +23,10 @@ Download the [latest release](https://github.com/DimensionDataResearch/dd-cloud-
 
 If you want to build the provider yourself instead of installing a pre-built release:
 
-* On windows, run `./build.ps1`, then create / update `$HOME\terraform.rc`
-* On Linux / OSX, run `./build.sh`, create / update `~/.terraformrc`
+* On Linux / OSX, run `make dev`, then create / update `~/.terraformrc`
+* On Windows, run `vagrant up`, then `vagrant ssh`, then `make dev`. Finally, create / update `$HOME\terraform.rc`
 
-And add the following contents:
+And add the following contents to `~/.terraformrc` / `$HOME\terraform.rc`:
 
 ```hcl
 providers {
@@ -140,3 +140,9 @@ resource "ddcloud_firewall_rule" "my-vm-http-in" {
 5. Run `terraform plan -destroy -out tf.plan`
 6. Verify that everything looks ok.
 7. Run `terraform apply tf.plan`
+
+## Interactive Walkthrough for Using .tf Files
+
+For a more extensive learning experience in working with Terraform and .tf files, please reference the GitHub project below.  There are example files complete with commentary on each resource method currently available while it builds on prior builds before getting to a fully completed Terraform intrastructure build.
+
+https://github.com/wninobla/ddcloud-terraform-examples
