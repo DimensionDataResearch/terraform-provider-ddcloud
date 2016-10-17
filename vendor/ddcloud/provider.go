@@ -68,6 +68,9 @@ func Provider() terraform.ResourceProvider {
 			// A server (virtual machine).
 			"ddcloud_server": resourceServer(),
 
+			// An additional network interface card (NIC) in a server.
+			"ddcloud_server_nic": resourceServerNIC(),
+
 			// A server anti-affinity rule.
 			"ddcloud_server_anti_affinity": resourceServerAntiAffinityRule(),
 
@@ -88,9 +91,6 @@ func Provider() terraform.ResourceProvider {
 
 			// A virtual listener is the top-level entity for load-balancing functionality.
 			"ddcloud_virtual_listener": resourceVirtualListener(),
-
-			// A additional nic is the additional network adapters to the server.
-			"ddcloud_additional_nics": resourceAdditionalNic(),
 		},
 
 		// Provider configuration

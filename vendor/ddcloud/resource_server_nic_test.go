@@ -8,8 +8,8 @@ import (
 	"github.com/hashicorp/terraform/terraform"
 )
 
-// Acceptance test configuration - ddcloud_additional_nics (IP of the second nic)
-func testAccDDCloudAdditionalNicToServerUsingIPV4Address(name string, description string, primaryIPv4Address string, secondNicIPAddress string) string {
+// Acceptance test configuration - ddcloud_server_nic (IP of the second nic)
+func testAccDDCloudServerNICToServerUsingIPV4Address(name string, description string, primaryIPv4Address string, secondNicIPAddress string) string {
 	return fmt.Sprintf(`
 		provider "ddcloud" {
 			region		= "AU"
@@ -71,7 +71,7 @@ func testAccDDCloudAdditionalNicToServerUsingIPV4Address(name string, descriptio
 			depends_on = ["ddcloud_vlan.acc_test_vlan"]
 		}
 
-    resource "ddcloud_additional_nics" "additional_nic_test" {
+    resource "ddcloud_server_nic" "additional_nic_test" {
       server = "${ddcloud_server.acc_test_server.id}"
       private_ipv4 = "%s"
       depends_on = ["ddcloud_server.acc_test_server", "ddcloud_vlan.acc_test_vlan1"]
@@ -79,8 +79,8 @@ func testAccDDCloudAdditionalNicToServerUsingIPV4Address(name string, descriptio
 	`, name, description, primaryIPv4Address, secondNicIPAddress)
 }
 
-// Acceptance test configuration - ddcloud_additional_nics (VLANID of the second nic)
-func testAccDDCloudAdditionalNicToServerUsingVLANID(name string, description string, primaryIPv4Address string) string {
+// Acceptance test configuration - ddcloud_server_nic (VLANID of the second nic)
+func testAccDDCloudServerNICToServerUsingVLANID(name string, description string, primaryIPv4Address string) string {
 	return fmt.Sprintf(`
 		provider "ddcloud" {
 			region		= "AU"
@@ -143,7 +143,7 @@ func testAccDDCloudAdditionalNicToServerUsingVLANID(name string, description str
 			depends_on = ["ddcloud_vlan.acc_test_vlan"]
 		}
 
-    resource "ddcloud_additional_nics" "additional_nic_test" {
+    resource "ddcloud_server_nic" "additional_nic_test" {
       server = "${ddcloud_server.acc_test_server.id}"
       vlan = "${ddcloud_vlan.acc_test_vlan1.id}"
       depends_on =  ["ddcloud_server.acc_test_server", "ddcloud_vlan.acc_test_vlan1"]
@@ -152,18 +152,18 @@ func testAccDDCloudAdditionalNicToServerUsingVLANID(name string, description str
 }
 
 // add a nic to the server with ipv4address as input and verify that it gets created with the correct configuration.
-func TestAccServerAdditionalNicCreateWithIPV4Address(t *testing.T) {
+func TestAccServerServerNICCreateWithIPV4Address(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
-			testCheckDDCloudAdditionalNicDestroy,
+			testCheckDDCloudServerNICDestroy,
 			testCheckDDCloudServerDestroy,
 			testCheckDDCloudVLANDestroy,
 			testCheckDDCloudNetworkDomainDestroy,
 		),
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudAdditionalNicToServerUsingIPV4Address(
+				Config: testAccDDCloudServerNICToServerUsingIPV4Address(
 					"acc-test-server",
 					"Server for Terraform acceptance test.",
 					"192.168.17.11",
@@ -171,7 +171,7 @@ func TestAccServerAdditionalNicCreateWithIPV4Address(t *testing.T) {
 				),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudAdditionalNicMatchesIPV4("ddcloud_server.acc_test_server",
+					testCheckDDCloudServerNICMatchesIPV4("ddcloud_server.acc_test_server",
 						"192.168.18.100",
 					),
 				),
@@ -181,25 +181,25 @@ func TestAccServerAdditionalNicCreateWithIPV4Address(t *testing.T) {
 }
 
 // add a nic to the server with ipv4address as input and verify that it gets created with the correct configuration.
-func TestAccServerAdditionalNicCreateWithVLANID(t *testing.T) {
+func TestAccServerServerNICCreateWithVLANID(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
-			testCheckDDCloudAdditionalNicDestroy,
+			testCheckDDCloudServerNICDestroy,
 			testCheckDDCloudServerDestroy,
 			testCheckDDCloudVLANDestroy,
 			testCheckDDCloudNetworkDomainDestroy,
 		),
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudAdditionalNicToServerUsingVLANID(
+				Config: testAccDDCloudServerNICToServerUsingVLANID(
 					"acc-test-server",
 					"Server for Terraform acceptance test.",
 					"192.168.17.11",
 				),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudAdditionalNicMatchesVLANID("ddcloud_server.acc_test_server",
+					testCheckDDCloudServerNICMatchesVLANID("ddcloud_server.acc_test_server",
 						"ddcloud_vlan.acc_test_vlan1",
 					),
 				),
@@ -209,7 +209,7 @@ func TestAccServerAdditionalNicCreateWithVLANID(t *testing.T) {
 }
 
 // Check if the additional nic configuration matches the expected configuration.
-func testCheckDDCloudAdditionalNicMatchesIPV4(serverResourceName string, expected string) resource.TestCheckFunc {
+func testCheckDDCloudServerNICMatchesIPV4(serverResourceName string, expected string) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
 
 		serverResource, ok := state.RootModule().Resources[serverResourceName]
@@ -246,7 +246,7 @@ func testCheckDDCloudAdditionalNicMatchesIPV4(serverResourceName string, expecte
 }
 
 // Check if the additional nic configuration matches the expected configuration.
-func testCheckDDCloudAdditionalNicMatchesVLANID(serverResourceName string, vlanResourceName string) resource.TestCheckFunc {
+func testCheckDDCloudServerNICMatchesVLANID(serverResourceName string, vlanResourceName string) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
 
 		serverResource, ok := state.RootModule().Resources[serverResourceName]
@@ -288,8 +288,8 @@ func testCheckDDCloudAdditionalNicMatchesVLANID(serverResourceName string, vlanR
 	}
 }
 
-// Check all AdditionalNics specified in the configuration have been destroyed.
-func testCheckDDCloudAdditionalNicDestroy(state *terraform.State) error {
+// Check all ServerNICs specified in the configuration have been destroyed.
+func testCheckDDCloudServerNICDestroy(state *terraform.State) error {
 	for _, res := range state.RootModule().Resources {
 		if res.Type != "ddcloud_server" {
 			continue
@@ -305,7 +305,7 @@ func testCheckDDCloudAdditionalNicDestroy(state *terraform.State) error {
 		if server != nil {
 			nics := server.Network.AdditionalNetworkAdapters
 			for _, nic := range nics {
-				return fmt.Errorf("Nic '%s' still exists", nic.ID)
+				return fmt.Errorf("Nic '%s' still exists", *nic.ID)
 			}
 		}
 

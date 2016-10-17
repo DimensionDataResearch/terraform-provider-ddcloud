@@ -1,14 +1,14 @@
-# ddcloud\_additional\_nics
+# ddcloud\_server\_nic
 
-This resource to add additional network adapters to the existing server
+Represents an additional network adapters in an existing server.
 
 ## Example Usage
 
 ```
-resource "ddcloud_additional_nics" "additional_nic_test" {
-	server   					= "${ddcloud_server.test_server.id}"
-	private_ipv4 			= "192.168.18.100"
-  vlan     			= "${ddcloud_vlan.test_vlan.id}"
+resource "ddcloud_server_nic" "server_nic_test" {
+  server       = "${ddcloud_server.test_server.id}"
+  private_ipv4 = "192.168.18.100"
+  vlan         = "${ddcloud_vlan.test_vlan.id}"
 }
 ```
 
@@ -22,4 +22,4 @@ The following arguments are supported:
 
 ## Attribute Reference
 
-There are currently no additional attributes for `ddcloud_additional_nics`.
+There are currently no additional attributes for `ddcloud_server_nic`.

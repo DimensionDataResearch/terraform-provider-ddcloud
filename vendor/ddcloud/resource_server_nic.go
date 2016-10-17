@@ -15,13 +15,13 @@ const (
 	resourceKeyNicPrivateIPV6 = "private_ipv6"
 )
 
-func resourceAdditionalNic() *schema.Resource {
+func resourceServerNIC() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceAdditionalNicCreate,
-		Exists: resourceAdditionalNicExists,
-		Read:   resourceAdditionalNicRead,
-		Update: resourceAdditionalNicUpdate,
-		Delete: resourceAdditionalNicDelete,
+		Create: resourceServerNICCreate,
+		Exists: resourceServerNICExists,
+		Read:   resourceServerNICRead,
+		Update: resourceServerNICUpdate,
+		Delete: resourceServerNICDelete,
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyNicServerID: &schema.Schema{
@@ -53,7 +53,7 @@ func resourceAdditionalNic() *schema.Resource {
 
 }
 
-func resourceAdditionalNicCreate(data *schema.ResourceData, provider interface{}) error {
+func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) error {
 	apiClient := provider.(*providerState).Client()
 	serverID := data.Get(resourceKeyNicServerID).(string)
 	ipv4Address := data.Get(resourceKeyNicPrivateIPV4).(string)
@@ -168,7 +168,7 @@ func resourceAdditionalNicCreate(data *schema.ResourceData, provider interface{}
 	return nil
 }
 
-func resourceAdditionalNicExists(data *schema.ResourceData, provider interface{}) (bool, error) {
+func resourceServerNICExists(data *schema.ResourceData, provider interface{}) (bool, error) {
 
 	nicExists := false
 
@@ -200,7 +200,7 @@ func resourceAdditionalNicExists(data *schema.ResourceData, provider interface{}
 	return nicExists, nil
 }
 
-func resourceAdditionalNicRead(data *schema.ResourceData, provider interface{}) error {
+func resourceServerNICRead(data *schema.ResourceData, provider interface{}) error {
 
 	id := data.Id()
 
@@ -246,7 +246,7 @@ func resourceAdditionalNicRead(data *schema.ResourceData, provider interface{}) 
 	return nil
 }
 
-func resourceAdditionalNicUpdate(data *schema.ResourceData, provider interface{}) error {
+func resourceServerNICUpdate(data *schema.ResourceData, provider interface{}) error {
 	propertyHelper := propertyHelper(data)
 	nicID := data.Id()
 	serverID := data.Get(resourceKeyNicServerID).(string)
@@ -264,7 +264,7 @@ func resourceAdditionalNicUpdate(data *schema.ResourceData, provider interface{}
 	return nil
 }
 
-func resourceAdditionalNicDelete(data *schema.ResourceData, provider interface{}) error {
+func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) error {
 	nicID := data.Id()
 	serverID := data.Get(resourceKeyNicServerID).(string)
 	apiClient := provider.(*providerState).Client()
