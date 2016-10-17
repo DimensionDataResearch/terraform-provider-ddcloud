@@ -17,9 +17,11 @@ data "ddcloud_networkdomain" "my-domain" {
 resource "ddcloud_vlan" {
 	// Other properties
 
-	networkdomain           = "${ddcloud_networkdomain.my-domain.id}"
+	networkdomain           = "${data.ddcloud_networkdomain.my-domain.id}"
 }
 ```
+
+Note that the `data.` prefix is required to reference data-source properties.
 
 ## Argument Reference
 

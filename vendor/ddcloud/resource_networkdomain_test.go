@@ -31,7 +31,7 @@ func testAccDDCloudNetworkDomainBasic(name string, description string, datacente
  * Acceptance tests.
  */
 
-// Acceptance test for ddcloud_networkdomain (basic):
+// Acceptance test for ddcloud_networkdomain resource (basic):
 //
 // Create a network domain and verify that it gets created with the correct configuration.
 func TestAccNetworkDomainBasicCreate(t *testing.T) {
@@ -58,7 +58,7 @@ func TestAccNetworkDomainBasicCreate(t *testing.T) {
 	})
 }
 
-// Acceptance test for ddcloud_networkdomain (basic):
+// Acceptance test for ddcloud_networkdomain resource (basic):
 //
 // Update a NetworkDomain and verify that it gets updated with the correct configuration.
 func TestAccNetworkDomainBasicUpdate(test *testing.T) {
@@ -136,7 +136,6 @@ func testCheckDDCloudNetworkDomainExists(name string, exists bool) resource.Test
 // Check if the network domain's configuration matches the expected configuration.
 func testCheckDDCloudNetworkDomainMatches(name string, expected compute.NetworkDomain) resource.TestCheckFunc {
 	name = ensureResourceTypePrefix(name, "ddcloud_networkdomain")
-
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]
 		if !ok {

@@ -177,3 +177,14 @@ func ensureResourceTypePrefix(resourceName string, resourceType string) string {
 
 	return prefix + resourceName
 }
+
+// Ensure that a data-source name starts with the specified data-source-type prefix.
+func ensureDataSourceTypePrefix(dataSourceName string, dataSourceType string) string {
+	prefix := "data." + dataSourceType + "."
+
+	if strings.HasPrefix(dataSourceType, prefix) {
+		return dataSourceName
+	}
+
+	return prefix + dataSourceName
+}

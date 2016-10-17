@@ -7,7 +7,7 @@ import (
 
 func dataSourceNetworkDomain() *schema.Resource {
 	return &schema.Resource{
-		Read:   dataSourceNetworkDomainRead,
+		Read: dataSourceNetworkDomainRead,
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyNetworkDomainName: &schema.Schema{
