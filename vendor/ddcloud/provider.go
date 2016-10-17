@@ -93,6 +93,11 @@ func Provider() terraform.ResourceProvider {
 			"ddcloud_virtual_listener": resourceVirtualListener(),
 		},
 
+		DataSourcesMap: map[string]*schema.Resource{
+			// A network domain.
+			"ddcloud_networkdomain": dataSourceNetworkDomain(),
+		},
+
 		// Provider configuration
 		ConfigureFunc: configureProvider,
 	}
