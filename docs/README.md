@@ -22,3 +22,7 @@ The `ddcloud` provider supports the following resource types:
 * [ddcloud_vip_pool_member](resource_types/vip_pool_member.md) - A CloudControl Virtual IP (VIP) pool membership.  
 Links a `ddcloud_vip_node` (and optionally a port) to a `ddcloud_vip_pool`.
 * [ddcloud_virtual_listener](resource_types/virtual_listener.md) - A CloudControl Virtual Listener.
+
+And the following data-source types:
+
+* [ddcloud_networkdomain](datasource_types/networkdomain.md) - A CloudControl network domain (lookup by name and data centre).
