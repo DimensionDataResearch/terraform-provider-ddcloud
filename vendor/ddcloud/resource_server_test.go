@@ -96,7 +96,7 @@ func testAccDDCloudServerImageDisk1(sizeGB int, speed string) string {
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
 			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "192.168.17.4"
+			primary_adapter_ipv4 = "192.168.17.6"
 
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
@@ -147,7 +147,7 @@ func testAccDDCloudServerAdditionalDisk1(scsiUnitID int, sizeGB int, speed strin
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
 			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "192.168.17.4"
+			primary_adapter_ipv4 = "192.168.17.6"
 
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
@@ -216,7 +216,7 @@ func testAccDDCloudServerTag(tags map[string]string) string {
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
 			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "192.168.17.4"
+			primary_adapter_ipv4 = "192.168.17.6"
 
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
@@ -255,7 +255,7 @@ func TestAccServerBasicCreate(t *testing.T) {
 			resource.TestStep{
 				Config: testAccDDCloudServerBasic("acc-test-server",
 					"Server for Terraform acceptance test.",
-					"192.168.17.4",
+					"192.168.17.6",
 				),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
@@ -267,7 +267,7 @@ func TestAccServerBasicCreate(t *testing.T) {
 							MemoryGB:    8,
 							Network: compute.VirtualMachineNetwork{
 								PrimaryAdapter: compute.VirtualMachineNetworkAdapter{
-									PrivateIPv4Address: stringToPtr("192.168.17.4"),
+									PrivateIPv4Address: stringToPtr("192.168.17.6"),
 								},
 							},
 						},
