@@ -1,4 +1,4 @@
-# ddcloud\_firewall_rule
+# ddcloud\_firewall\_rule
 
 A firewall rule is part of the configuration for a network domain; it permits or denies traffic to and from IPv4 / IPv6 addresses within the network domain.
 
