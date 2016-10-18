@@ -144,6 +144,46 @@ func (helper resourcePropertyHelper) SetTags(key string, tags []compute.Tag) {
 	helper.data.Set(key, tagProperties)
 }
 
+func (helper resourcePropertyHelper) GetPortListPorts() (ports []compute.PortListEntry) {
+	value, ok := helper.data.GetOk(resourceKeyPortListPorts)
+	if !ok {
+		return
+	}
+	portListPorts := value.([]interface{})
+
+	ports = make([]compute.PortListEntry, len(portListPorts))
+	for index, item := range portListPorts {
+		portProperties := item.(map[string]interface{})
+		port := &compute.PortListEntry{}
+
+		value, ok := portProperties[resourceKeyPortListPortBegin]
+		if ok {
+			port.Begin = value.(int)
+		}
+
+		value, ok = portProperties[resourceKeyPortListPortEnd]
+		if ok {
+			port.End = value.(*int)
+		}
+
+		ports[index] = *port
+	}
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetPortListPorts(ports []compute.PortListEntry) {
+	portProperties := make([]interface{}, len(ports))
+	for index, port := range ports {
+		portProperties[index] = map[string]interface{}{
+			resourceKeyPortListPortBegin: port.Begin,
+			resourceKeyPortListPortEnd:   port.End,
+		}
+	}
+
+	helper.data.Set(resourceKeyPortListPorts, portProperties)
+}
+
 func (helper resourcePropertyHelper) GetServerDisks() (disks []compute.VirtualMachineDisk) {
 	value, ok := helper.data.GetOk(resourceKeyServerDisk)
 	if !ok {

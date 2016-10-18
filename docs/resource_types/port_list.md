@@ -6,13 +6,25 @@ The most common use for port lists is to group related ports together to simplif
 
 ## Example Usage
 
-The following configuration creates a port list with HTTP and HTTPS ports.
+The following configuration creates a port list with HTTP and HTTPS ports, as well as ports in the range 8000-9600.
 
 ```
 resource "ddcloud_port_list" "http_https" {
   name                = "http.and.https"
   description         = "HTTP and HTTPS"
-  ports               = [80, 443]
+
+  port {
+      begin = 80
+  }
+
+  port {
+      begin = 443
+  }
+
+  port {
+      begin = 8000
+      end   = 9600
+  }
 }
 ```
 
@@ -24,7 +36,7 @@ The following arguments are supported:
 Note that port list names can only contain letters, numbers, and periods (`.`).
 * `description` - (Required) A description for the port list.
 * `ports` - (Optional) A list of ports to include in the port list.
-* `child_port_lists` - (Optional) A list of Ids of port lists whose ports will to be included in the port list.
+* `child_lists` - (Optional) A list of Ids representing port lists whose ports will to be included in the port list.
 
 ## Attribute Reference
 
