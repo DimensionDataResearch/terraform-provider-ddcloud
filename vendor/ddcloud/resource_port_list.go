@@ -12,7 +12,7 @@ const (
 	resourceKeyPortListPorts           = "port"
 	resourceKeyPortListPortBegin       = "begin"
 	resourceKeyPortListPortEnd         = "end"
-	resourceKeyPortListChildListIDs    = "child_lists"
+	resourceKeyPortListChildIDs        = "child_lists"
 )
 
 func resourcePortList() *schema.Resource {
@@ -43,7 +43,7 @@ func resourcePortList() *schema.Resource {
 				Description: "A description for the firewall rule",
 			},
 			resourceKeyPortListPorts: &schema.Schema{
-				Type:        schema.TypeMap,
+				Type:        schema.TypeList,
 				Optional:    true,
 				Description: "Ports included in the port list",
 				Elem: &schema.Resource{
@@ -56,13 +56,13 @@ func resourcePortList() *schema.Resource {
 						resourceKeyPortListPortEnd: &schema.Schema{
 							Type:        schema.TypeInt,
 							Optional:    true,
-							Default:     nil,
+							Default:     0,
 							Description: "The ending port (for a port range",
 						},
 					},
 				},
 			},
-			resourceKeyPortListChildListIDs: &schema.Schema{
+			resourceKeyPortListChildIDs: &schema.Schema{
 				Type:        schema.TypeList,
 				Optional:    true,
 				Description: "The Ids of child port lists included in the port list",
@@ -98,7 +98,7 @@ func resourcePortListCreate(data *schema.ResourceData, provider interface{}) err
 	name := data.Get(resourceKeyPortListName).(string)
 	description := data.Get(resourceKeyPortListDescription).(string)
 	ports := propertyHelper.GetPortListPorts()
-	childListIDs := data.Get(resourceKeyPortListChildListIDs).([]string)
+	childListIDs := propertyHelper.GetStringListItems(resourceKeyPortListChildIDs)
 
 	log.Printf("Create port list '%s' in network domain '%s'.", name, networkDomainID)
 
@@ -134,6 +134,16 @@ func resourcePortListRead(data *schema.ResourceData, provider interface{}) error
 		data.SetId("") // Mark as deleted.
 	}
 
+	childListIDs := make([]string, len(portList.ChildLists))
+	for index, childList := range portList.ChildLists {
+		childListIDs[index] = childList.ID
+	}
+
+	propertyHelper := propertyHelper(data)
+	data.Set(resourceKeyPortListDescription, portList.Description)
+	propertyHelper.SetPortListPorts(portList.Ports)
+	propertyHelper.SetStringListItems(resourceKeyPortListChildIDs, childListIDs)
+
 	return nil
 }
 
@@ -158,15 +168,17 @@ func resourcePortListUpdate(data *schema.ResourceData, provider interface{}) err
 		return nil
 	}
 
+	propertyHelper := propertyHelper(data)
+
 	editRequest := portList.BuildEditRequest()
 	if data.HasChange(resourceKeyPortListDescription) {
 		editRequest.Description = data.Get(resourceKeyPortListDescription).(string)
 	}
 	if data.HasChange(resourceKeyPortListPorts) {
-		editRequest.Ports = propertyHelper(data).GetPortListPorts()
+		editRequest.Ports = propertyHelper.GetPortListPorts()
 	}
-	if data.HasChange(resourceKeyPortListChildListIDs) {
-		editRequest.ChildListIDs = data.Get(resourceKeyPortListChildListIDs).([]string)
+	if data.HasChange(resourceKeyPortListChildIDs) {
+		editRequest.ChildListIDs = propertyHelper.GetStringListItems(resourceKeyPortListChildIDs)
 	}
 
 	err = client.EditPortList(portListID, editRequest)

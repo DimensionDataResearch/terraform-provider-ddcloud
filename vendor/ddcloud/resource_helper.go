@@ -163,7 +163,10 @@ func (helper resourcePropertyHelper) GetPortListPorts() (ports []compute.PortLis
 
 		value, ok = portProperties[resourceKeyPortListPortEnd]
 		if ok {
-			port.End = value.(*int)
+			endPort := value.(int)
+			if endPort != 0 {
+				port.End = &endPort
+			}
 		}
 
 		ports[index] = *port
