@@ -22,9 +22,11 @@ const (
 	resourceKeyFirewallRuleSourceAddress               = "source_address"
 	resourceKeyFirewallRuleSourceNetwork               = "source_network"
 	resourceKeyFirewallRuleSourcePort                  = "source_port"
+	resourceKeyFirewallRuleSourcePortListID            = "source_port_list"
 	resourceKeyFirewallRuleDestinationAddress          = "destination_address"
 	resourceKeyFirewallRuleDestinationNetwork          = "destination_network"
 	resourceKeyFirewallRuleDestinationPort             = "destination_port"
+	resourceKeyFirewallRuleDestinationPortListID       = "destination_port_list"
 	resourceCreateTimeoutFirewallRule                  = 30 * time.Minute
 	resourceUpdateTimeoutFirewallRule                  = 10 * time.Minute
 	resourceDeleteTimeoutFirewallRule                  = 15 * time.Minute
@@ -120,6 +122,15 @@ func resourceFirewallRule() *schema.Resource {
 				Optional:    true,
 				Description: "The source port to be matched by the rule",
 			},
+			resourceKeyFirewallRuleSourcePortListID: &schema.Schema{
+				Type:        schema.TypeString,
+				ForceNew:    true,
+				Optional:    true,
+				Description: "The Id of the source port list to be matched by the rule",
+				ConflictsWith: []string{
+					resourceKeyFirewallRuleSourcePort,
+				},
+			},
 			resourceKeyFirewallRuleDestinationAddress: &schema.Schema{
 				Type:        schema.TypeString,
 				ForceNew:    true,
@@ -143,6 +154,15 @@ func resourceFirewallRule() *schema.Resource {
 				ForceNew:    true,
 				Optional:    true,
 				Description: "The destination port to be matched by the rule",
+			},
+			resourceKeyFirewallRuleDestinationPortListID: &schema.Schema{
+				Type:        schema.TypeString,
+				ForceNew:    true,
+				Optional:    true,
+				Description: "The Id of the destination port list to be matched by the rule",
+				ConflictsWith: []string{
+					resourceKeyFirewallRuleDestinationPort,
+				},
 			},
 		},
 	}
@@ -295,12 +315,15 @@ func resourceFirewallRuleDelete(data *schema.ResourceData, provider interface{})
 func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *compute.FirewallRuleConfiguration) error {
 	sourceAddress := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourceAddress, false)
 	sourceNetwork := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourceNetwork, false)
+
 	sourcePort, err := parseFirewallPort(
 		propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourcePort, false),
 	)
 	if err != nil {
 		return err
 	}
+
+	sourcePortListID := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourcePortListID, false)
 
 	if sourceAddress != nil {
 		log.Printf("Rule will match source address '%s'.", *sourceAddress)
@@ -324,8 +347,16 @@ func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *
 
 	// Port lists and ranges not supported yet
 	if sourcePort != nil {
-		log.Printf("Rule will match source port %d.", *sourcePort)
-		configuration.MatchSourcePort(*sourcePort)
+		if sourcePort.End != nil {
+			log.Printf("Rule will match source ports %d-%d.", sourcePort.Begin, *sourcePort.End)
+			configuration.MatchSourcePortRange(sourcePort.Begin, *sourcePort.End)
+		} else {
+			log.Printf("Rule will match source port %d.", sourcePort.Begin)
+			configuration.MatchSourcePort(sourcePort.Begin)
+		}
+	} else if sourcePortListID != nil {
+		log.Printf("Rule will match source port list '%s'.", *sourcePortListID)
+		configuration.MatchSourcePortList(*sourcePortListID)
 	} else {
 		log.Printf("Rule will match any destination port.")
 		configuration.MatchAnySourcePort()
@@ -344,6 +375,8 @@ func configureDestinationScope(propertyHelper resourcePropertyHelper, configurat
 	if err != nil {
 		return err
 	}
+
+	destinationPortListID := propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationPortListID, false)
 
 	if destinationAddress != nil {
 		log.Printf("Rule will match destination address '%s'.", *destinationAddress)
@@ -367,8 +400,16 @@ func configureDestinationScope(propertyHelper resourcePropertyHelper, configurat
 
 	// Port lists and ranges not supported yet
 	if destinationPort != nil {
-		log.Printf("Rule will match destination port %d.", *destinationPort)
-		configuration.MatchDestinationPort(*destinationPort)
+		if destinationPort.End != nil {
+			log.Printf("Rule will match destination ports %d-%d.", destinationPort.Begin, *destinationPort.End)
+			configuration.MatchDestinationPortRange(destinationPort.Begin, *destinationPort.End)
+		} else {
+			log.Printf("Rule will match destination port %d.", *destinationPort)
+			configuration.MatchDestinationPort(destinationPort.Begin)
+		}
+	} else if destinationPortListID != nil {
+		log.Printf("Rule will match destination port list '%s'.", *destinationPortListID)
+		configuration.MatchDestinationPortList(*destinationPortListID)
 	} else {
 		log.Printf("Rule will match any destination port.")
 		configuration.MatchAnyDestinationPort()
@@ -399,17 +440,31 @@ func normalizeFirewallRuleAction(action string) string {
 	}
 }
 
-func parseFirewallPort(port *string) (*int, error) {
+func parseFirewallPort(port *string) (*compute.FirewallRulePort, error) {
 	if port == nil || *port == "any" {
 		return nil, nil
 	}
 
-	parsedPort, err := strconv.Atoi(*port)
+	portRangeComponents := strings.Split(*port, "-")
+
+	parsedPort := &compute.FirewallRulePort{}
+
+	parsedValue, err := strconv.Atoi(portRangeComponents[0])
 	if err != nil {
 		return nil, err
 	}
 
-	return &parsedPort, nil
+	parsedPort.Begin = parsedValue
+	if len(portRangeComponents) > 1 {
+		parsedValue, err = strconv.Atoi(portRangeComponents[1])
+		if err != nil {
+			return nil, err
+		}
+
+		parsedPort.End = &parsedValue
+	}
+
+	return parsedPort, nil
 }
 
 func parsePortRange(portRange *string) (beginPort string, endPort *string) {
