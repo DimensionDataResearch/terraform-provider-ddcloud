@@ -301,9 +301,10 @@ func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *
 	if err != nil {
 		return err
 	}
+
 	if sourceAddress != nil {
 		log.Printf("Rule will match source address '%s'.", *sourceAddress)
-		configuration.MatchSourceAddressAndPort(*sourceAddress, sourcePort) // Port ranges not supported yet.
+		configuration.MatchSourceAddress(*sourceAddress)
 	} else if sourceNetwork != nil {
 		log.Printf("Rule will match source network '%s'.", *sourceNetwork)
 
@@ -315,13 +316,19 @@ func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *
 			)
 		}
 
-		configuration.MatchSourceNetworkAndPort(baseAddress, prefixSize, sourcePort)
-	} else if sourcePort != nil {
-		log.Printf("Rule will match any source address with port %d.", *sourcePort)
-		configuration.MatchAnySourceAddress(sourcePort)
+		configuration.MatchSourceNetwork(baseAddress, prefixSize)
 	} else {
-		log.Print("Rule will match any source address and port.")
-		configuration.MatchAnySource()
+		log.Printf("Rule will match any source address.")
+		configuration.MatchAnySourceAddress()
+	}
+
+	// Port lists and ranges not supported yet
+	if sourcePort != nil {
+		log.Printf("Rule will match source port %d.", *sourcePort)
+		configuration.MatchSourcePort(*sourcePort)
+	} else {
+		log.Printf("Rule will match any destination port.")
+		configuration.MatchAnySourcePort()
 	}
 
 	return nil
@@ -337,9 +344,10 @@ func configureDestinationScope(propertyHelper resourcePropertyHelper, configurat
 	if err != nil {
 		return err
 	}
+
 	if destinationAddress != nil {
 		log.Printf("Rule will match destination address '%s'.", *destinationAddress)
-		configuration.MatchDestinationAddressAndPort(*destinationAddress, destinationPort) // Port ranges not supported yet.
+		configuration.MatchDestinationAddress(*destinationAddress)
 	} else if destinationNetwork != nil {
 		log.Printf("Rule will match destination network '%s'.", *destinationNetwork)
 
@@ -351,13 +359,19 @@ func configureDestinationScope(propertyHelper resourcePropertyHelper, configurat
 			)
 		}
 
-		configuration.MatchDestinationNetworkAndPort(baseAddress, prefixSize, destinationPort)
-	} else if destinationPort != nil {
-		log.Printf("Rule will match any destination address with port %d.", *destinationPort)
-		configuration.MatchAnyDestinationAddress(destinationPort)
+		configuration.MatchDestinationNetwork(baseAddress, prefixSize)
 	} else {
-		log.Print("Rule will match any destination address and port.")
-		configuration.MatchAnyDestination()
+		log.Printf("Rule will match any destination address.")
+		configuration.MatchAnyDestinationAddress()
+	}
+
+	// Port lists and ranges not supported yet
+	if destinationPort != nil {
+		log.Printf("Rule will match destination port %d.", *destinationPort)
+		configuration.MatchDestinationPort(*destinationPort)
+	} else {
+		log.Printf("Rule will match any destination port.")
+		configuration.MatchAnyDestinationPort()
 	}
 
 	return nil

@@ -193,8 +193,10 @@ func TestAccFirewallRuleIPv4FromAnyToAnyCreate(t *testing.T) {
 		IP().
 		IPv4().
 		PlaceFirst().
-		MatchAnySource().
-		MatchAnyDestination().
+		MatchAnySourceAddress().
+		MatchAnySourcePort().
+		MatchAnyDestinationAddress().
+		MatchAnyDestinationPort().
 		Enable()
 
 	resource.Test(t, resource.TestCase{
@@ -235,8 +237,10 @@ func TestAccFirewallRuleIPv4FromAnyToAnyUpdate(t *testing.T) {
 		IP().
 		IPv4().
 		PlaceFirst().
-		MatchAnySource().
-		MatchAnyDestination().
+		MatchAnySourceAddress().
+		MatchAnySourcePort().
+		MatchAnyDestinationAddress().
+		MatchAnyDestinationPort().
 		Enable()
 
 	testAccResourceUpdateInPlace(t, testAccResourceUpdate{
@@ -290,8 +294,10 @@ func TestAccFirewallRuleIPv4FromNetworkToAnyCreate(t *testing.T) {
 		IP().
 		IPv4().
 		PlaceFirst().
-		MatchSourceNetworkAndPort("8.8.8.0", 24, nil).
-		MatchAnyDestination().
+		MatchSourceNetwork("8.8.8.0", 24).
+		MatchAnySourcePort().
+		MatchAnyDestinationAddress().
+		MatchAnyDestinationPort().
 		Enable()
 
 	resource.Test(t, resource.TestCase{
@@ -331,8 +337,10 @@ func TestAccFirewallRuleIPv6FromTestToAnyCreate(t *testing.T) {
 		IP().
 		IPv6().
 		PlaceFirst().
-		MatchSourceAddressAndPort(testIPv6Address, nil).
-		MatchAnyDestination().
+		MatchSourceAddress(testIPv6Address).
+		MatchAnySourcePort().
+		MatchAnyDestinationAddress().
+		MatchAnyDestinationPort().
 		Enable()
 
 	resource.Test(t, resource.TestCase{
@@ -373,11 +381,10 @@ func TestAccFirewallRuleTCP4FromAnyToAnyPort80Create(t *testing.T) {
 		TCP().
 		IPv4().
 		PlaceFirst().
-		MatchAnySource().
-		MatchDestinationAddressAndPort(
-			compute.FirewallRuleMatchAny,
-			intToPtr(80),
-		).
+		MatchAnySourceAddress().
+		MatchAnySourcePort().
+		MatchAnyDestinationAddress().
+		MatchDestinationPort(80).
 		Enable()
 
 	resource.Test(t, resource.TestCase{
@@ -418,11 +425,10 @@ func TestAccFirewallRuleTCP6FromTestToAnyPort80Create(t *testing.T) {
 		TCP().
 		IPv6().
 		PlaceFirst().
-		MatchSourceAddressAndPort(testIPv6Address, nil).
-		MatchDestinationAddressAndPort(
-			compute.FirewallRuleMatchAny,
-			intToPtr(80),
-		).
+		MatchSourceAddress(testIPv6Address).
+		MatchAnySourcePort().
+		MatchAnyDestinationAddress().
+		MatchDestinationPort(80).
 		Enable()
 
 	resource.Test(t, resource.TestCase{
@@ -463,8 +469,10 @@ func TestAccFirewallRuleICMP4FromAnyToAnyCreate(t *testing.T) {
 		ICMP().
 		IPv4().
 		PlaceFirst().
-		MatchAnySource().
-		MatchAnyDestination().
+		MatchAnySourceAddress().
+		MatchAnySourcePort().
+		MatchAnyDestinationAddress().
+		MatchAnyDestinationAddress().
 		Enable()
 
 	resource.Test(t, resource.TestCase{
@@ -504,8 +512,10 @@ func TestAccFirewallRuleICMP4FromNetworkToAnyCreate(t *testing.T) {
 		ICMP().
 		IPv4().
 		PlaceFirst().
-		MatchSourceNetworkAndPort("8.8.8.0", 24, nil).
-		MatchAnyDestination().
+		MatchSourceNetwork("8.8.8.0", 24).
+		MatchAnySourcePort().
+		MatchAnyDestinationAddress().
+		MatchAnyDestinationPort().
 		Enable()
 
 	resource.Test(t, resource.TestCase{
@@ -545,8 +555,10 @@ func TestAccFirewallRuleICMP6FromTestToAnyCreate(t *testing.T) {
 		ICMP().
 		IPv6().
 		PlaceFirst().
-		MatchSourceAddressAndPort(testIPv6Address, nil).
-		MatchAnyDestination().
+		MatchSourceAddress(testIPv6Address).
+		MatchAnySourcePort().
+		MatchAnyDestinationAddress().
+		MatchAnyDestinationPort().
 		Enable()
 
 	resource.Test(t, resource.TestCase{
