@@ -4,10 +4,11 @@
 
 New features:
 
-* Implemented address lists (`ddcloud_address_list` resource type).
-* Implemented port lists (`ddcloud_port_list` resource type).
-* Added address list and port list support to `ddcloud_firewall_rule` resource type.
-* Added support for additional server network adapters (`ddcloud_server_nic` resource type).
+* Implement address lists (`ddcloud_address_list` resource type).
+* Implement port lists (`ddcloud_port_list` resource type).
+* Add address list and port list support to `ddcloud_firewall_rule` resource type.
+* Add support for additional server network adapters (`ddcloud_server_nic` resource type).
+* Expose CPU speed and cores-per-socket on `ddcloud_server` resource type (`cpu_speed` and `cores_per_cpu` properties).
 
 ## v1.0.2
 

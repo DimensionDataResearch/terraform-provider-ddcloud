@@ -14,6 +14,8 @@ resource "ddcloud_server" "myserver" {
 
   memory_gb            = 8
   cpu_count            = 2
+  cpu_speed            = "STANDARD"
+  cores_per_cpu        = 1
 
   networkdomain        = "${ddcloud_networkdomain.mydomain.id}"
   primary_adapter_vlan = "${ddcloud_vlan.myvlan.id}"
@@ -38,16 +40,26 @@ The following arguments are supported:
 
 * `name` - (Required) A name for the server.
 * `description` - (Optional) A description for the server.
-* `admin_password` - (Required) The initial administrative password for the deployed server. Has no effect after deployment.
-* `memory_gb` - (Optional) The amount of memory (in GB) allocated to the server. Defaults to the memory specified by the image from which the server is created.
-* `cpu_count` - (Optional) The number of CPUs allocated to the server. Defaults to the CPU count specified by the image from which the server is created.
+* `admin_password` - (Required) The initial administrative password for the deployed server.  
+Has no effect after deployment.
+* `memory_gb` - (Optional) The amount of memory (in GB) allocated to the server.  
+Defaults to the memory specified by the image from which the server is created.
+* `cpu_count` - (Optional) The number of CPUs allocated to the server.  
+Defaults to the CPU count specified by the image from which the server is created.
+* `cores_per_cpu` - (Optional) The number of cores per virtual CPU socket allocated to the server.  
+Defaults to the number of cores specified by the image from which the server is created.
+* `cpu_speed` - (Optional) The speed of the CPU(s) allocated to the server (`STANDARD` or `HIGHPERFORMANCE`).  
+Default is `STANDARD`.
 * `disk` - (Optional) The set of virtual disks attached to the server.
     * `scsi_unit_id` - (Required) The SCSI Logical Unit Number (LUN) for the disk. Must be unique across the server's disks.
     * `size_gb` - (Required) The size (in GB) of the disk. This value can be increased (to expand the disk) but not decreased.
     * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, or `HIGHPERFORMANCE` (but varies between data centres).
 * `networkdomain` - (Required) The Id of the network domain in which the server is deployed.
-* `primary_adapter_ipv4` - (Optional) The IPv4 address for the server's primary network adapter. Must specify at least one one of `primary_adapter_ipv4` or `primary_adapter_vlan`. **Note**: Changing this property will result in the server being destroyed and re-created.
-* `primary_adapter_vlan` - (Optional) The Id of the VLAN to which the server's primary network adapter will be attached (the first available IPv4 address will be allocated). Must specify at least one one of `primary_adapter_ipv4` or `primary_adapter_vlan`. If this property is _not_ specified (i.e. value will be computed at deploy time), you will get `UNEXPECTED_ERROR` from the CloudControl API when simultaneously deploying multiple servers onto the same VLAN. **Note**: Changing this property will result in the server being destroyed and re-created.
+* `primary_adapter_ipv4` - (Optional) The IPv4 address for the server's primary network adapter.  
+Must specify at least one one of `primary_adapter_ipv4` or `primary_adapter_vlan`.
+* `primary_adapter_vlan` - (Optional) The Id of the VLAN to which the server's primary network adapter will be attached (the first available IPv4 address will be allocated).  
+Must specify at least one one of `primary_adapter_ipv4` or `primary_adapter_vlan`.  
+If this property is _not_ specified (i.e. value will be computed at deploy time), you will get `UNEXPECTED_ERROR` from the CloudControl API when simultaneously deploying multiple servers onto the same VLAN. **Note**: Changing this property will result in the server being destroyed and re-created.
 * `dns_primary` - (Required) The IP address of the server's primary DNS server.
 * `dns_secondary` - (Required) The IP address of the server's secondary DNS.
 * `os_image_id` - (Required) The Id of the OS (built-in) image from which the server will be created. Must specify exactly one of `os_image_id`, `os_image_name`, `customer_image_id`, `customer_image_name`.

@@ -16,6 +16,8 @@ const (
 	resourceKeyServerNetworkDomainID   = "networkdomain"
 	resourceKeyServerMemoryGB          = "memory_gb"
 	resourceKeyServerCPUCount          = "cpu_count"
+	resourceKeyServerCPUCoreCount      = "cores_per_cpu"
+	resourceKeyServerCPUSpeed          = "cpu_speed"
 	resourceKeyServerOSImageID         = "os_image_id"
 	resourceKeyServerOSImageName       = "os_image_name"
 	resourceKeyServerCustomerImageID   = "customer_image_id"
@@ -42,7 +44,6 @@ func resourceServer() *schema.Resource {
 		Delete: resourceServerDelete,
 
 		Schema: map[string]*schema.Schema{
-
 			resourceKeyServerName: &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
@@ -73,6 +74,20 @@ func resourceServer() *schema.Resource {
 				Computed:    true,
 				Default:     nil,
 				Description: "The number of CPUs allocated to the server",
+			},
+			resourceKeyServerCPUCoreCount: &schema.Schema{
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Computed:    true,
+				Default:     nil,
+				Description: "The number of cores per CPU allocated to the server",
+			},
+			resourceKeyServerCPUSpeed: &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				Computed:    true,
+				Default:     nil,
+				Description: "The speed (quality-of-service) for CPUs allocated to the server",
 			},
 			resourceKeyServerDisk: schemaServerDisk(),
 			resourceKeyServerNetworkDomainID: &schema.Schema{
@@ -293,6 +308,20 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		data.Set(resourceKeyServerCPUCount, deploymentConfiguration.CPU.Count)
 	}
 
+	cpuCoreCount := propertyHelper.GetOptionalInt(resourceKeyServerCPUCoreCount, false)
+	if cpuCoreCount != nil {
+		deploymentConfiguration.CPU.CoresPerSocket = *cpuCoreCount
+	} else {
+		data.Set(resourceKeyServerCPUCoreCount, deploymentConfiguration.CPU.CoresPerSocket)
+	}
+
+	cpuSpeed := propertyHelper.GetOptionalString(resourceKeyServerCPUSpeed, false)
+	if cpuSpeed != nil {
+		deploymentConfiguration.CPU.Speed = *cpuSpeed
+	} else {
+		data.Set(resourceKeyServerCPUSpeed, deploymentConfiguration.CPU.Speed)
+	}
+
 	// Network
 	primaryVLANID := propertyHelper.GetOptionalString(resourceKeyServerPrimaryVLAN, false)
 	primaryIPv4Address := propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv4, false)
@@ -390,6 +419,8 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	data.Set(resourceKeyServerOSImageID, server.SourceImageID)
 	data.Set(resourceKeyServerMemoryGB, server.MemoryGB)
 	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
+	data.Set(resourceKeyServerCPUCoreCount, server.CPU.CoresPerSocket)
+	data.Set(resourceKeyServerCPUSpeed, server.CPU.Speed)
 
 	captureServerNetworkConfiguration(server, data, false)
 
@@ -457,18 +488,25 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	propertyHelper := propertyHelper(data)
 
-	var memoryGB, cpuCount *int
+	var memoryGB, cpuCount, cpuCoreCount *int
+	var cpuSpeed *string
 	if data.HasChange(resourceKeyServerMemoryGB) {
 		memoryGB = propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB, false)
 	}
 	if data.HasChange(resourceKeyServerCPUCount) {
 		cpuCount = propertyHelper.GetOptionalInt(resourceKeyServerCPUCount, false)
 	}
+	if data.HasChange(resourceKeyServerCPUCoreCount) {
+		cpuCoreCount = propertyHelper.GetOptionalInt(resourceKeyServerCPUCoreCount, false)
+	}
+	if data.HasChange(resourceKeyServerCPUSpeed) {
+		cpuSpeed = propertyHelper.GetOptionalString(resourceKeyServerCPUSpeed, false)
+	}
 
-	if memoryGB != nil || cpuCount != nil {
+	if memoryGB != nil || cpuCount != nil || cpuCoreCount != nil || cpuSpeed != nil {
 		log.Printf("Server CPU / memory configuration change detected.")
 
-		err = updateServerConfiguration(apiClient, server, memoryGB, cpuCount)
+		err = updateServerConfiguration(apiClient, server, memoryGB, cpuCount, cpuCoreCount, cpuSpeed)
 		if err != nil {
 			return err
 		}

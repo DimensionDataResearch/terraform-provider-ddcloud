@@ -6,6 +6,7 @@ Currently, the following resource types are supported:
 * `ddcloud_networkdomain`: A network domain
 * `ddcloud_vlan`: A VLAN
 * `ddcloud_server`: A virtual machine
+* `ddcloud_server_nic`: An additional server network adapter
 * `ddcloud_server_anti_affinity`: An anti-affinity rule between 2 servers
 * `ddcloud_nat`: A NAT rule (forwards traffic from a public IPv4 address to a server's internal IPv4 address)
 * `ddcloud_firewall_rule`: A firewall rule
