@@ -17,6 +17,7 @@ The `ddcloud` provider supports the following resource types:
 * [ddcloud_server_anti_affinity](resource_types/server_anti_affinity.md) - Anti-affinity rule for 2 CloudControl Servers (virtual machines).
 * [ddcloud_nat](resource_types/nat.md) - A CloudControl Network Address Translation (NAT) rule.
 * [ddcloud_firewall_rule](resource_types/firewall_rule.md) - A CloudControl firewall rule.
+* [ddcloud_address_list](resource_types/address_list.md) - A CloudControl network address list.
 * [ddcloud_port_list](resource_types/port_list.md) - A CloudControl network port list.
 * [ddcloud_vip_node](resource_types/vip_node.md) - A CloudControl Virtual IP (VIP) node.
 * [ddcloud_vip_pool](resource_types/vip_pool.md) - A CloudControl Virtual IP (VIP) pool.

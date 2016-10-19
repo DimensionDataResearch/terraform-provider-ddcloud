@@ -35,7 +35,8 @@ The following arguments are supported:
 * `name` - (Required) A name for the port list.
 Note that port list names can only contain letters, numbers, and periods (`.`).
 * `description` - (Required) A description for the port list.
-* `ports` - (Optional) A list of ports to include in the port list.
+* `port` - (Optional) One or more entries to include in the port list.  
+For a single port, specify `begin`. For a port range, specify `begin` and `end`.
 * `child_lists` - (Optional) A list of Ids representing port lists whose ports will to be included in the port list.
 
 ## Attribute Reference
