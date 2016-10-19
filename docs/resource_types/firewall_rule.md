@@ -51,12 +51,16 @@ Can be `ip`, `icmp`, `tcp`, or `udp`.
 Cannot be specified with `source_network`.
 * `source_network` - (Optional) The source network to be matched by the rule.  
 Cannot be specified with `source_address`.
-* `source_port` - (Optional) The source port (if any) to be matched by the rule.
+* `source_port` - (Optional) The source port or port range (if any) to be matched by the rule.  
+Port ranges must be in the format `beginPort-endPort` (e.g. `8000-9060`).
+* `source_port_list` - (Optional) The If of the source port list (if any) to be matched by the rule.
 * `destination_address` - (Optional) The destination IP address to be matched by the rule.  
 Cannot be specified with `destination_network`.
 * `destination_network` - (Optional) The destination network to be matched by the rule.  
 Cannot be specified with `destination_address`.
-* `destination_port` - (Optional) The destination port (if any) to be matched by the rule.
+* `destination_port` - (Optional) The destination port or port range (if any) to be matched by the rule.  
+Port ranges must be in the format `beginPort-endPort` (e.g. `8000-9060`).
+* `destination_port_list` - (Optional) The If of the destination port list (if any) to be matched by the rule.
 * `networkdomain` - (Required) The Id of the network domain to which the firewall rule applies.
 * `private_ipv4` - (Required) The private IPv4 address to which traffic will be forwarded.
 * `public_ipv4` - (Optional) A specific public IPv4 address from which traffic is to be forwarded.
