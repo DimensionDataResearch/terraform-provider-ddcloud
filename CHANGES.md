@@ -1,5 +1,14 @@
 # Changes
 
+## v1.1.0
+
+New features:
+
+* Implemented address lists (`ddcloud_address_list` resource type).
+* Implemented port lists (`ddcloud_port_list` resource type).
+* Added address list and port list support to `ddcloud_firewall_rule` resource type.
+* Added support for additional server network adapters (`ddcloud_server_nic` resource type).
+
 ## v1.0.2
 
 New features:
