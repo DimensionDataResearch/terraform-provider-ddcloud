@@ -80,6 +80,9 @@ func Provider() terraform.ResourceProvider {
 			// A firewall rule.
 			"ddcloud_firewall_rule": resourceFirewallRule(),
 
+			// An IP address list.
+			"ddcloud_address_list": resourceAddressList(),
+
 			// A port list.
 			"ddcloud_port_list": resourcePortList(),
 

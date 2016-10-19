@@ -3,6 +3,7 @@ package ddcloud
 import (
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -142,6 +143,77 @@ func (helper resourcePropertyHelper) SetTags(key string, tags []compute.Tag) {
 		})
 	}
 	helper.data.Set(key, tagProperties)
+}
+
+func (helper resourcePropertyHelper) GetAddressListAddresses() (addresses []compute.IPAddressListEntry) {
+	value, ok := helper.data.GetOk(resourceKeyAddressListAddresses)
+	if !ok {
+		return
+	}
+	portListAddresses := value.([]interface{})
+
+	addresses = make([]compute.IPAddressListEntry, len(portListAddresses))
+	for index, item := range portListAddresses {
+		entryProperties := item.(map[string]interface{})
+		entry := &compute.IPAddressListEntry{}
+
+		value, ok := entryProperties[resourceKeyAddressListAddressBegin]
+		if ok {
+			begin := value.(string)
+			if len(begin) > 0 {
+				log.Printf("Have address Begin '%s'", begin)
+				entry.Begin = value.(string)
+
+				value, ok = entryProperties[resourceKeyAddressListAddressEnd]
+				if ok {
+					endAddress := value.(string)
+					log.Printf("Have address End '%s'", endAddress)
+					if endAddress != "" {
+						entry.End = &endAddress
+					}
+				}
+			}
+		}
+
+		value, ok = entryProperties[resourceKeyAddressListAddressNetwork]
+		if ok {
+			network := value.(string)
+			if len(network) > 0 {
+				entry.Begin = network
+				log.Printf("Have address Network '%s'", entry.Begin)
+
+				value, ok = entryProperties[resourceKeyAddressListAddressPrefixSize]
+				if ok {
+					prefixSize := value.(int)
+					log.Printf("Have address PrefixSize '%d'", prefixSize)
+					entry.PrefixSize = &prefixSize
+				}
+			}
+		}
+
+		addresses[index] = *entry
+	}
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetAddressListAddresses(addresses []compute.IPAddressListEntry) {
+	addressProperties := make([]interface{}, len(addresses))
+	for index, address := range addresses {
+		if address.PrefixSize == nil {
+			addressProperties[index] = map[string]interface{}{
+				resourceKeyAddressListAddressBegin: address.Begin,
+				resourceKeyAddressListAddressEnd:   address.End,
+			}
+		} else {
+			addressProperties[index] = map[string]interface{}{
+				resourceKeyAddressListAddressNetwork:    address.Begin,
+				resourceKeyAddressListAddressPrefixSize: *address.PrefixSize,
+			}
+		}
+	}
+
+	helper.data.Set(resourceKeyAddressListAddresses, addressProperties)
 }
 
 func (helper resourcePropertyHelper) GetPortListPorts() (ports []compute.PortListEntry) {
