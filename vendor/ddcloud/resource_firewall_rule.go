@@ -21,10 +21,12 @@ const (
 	resourceKeyFirewallRuleProtocol                    = "protocol"
 	resourceKeyFirewallRuleSourceAddress               = "source_address"
 	resourceKeyFirewallRuleSourceNetwork               = "source_network"
+	resourceKeyFirewallRuleSourceAddressListID         = "source_address_list"
 	resourceKeyFirewallRuleSourcePort                  = "source_port"
 	resourceKeyFirewallRuleSourcePortListID            = "source_port_list"
 	resourceKeyFirewallRuleDestinationAddress          = "destination_address"
 	resourceKeyFirewallRuleDestinationNetwork          = "destination_network"
+	resourceKeyFirewallRuleDestinationAddressListID    = "destination_address_list"
 	resourceKeyFirewallRuleDestinationPort             = "destination_port"
 	resourceKeyFirewallRuleDestinationPortListID       = "destination_port_list"
 	resourceCreateTimeoutFirewallRule                  = 30 * time.Minute
@@ -114,6 +116,17 @@ func resourceFirewallRule() *schema.Resource {
 				Description: "The source IP network to be matched by the rule",
 				ConflictsWith: []string{
 					resourceKeyFirewallRuleSourceAddress,
+					resourceKeyFirewallRuleSourceAddressListID,
+				},
+			},
+			resourceKeyFirewallRuleSourceAddressListID: &schema.Schema{
+				Type:        schema.TypeString,
+				ForceNew:    true,
+				Optional:    true,
+				Description: "The Id of the source IP address list to be matched by the rule",
+				ConflictsWith: []string{
+					resourceKeyFirewallRuleSourceAddress,
+					resourceKeyFirewallRuleSourceNetwork,
 				},
 			},
 			resourceKeyFirewallRuleSourcePort: &schema.Schema{
@@ -147,6 +160,17 @@ func resourceFirewallRule() *schema.Resource {
 				Description: "The destination IP network to be matched by the rule",
 				ConflictsWith: []string{
 					resourceKeyFirewallRuleDestinationAddress,
+					resourceKeyFirewallRuleDestinationAddressListID,
+				},
+			},
+			resourceKeyFirewallRuleDestinationAddressListID: &schema.Schema{
+				Type:        schema.TypeString,
+				ForceNew:    true,
+				Optional:    true,
+				Description: "The Id of the destination IP address list to be matched by the rule",
+				ConflictsWith: []string{
+					resourceKeyFirewallRuleDestinationAddress,
+					resourceKeyFirewallRuleDestinationNetwork,
 				},
 			},
 			resourceKeyFirewallRuleDestinationPort: &schema.Schema{
@@ -315,15 +339,7 @@ func resourceFirewallRuleDelete(data *schema.ResourceData, provider interface{})
 func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *compute.FirewallRuleConfiguration) error {
 	sourceAddress := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourceAddress, false)
 	sourceNetwork := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourceNetwork, false)
-
-	sourcePort, err := parseFirewallPort(
-		propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourcePort, false),
-	)
-	if err != nil {
-		return err
-	}
-
-	sourcePortListID := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourcePortListID, false)
+	sourceAddressListID := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourceAddressListID, false)
 
 	if sourceAddress != nil {
 		log.Printf("Rule will match source address '%s'.", *sourceAddress)
@@ -340,12 +356,23 @@ func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *
 		}
 
 		configuration.MatchSourceNetwork(baseAddress, prefixSize)
+	} else if sourceAddressListID != nil {
+		log.Printf("Rule will match source address list '%s'.", *sourceAddressListID)
+
+		configuration.MatchSourceAddressList(*sourceAddressListID)
 	} else {
 		log.Printf("Rule will match any source address.")
 		configuration.MatchAnySourceAddress()
 	}
 
-	// Port lists and ranges not supported yet
+	sourcePort, err := parseFirewallPort(
+		propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourcePort, false),
+	)
+	if err != nil {
+		return err
+	}
+	sourcePortListID := propertyHelper.GetOptionalString(resourceKeyFirewallRuleSourcePortListID, false)
+
 	if sourcePort != nil {
 		if sourcePort.End != nil {
 			log.Printf("Rule will match source ports %d-%d.", sourcePort.Begin, *sourcePort.End)
@@ -368,15 +395,7 @@ func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *
 func configureDestinationScope(propertyHelper resourcePropertyHelper, configuration *compute.FirewallRuleConfiguration) error {
 	destinationNetwork := propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationNetwork, false)
 	destinationAddress := propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationAddress, false)
-
-	destinationPort, err := parseFirewallPort(
-		propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationPort, false),
-	)
-	if err != nil {
-		return err
-	}
-
-	destinationPortListID := propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationPortListID, false)
+	destinationAddressListID := propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationAddressListID, false)
 
 	if destinationAddress != nil {
 		log.Printf("Rule will match destination address '%s'.", *destinationAddress)
@@ -393,12 +412,23 @@ func configureDestinationScope(propertyHelper resourcePropertyHelper, configurat
 		}
 
 		configuration.MatchDestinationNetwork(baseAddress, prefixSize)
+	} else if destinationAddressListID != nil {
+		log.Printf("Rule will match destination address list '%s'.", *destinationAddressListID)
+
+		configuration.MatchDestinationAddressList(*destinationAddressListID)
 	} else {
 		log.Printf("Rule will match any destination address.")
 		configuration.MatchAnyDestinationAddress()
 	}
 
-	// Port lists and ranges not supported yet
+	destinationPort, err := parseFirewallPort(
+		propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationPort, false),
+	)
+	if err != nil {
+		return err
+	}
+	destinationPortListID := propertyHelper.GetOptionalString(resourceKeyFirewallRuleDestinationPortListID, false)
+
 	if destinationPort != nil {
 		if destinationPort.End != nil {
 			log.Printf("Rule will match destination ports %d-%d.", destinationPort.Begin, *destinationPort.End)
