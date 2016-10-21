@@ -26,6 +26,15 @@ For more information, see the [provider documentation](docs/).
 
 Download the [latest release](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/releases) and place the provider executable in the same directory as the main Terraform executable.
 
+### Docker
+
+If you prefer, you can run Terraform with the CloudControl provider [using Docker](https://hub.docker.com/r/ddresearch/terraform-provider-ddcloud/):
+From the directory containing your configuration (`.tf` files, etc):
+
+```bash
+docker run --rm -it -v $PWD:/config ddresearch/terraform-provider-ddcloud
+```
+
 ## Building the provider yourself
 
 If you want to build the provider yourself instead of installing a pre-built release, see [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -137,8 +146,52 @@ resource "ddcloud_firewall_rule" "my-vm-http-in" {
 6. Verify that everything looks ok.
 7. Run `terraform apply tf.plan`
 
-## Interactive Walkthrough for Using .tf Files
+## Interactive walkthrough for using .tf files
 
-For a more extensive learning experience in working with Terraform and .tf files, please reference the GitHub project below.  There are example files complete with commentary on each resource method currently available while it builds on prior builds before getting to a fully completed Terraform intrastructure build.
+For a more extensive learning experience in working with Terraform and `.tf` files, please reference the GitHub project below.  There are example files complete with commentary on each resource method currently available while it builds on prior builds before getting to a fully completed Terraform infrastructure build.
 
 https://github.com/wninobla/ddcloud-terraform-examples
+
+## Troubleshooting
+
+For the most part the CloudControl provider for Terraform directly displays any error messages returned by the CloudControl API (and so you can look at the CloudControl documentation for information about what they might mean). These CloudControl API errors will always include an error code of some sort.
+
+If you want to gather additional information to better diagnose your issue, you can try re-running your Terraform command after setting a couple of environment variables:
+  * Set `TF_LOG` to `INFO` or `DEBUG`
+  * Set `TF_LOG_PATH` to the full path of the log file to write
+  * As a last resort, you can also set `DD_COMPUTE_EXTENDED_LOGGING` to `1` (if you set this, then `TF_LOG` must be `DEBUG`) to log requests to and responses from the CloudControl API
+
+The resulting log file will contain detailed information
+
+## Reporting problems
+
+If it's practical to do so, try to make the issue title as short and to-the-point as possible; this helps us to more quickly categorise and prioritise your issue.
+
+### Reporting a bug?
+
+If you have encountered a bug (or behaviour that you believe to be a bug), it's often helpful if you can capture as much of the following information as possible.
+
+### Expected behaviour and actual behaviour
+
+* What were you trying to do when you encountered the problem?
+* What did you expect Terraform to do?
+* What did it do instead?
+* Have you encountered this problem more than once?
+* Have you encountered this problem with other sets of `.tf` files or on other machines?
+
+### Steps to reproduce the problem
+
+* The exact Terraform command-line you were running
+* The exact program output produced by Terraform
+* The terraform configuration you were working with  
+If you can't share this, see if you can create a stripped-down version of your configuration that still causes the problem to occur
+
+### System specifications
+
+* CloudControl provider version  
+Run `terraform-provider-ddcloud --version`.
+* Terraform version  
+Run `terraform -version`.
+* Operating system  
+E.g. OSX 10.11.6, Windows 10, or Ubuntu 12.04
+* Anything else you think might be relevant
