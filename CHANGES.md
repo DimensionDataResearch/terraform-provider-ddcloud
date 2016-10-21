@@ -1,6 +1,12 @@
 # Changes
 
-## v1.1.0
+## v1.1.1
+
+New features:
+
+* Add support for automatically creating tag keys if they are not already defined.
+
+## v1.1
 
 New features:
 
