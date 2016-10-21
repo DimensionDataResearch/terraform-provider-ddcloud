@@ -192,7 +192,8 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Create server '%s' in network domain '%s' (description = '%s').", name, networkDomainID, description)
 
-	apiClient := provider.(*providerState).Client()
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
 
 	networkDomain, err := apiClient.GetNetworkDomain(networkDomainID)
 	if err != nil {
@@ -375,7 +376,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	data.SetPartial(resourceKeyServerPublicIPv4)
 
-	err = applyServerTags(data, apiClient)
+	err = applyServerTags(data, apiClient, providerState.Settings())
 	if err != nil {
 		return err
 	}
@@ -560,7 +561,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	if data.HasChange(resourceKeyServerTag) {
-		err = applyServerTags(data, apiClient)
+		err = applyServerTags(data, apiClient, providerState.Settings())
 		if err != nil {
 			return err
 		}
