@@ -158,6 +158,14 @@ func getServerTags(apiClient *compute.Client, serverID string) (serverTags []com
 	for {
 		tagDetails, err = apiClient.GetAssetTags(serverID, compute.AssetTypeServer, page)
 		if err != nil {
+			apiError, ok := err.(*compute.APIError)
+			if ok && apiError.Response.GetResponseCode() == compute.ResponseCodeUnexpectedError {
+				// This is due to a bug in the CloudControl API (asking for a non-existent page results in UNKNOWN_ERROR).
+				err = nil
+
+				break
+			}
+
 			return
 		}
 
