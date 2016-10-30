@@ -48,19 +48,25 @@ Can be `ipv4` or `ipv6`.
 * `protocol` - (Required) The protocol to which the rule applies.  
 Can be `ip`, `icmp`, `tcp`, or `udp`.
 * `source_address` - (Optional) The source IP address to be matched by the rule.  
-Cannot be specified with `source_network`.
+Cannot be specified with `source_network` or `source_address_list`.
 * `source_network` - (Optional) The source network to be matched by the rule.  
-Cannot be specified with `source_address`.
+Cannot be specified with `source_address` or `source_address_list`.
+* `source_address_list` - (Optional) The Id of an [address list](address_list.md) whose addresses will be matched as source addresses by the rule.  
+Cannot be specified with `source_address` or `source_network`.
 * `source_port` - (Optional) The source port or port range (if any) to be matched by the rule.  
-Port ranges must be in the format `beginPort-endPort` (e.g. `8000-9060`).
-* `source_port_list` - (Optional) The If of the source port list (if any) to be matched by the rule.
+Port ranges must be in the format `beginPort-endPort` (e.g. `8000-9060`).  
+Cannot be specified with `source_port_list`.
+* `source_port_list` - (Optional) The Id of a [port list](port_list.md) whose ports will be matched as source ports by the rule.
 * `destination_address` - (Optional) The destination IP address to be matched by the rule.  
-Cannot be specified with `destination_network`.
+Cannot be specified with `destination_network` or `destination_address_list`.
 * `destination_network` - (Optional) The destination network to be matched by the rule.  
-Cannot be specified with `destination_address`.
+Cannot be specified with `destination_address` or `destination_address_list`.
+* `destination_address_list` - (Optional) The Id of an [address list](address_list.md) whose addresses will be matched as destination addresses by the rule.  
+Cannot be specified with `destination_address` or `destination_network`.
 * `destination_port` - (Optional) The destination port or port range (if any) to be matched by the rule.  
-Port ranges must be in the format `beginPort-endPort` (e.g. `8000-9060`).
-* `destination_port_list` - (Optional) The If of the destination port list (if any) to be matched by the rule.
+Port ranges must be in the format `beginPort-endPort` (e.g. `8000-9060`).  
+Cannot be specified with `destination_port_list`.
+* `destination_port_list` - (Optional) The Id of a [port list](port_list.md) whose ports will be matched as source ports by the rule.
 * `networkdomain` - (Required) The Id of the network domain to which the firewall rule applies.
 * `private_ipv4` - (Required) The private IPv4 address to which traffic will be forwarded.
 * `public_ipv4` - (Optional) A specific public IPv4 address from which traffic is to be forwarded.
