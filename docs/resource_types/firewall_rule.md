@@ -11,6 +11,7 @@ If necessary, use the `depends_on` attribute to ensure that resources that relat
 
 ## Example Usage
 
+### Simple
 The following configuration permits TCP traffic over IPv4 on port 80 from any source address to the public address associated with a NAT rule.
 
 ```
@@ -27,6 +28,78 @@ resource "ddcloud_firewall_rule" "my_server_http_in" {
   destination_port    = "80"
 
   networkdomain       = "${ddcloud_networkdomain.mydomain.id}"
+}
+```
+
+### Port list
+The following configuration permits TCP traffic over IPv4 on ports 80 or 443 from any source address to the public address associated with a NAT rule.
+
+```
+resource "ddcloud_firewall_rule" "my_server_http_in" {
+  name                  = "test_vm.HTTP.Inbound"
+  placement             = "first"
+  action                = "accept"
+  enabled               = true
+
+  ip_version            = "ipv4"
+  protocol              = "tcp"
+
+  destination_address   = "${ddcloud_nat.myserver_nat.public_ipv4}"
+  destination_port_list = "${ddcloud_port_list.web.id}"
+
+  networkdomain         = "${ddcloud_networkdomain.mydomain.id}"
+}
+
+resource "ddcloud_port_list" "web" {
+  name        = "web"
+  description = "Web (HTTP and HTTPS)"
+
+  port {
+      begin = 80
+  }
+
+  port {
+      begin = 443
+  }
+}
+```
+
+### Address list
+The following configuration permits TCP traffic over IPv4 on port 80 from any source address to destination addresses in an address list.
+
+```
+resource "ddcloud_firewall_rule" "web_servers_http_in" {
+  name                = "test_vm.HTTP.Inbound"
+  placement           = "first"
+  action              = "accept"
+  enabled             = true
+
+  ip_version          = "ipv4"
+  protocol            = "tcp"
+  
+  destination_address_list = "${ddcloud_address_list.web_servers.id}"
+  destination_port    = "80"
+
+  networkdomain       = "${ddcloud_networkdomain.mydomain.id}"
+}
+
+resource "ddcloud_address_list" "web_servers" {
+	name          = "WebServers"
+	ip_version    = "IPv4"
+
+	address {
+		begin       = "192.168.1.17"
+	}
+
+	address {
+		begin       = "192.168.1.19"
+	}
+
+	address {
+		begin       = "192.168.1.21"
+	}
+
+  networkdomain = "${ddcloud_networkdomain.test_domain.id}"
 }
 ```
 
