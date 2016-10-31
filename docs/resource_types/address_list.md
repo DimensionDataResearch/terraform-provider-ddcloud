@@ -81,6 +81,7 @@ The following arguments are supported:
 * `name` - (Required) A name for the port list.
 Note that port list names can only contain letters, numbers, and periods (`.`).
 * `description` - (Optional) A description for the port list.
+* `ip_version` - (Required) The IP version (IPv4 / IPv6) of the addresses that the list contains.
 * `address` - (Optional) One or more entries to include in the address list.  
 For a single address, specify `begin`. For an address range, specify `begin` and `end`. For an IP network, specify `network` and `prefix_size`.  
 Must specify at least one address, or one child list Id.
