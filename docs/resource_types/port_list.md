@@ -6,6 +6,7 @@ The most common use for port lists is to group related ports together to simplif
 
 ## Example Usage
 
+### Simple
 The following configuration creates a port list with HTTP and HTTPS ports, as well as ports in the range 8000-9600.
 
 ```
@@ -25,6 +26,39 @@ resource "ddcloud_port_list" "http_https" {
       begin = 8000
       end   = 9600
   }
+}
+```
+
+### Nested
+```hcl
+resource "ddcloud_port_list" "child1" {
+  name        = "child.list.1"
+  description = "Child port list 1"
+
+  port {
+      begin = 80
+  }
+}
+
+resource "ddcloud_port_list" "child2" {
+  name        = "child.list.2"
+  description = "Child port list 2"
+
+  port {
+      begin = 443
+  }
+}
+
+resource "ddcloud_port_list" "parent" {
+  name         = "parent.list"
+  description  = "Parent port list"
+
+  child_lists  = [
+    "${ddcloud_port_list.child1.id}"
+    "${ddcloud_port_list.child2.id}"
+  ]
+
+  networkdomain = "${ddcloud_networkdomain.test_domain.id}"
 }
 ```
 
