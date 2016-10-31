@@ -54,7 +54,7 @@ resource "ddcloud_port_list" "parent" {
   description  = "Parent port list"
 
   child_lists  = [
-    "${ddcloud_port_list.child1.id}"
+    "${ddcloud_port_list.child1.id}",
     "${ddcloud_port_list.child2.id}"
   ]
 
