@@ -6,6 +6,7 @@ The most common use for address lists is to group related addresses together to 
 
 ## Example Usage
 
+### Simple
 The following configuration creates an address list with several IPv4 addresses (a single address, an address range, and a network).
 
 ```
@@ -31,6 +32,45 @@ resource "ddcloud_address_list" "test_list" {
 	}
 
     networkdomain 	= "${ddcloud_networkdomain.test_domain.id}"
+}
+```
+
+### Nested
+The following configuration creates 2 address lists each with a single IPv4 address. Then creates another address list with the original 2 address lists as children.
+
+```
+resource "ddcloud_address_list" "child1" {
+  name         = "ChildList1"
+  ip_version   = "IPv4"
+
+  address {
+    begin       = "192.168.1.20"
+  }
+
+  networkdomain = "${ddcloud_networkdomain.test_domain.id}"
+}
+
+resource "ddcloud_address_list" "child2" {
+  name         = "ChildList2"
+  ip_version   = "IPv4"
+
+  address {
+    begin       = "192.168.1.21"
+  }
+
+  networkdomain = "${ddcloud_networkdomain.test_domain.id}"
+}
+
+resource "ddcloud_address_list" "parent" {
+  name         = "ParentList"
+  ip_version   = "IPv4"
+
+  child_lists  = [
+    "${ddcloud_address_list.child1.id}"
+    "${ddcloud_address_list.child2.id}"
+  ]
+
+  networkdomain = "${ddcloud_networkdomain.test_domain.id}"
 }
 ```
 
