@@ -66,7 +66,7 @@ resource "ddcloud_address_list" "parent" {
   ip_version   = "IPv4"
 
   child_lists  = [
-    "${ddcloud_address_list.child1.id}"
+    "${ddcloud_address_list.child1.id}",
     "${ddcloud_address_list.child2.id}"
   ]
 
