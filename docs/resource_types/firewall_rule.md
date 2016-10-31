@@ -69,34 +69,34 @@ The following configuration permits TCP traffic over IPv4 on port 80 from any so
 
 ```
 resource "ddcloud_firewall_rule" "web_servers_http_in" {
-  name                = "test_vm.HTTP.Inbound"
-  placement           = "first"
-  action              = "accept"
-  enabled             = true
+  name                     = "test_vm.HTTP.Inbound"
+  placement                = "first"
+  action                   = "accept"
+  enabled                  = true
 
-  ip_version          = "ipv4"
-  protocol            = "tcp"
+  ip_version               = "ipv4"
+  protocol                 = "tcp"
   
   destination_address_list = "${ddcloud_address_list.web_servers.id}"
-  destination_port    = "80"
+  destination_port         = "80"
 
-  networkdomain       = "${ddcloud_networkdomain.mydomain.id}"
+  networkdomain            = "${ddcloud_networkdomain.mydomain.id}"
 }
 
 resource "ddcloud_address_list" "web_servers" {
-	name          = "WebServers"
-	ip_version    = "IPv4"
+	name               = "WebServers"
+	ip_version         = "IPv4"
 
 	address {
-		begin       = "192.168.1.17"
+		begin      = "192.168.1.17"
 	}
 
 	address {
-		begin       = "192.168.1.19"
+		begin      = "192.168.1.19"
 	}
 
 	address {
-		begin       = "192.168.1.21"
+		begin      = "192.168.1.21"
 	}
 
   networkdomain = "${ddcloud_networkdomain.test_domain.id}"
