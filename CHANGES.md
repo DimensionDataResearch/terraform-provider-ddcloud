@@ -1,5 +1,15 @@
 # Changes
 
+## v1.1.2
+
+Bug fixes:
+
+* #44: Order of child address or port lists is not preserved
+
+Breaking changes:
+
+* The `child_lists` property on `ddcloud_address_list` and `ddcloud_port_list` is now a Set instead of a list. If you have existing Terraform state for this property it will not be retained (sorry).
+
 ## v1.1.1
 
 New features:

@@ -90,12 +90,13 @@ func resourceAddressList() *schema.Resource {
 				},
 			},
 			resourceKeyAddressListChildIDs: &schema.Schema{
-				Type:        schema.TypeList,
+				Type:        schema.TypeSet,
 				Optional:    true,
 				Description: "The Ids of child address lists included in the address list",
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
+				Set: schema.HashString,
 			},
 		},
 	}
@@ -126,7 +127,7 @@ func resourceAddressListCreate(data *schema.ResourceData, provider interface{}) 
 	description := data.Get(resourceKeyAddressListDescription).(string)
 	ipVersion := data.Get(resourceKeyAddressListIPVersion).(string)
 	addresses := propertyHelper.GetAddressListAddresses()
-	childListIDs := propertyHelper.GetStringListItems(resourceKeyAddressListChildIDs)
+	childListIDs := propertyHelper.GetStringSetItems(resourceKeyAddressListChildIDs)
 
 	log.Printf("Create address list '%s' in network domain '%s'.", name, networkDomainID)
 
@@ -170,7 +171,7 @@ func resourceAddressListRead(data *schema.ResourceData, provider interface{}) er
 	propertyHelper := propertyHelper(data)
 	data.Set(resourceKeyAddressListDescription, addressList.Description)
 	propertyHelper.SetAddressListAddresses(addressList.Addresses)
-	propertyHelper.SetStringListItems(resourceKeyAddressListChildIDs, childListIDs)
+	propertyHelper.SetStringSetItems(resourceKeyAddressListChildIDs, childListIDs)
 
 	return nil
 }
@@ -206,7 +207,7 @@ func resourceAddressListUpdate(data *schema.ResourceData, provider interface{}) 
 		editRequest.Addresses = propertyHelper.GetAddressListAddresses()
 	}
 	if data.HasChange(resourceKeyAddressListChildIDs) {
-		editRequest.ChildListIDs = propertyHelper.GetStringListItems(resourceKeyAddressListChildIDs)
+		editRequest.ChildListIDs = propertyHelper.GetStringSetItems(resourceKeyAddressListChildIDs)
 	}
 
 	err = client.EditIPAddressList(addressListID, editRequest)
