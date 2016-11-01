@@ -5,6 +5,8 @@
 New features:
 
 * Add support for automatically creating tag keys if they are not already defined.
+* Fixed bug #42 - unable to create `ddcloud_firewall_rule` with source address list or destination address list.  
+This was due to inconsistencies in the CloudControl API for firewall rules (create vs read returns different field structure). The CloudControl client for Go has been updated and the new version included in the Terraform provider.
 
 ## v1.1
 
