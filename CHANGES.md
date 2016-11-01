@@ -2,6 +2,10 @@
 
 ## v1.1.2
 
+New features:
+
+* The provider now logs its version information at startup (for diagnostic purposes).
+
 Bug fixes:
 
 * #44: Order of child address or port lists is not preserved
