@@ -32,7 +32,7 @@ If you prefer, you can run Terraform with the CloudControl provider [using Docke
 From the directory containing your configuration (`.tf` files, etc):
 
 ```bash
-docker run --rm -it -v $PWD:/config ddresearch/terraform-provider-ddcloud
+docker run --rm -it -v $PWD:/config ddresearch/terraform-provider-ddcloud /bin/terraform plan
 ```
 
 ## Building the provider yourself

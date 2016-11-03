@@ -1,3 +1,5 @@
+VERSION = 1.1.1
+
 default: fmt build test
 
 fmt:
@@ -18,6 +20,16 @@ build-linux64:
 
 build-mac64:
 	GOOS=darwin GOARCH=amd64 go build -o _bin/darwin-amd64/terraform-provider-ddcloud
+
+# Build docker image
+build-docker: build-linux64
+	docker build -t ddresearch/terraform-provider-ddcloud .
+	docker tag ddresearch/terraform-provider-ddcloud ddresearch/terraform-provider-ddcloud:v${VERSION}
+
+# Build docker image
+push-docker: build-docker
+	docker push ddresearch/terraform-provider-ddcloud:latest
+	docker push ddresearch/terraform-provider-ddcloud:v${VERSION}
 
 # Produce archives for a GitHub release.
 dist: build
@@ -40,4 +52,4 @@ testacc: fmt
 		-run=TestAcc${TEST}
 
 version:
-	echo "package ddcloud\n\n// ProviderVersion is the current version of the ddcloud terraform provider.\nconst ProviderVersion = \"v1.1.1 (`git rev-parse HEAD`)\"" > ./vendor/ddcloud/version-info.go
+	echo "package ddcloud\n\n// ProviderVersion is the current version of the ddcloud terraform provider.\nconst ProviderVersion = \"v${VERSION} (`git rev-parse HEAD`)\"" > ./vendor/ddcloud/version-info.go

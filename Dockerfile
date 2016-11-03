@@ -1,5 +1,7 @@
 FROM hashicorp/terraform:0.7.1
 
+MAINTAINER Adam Friedman <adam.friedman@itaas.dimensiondata.com>
+
 RUN mkdir -p /config
 VOLUME /config
 
