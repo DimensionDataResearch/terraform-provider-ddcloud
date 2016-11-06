@@ -108,6 +108,9 @@ func Provider() terraform.ResourceProvider {
 		DataSourcesMap: map[string]*schema.Resource{
 			// A network domain.
 			"ddcloud_networkdomain": dataSourceNetworkDomain(),
+
+			// A virtual network (VLAN).
+			"ddcloud_vlan": dataSourceVLAN(),
 		},
 
 		// Provider configuration

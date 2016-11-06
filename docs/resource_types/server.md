@@ -56,10 +56,11 @@ Default is `STANDARD`.
     * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, or `HIGHPERFORMANCE` (but varies between data centres).
 * `networkdomain` - (Required) The Id of the network domain in which the server is deployed.
 * `primary_adapter_ipv4` - (Optional) The IPv4 address for the server's primary network adapter.  
-Must specify at least one one of `primary_adapter_ipv4` or `primary_adapter_vlan`.
+Must specify at least one one of `primary_adapter_ipv4` or `primary_adapter_vlan`.  
+If this property is _not_ specified (i.e. value will be computed at deploy time), you will get `UNEXPECTED_ERROR` from the CloudControl API when simultaneously deploying multiple servers onto the same VLAN.
 * `primary_adapter_vlan` - (Optional) The Id of the VLAN to which the server's primary network adapter will be attached (the first available IPv4 address will be allocated).  
 Must specify at least one one of `primary_adapter_ipv4` or `primary_adapter_vlan`.  
-If this property is _not_ specified (i.e. value will be computed at deploy time), you will get `UNEXPECTED_ERROR` from the CloudControl API when simultaneously deploying multiple servers onto the same VLAN. **Note**: Changing this property will result in the server being destroyed and re-created.
+**Note**: Changing this property will result in the server being destroyed and re-created.
 * `dns_primary` - (Required) The IP address of the server's primary DNS server.
 * `dns_secondary` - (Required) The IP address of the server's secondary DNS.
 * `os_image_id` - (Required) The Id of the OS (built-in) image from which the server will be created. Must specify exactly one of `os_image_id`, `os_image_name`, `customer_image_id`, `customer_image_name`.
