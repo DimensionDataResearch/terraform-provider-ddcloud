@@ -10,11 +10,11 @@ The `ddcloud_networkdomain` data-source enables lookup of a network domain by na
 // Existing network domain (not managed by Terraform)
 data "ddcloud_networkdomain" "my-domain" {
     name                    = "terraform-test-domain"
-    datacenter              = "AU9" # The ID of the data centre in which to create your network domain.
+    datacenter              = "AU9" # The ID of the data centre in which the network domain exists.
 }
 
 // New VLAN in existing network domain
-resource "ddcloud_vlan" {
+resource "ddcloud_vlan" "my-vlan" {
 	// Other properties
 
 	networkdomain           = "${data.ddcloud_networkdomain.my-domain.id}"
@@ -27,7 +27,7 @@ Note that the `data.` prefix is required to reference data-source properties.
 
 The following arguments are supported:
 
-* `name` - (Required) A name for the network domain.
+* `name` - (Required) The name of the network domain.
 * `datacenter` - (Required) The Id of the MCP 2.0 datacenter in which the network domain is created.
 
 ## Attribute Reference

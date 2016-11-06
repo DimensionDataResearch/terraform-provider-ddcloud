@@ -27,9 +27,12 @@ The following arguments are supported:
 * `name` - (Required) A name for the VLAN.
 * `description` - (Optional) A description for the VLAN.
 * `networkdomain` - (Required) The Id of the network domain in which the VLAN is deployed.
-* `ipv4_base_address` - (Required) The base address of the VLAN's first IPv4 network.
-* `ipv4_prefix_size` - (Required) The prefix size of the VLAN's first IPv4 network.
+* `ipv4_base_address` - (Required) The base address of the VLAN's IPv4 network.
+* `ipv4_prefix_size` - (Required) The prefix size of the VLAN's IPv4 network.
 
 ## Attribute Reference
 
-There are currently no additional attributes for `ddcloud_vlan`.
+The following additional attributes are exported:
+
+* `ipv6_base_address` - (Required) The base address of the VLAN's IPv6 network.
+* `ipv6_prefix_size` - (Required) The prefix size of the VLAN's IPv6 network.
