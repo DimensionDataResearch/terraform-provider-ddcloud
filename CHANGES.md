@@ -5,6 +5,7 @@
 New features:
 
 * The provider now logs its version information at startup (for diagnostic purposes).
+* Add `ddcloud_vlan` data source (#45)
 
 Bug fixes:
 
