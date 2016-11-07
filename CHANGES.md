@@ -1,5 +1,11 @@
 # Changes
 
+## v1.1.3
+
+Breaking changes:
+
+* Environment variables that previously had a `DDCLOUD_` prefix will now have an `MCP_` prefix (required for [docker-machine-driver-ddcloud #4](https://github.com/DimensionDataResearch/docker-machine-driver-ddcloud/issues/4))
+
 ## v1.1.2
 
 New features:
@@ -63,7 +69,7 @@ Fixes:
 
 ## v0.6
 
-* Extended logging of CloudControl API requests and responses can now be enabled by setting the `DD_COMPUTE_EXTENDED_LOGGING` environment variable to any non-empty value.
+* Extended logging of CloudControl API requests and responses can now be enabled by setting the `MCP_EXTENDED_LOGGING` environment variable to any non-empty value.
 
 ## v.04
 

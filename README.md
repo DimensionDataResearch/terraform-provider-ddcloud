@@ -51,7 +51,7 @@ Create a folder containing a single `.tf` file:
  */
 
 provider "ddcloud" {
-  # User name and password can also be specified via DD_COMPUTE_USER and DD_COMPUTE_PASSWORD environment variables.
+  # User name and password can also be specified via MCP_USER and MCP_PASSWORD environment variables.
   "username"           = "my_username"
   "password"           = "my_password" # Watch out for escaping if your password contains characters such as "$".
   "region"             = "AU" # The DD compute region code (e.g. "AU", "NA", "EU")
@@ -159,7 +159,7 @@ For the most part the CloudControl provider for Terraform directly displays any 
 If you want to gather additional information to better diagnose your issue, you can try re-running your Terraform command after setting a couple of environment variables:
   * Set `TF_LOG` to `INFO` or `DEBUG`
   * Set `TF_LOG_PATH` to the full path of the log file to write
-  * As a last resort, you can also set `DD_COMPUTE_EXTENDED_LOGGING` to `1` (if you set this, then `TF_LOG` must be `DEBUG`) to log requests to and responses from the CloudControl API
+  * As a last resort, you can also set `MCP_EXTENDED_LOGGING` to `1` (if you set this, then `TF_LOG` must be `DEBUG`) to log requests to and responses from the CloudControl API
 
 The resulting log file will contain detailed information
 

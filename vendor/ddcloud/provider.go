@@ -28,14 +28,14 @@ func Provider() terraform.ResourceProvider {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "",
-				Description: "The user name used to authenticate to the Dimension Data CloudControl API (if not specified, then the DD_COMPUTE_USER environment variable will be used).",
+				Description: "The user name used to authenticate to the Dimension Data CloudControl API (if not specified, then the MCP_USER environment variable will be used).",
 			},
 			"password": &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Sensitive:   true,
 				Default:     "",
-				Description: "The password used to authenticate to the Dimension Data CloudControl API (if not specified, then the DD_COMPUTE_PASSWORD environment variable will be used).",
+				Description: "The password used to authenticate to the Dimension Data CloudControl API (if not specified, then the MCP_PASSWORD environment variable will be used).",
 			},
 			"retry_count": &schema.Schema{
 				Type:        schema.TypeInt,
@@ -138,17 +138,17 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 
 	username = providerSettings.Get("username").(string)
 	if isEmpty(username) {
-		username = os.Getenv("DD_COMPUTE_USER")
+		username = os.Getenv("MCP_USER")
 		if isEmpty(username) {
-			return nil, fmt.Errorf("The 'username' property was not specified for the 'ddcloud' provider, and the 'DD_COMPUTE_USER' environment variable is not present. Please supply either one of these to configure the user name used to authenticate to Dimension Data CloudControl.")
+			return nil, fmt.Errorf("The 'username' property was not specified for the 'ddcloud' provider, and the 'MCP_USER' environment variable is not present. Please supply either one of these to configure the user name used to authenticate to Dimension Data CloudControl.")
 		}
 	}
 
 	password = providerSettings.Get("password").(string)
 	if isEmpty(password) {
-		password = os.Getenv("DD_COMPUTE_PASSWORD")
+		password = os.Getenv("MCP_PASSWORD")
 		if isEmpty(password) {
-			return nil, fmt.Errorf("The 'password' property was not specified for the 'ddcloud' provider, and the 'DD_COMPUTE_PASSWORD' environment variable is not present. Please supply either one of these to configure the password used to authenticate to Dimension Data CloudControl.")
+			return nil, fmt.Errorf("The 'password' property was not specified for the 'ddcloud' provider, and the 'MCP_PASSWORD' environment variable is not present. Please supply either one of these to configure the password used to authenticate to Dimension Data CloudControl.")
 		}
 	}
 
@@ -165,11 +165,11 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	}
 
 	// Override retry configuration with environment variables, if required.
-	retryValue, err := strconv.Atoi(os.Getenv("DD_COMPUTE_MAX_RETRY"))
+	retryValue, err := strconv.Atoi(os.Getenv("MCP_MAX_RETRY"))
 	if err == nil {
 		retryCount = retryValue
 
-		retryValue, err = strconv.Atoi(os.Getenv("DD_COMPUTE_RETRY_DELAY"))
+		retryValue, err = strconv.Atoi(os.Getenv("MCP_RETRY_DELAY"))
 		if err == nil {
 			retryDelay = retryValue
 		}
@@ -183,13 +183,13 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	}
 
 	// Override server reboot behaviour with environment variables, if required.
-	allowRebootValue, err := strconv.ParseBool(os.Getenv("DD_COMPUTE_ALLOW_SERVER_REBOOT"))
+	allowRebootValue, err := strconv.ParseBool(os.Getenv("MCP_ALLOW_SERVER_REBOOT"))
 	if err != nil {
 		settings.AllowServerReboots = allowRebootValue
 	}
 
 	// Override automatic tag creation behaviour with environment variables, if required.
-	autoCreateTagKeys, err := strconv.ParseBool(os.Getenv("DD_COMPUTE_AUTO_CREATE_TAG_KEYS"))
+	autoCreateTagKeys, err := strconv.ParseBool(os.Getenv("MCP_AUTO_CREATE_TAG_KEYS"))
 	if err != nil {
 		settings.AutoCreateTagKeys = autoCreateTagKeys
 	}

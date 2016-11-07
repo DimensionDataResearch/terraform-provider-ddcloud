@@ -76,9 +76,9 @@ resource "ddcloud_firewall_rule" "myvm_http_in" {
 The following arguments are supported:
 
 * `username` - (Optional) The user name for authenticating to CloudControl.  
-If not specified, the `DD_COMPUTE_USER` environment variable will be used instead.
+If not specified, the `MCP_USER` environment variable will be used instead.
 * `password` - (Optional) The password for authenticating to CloudControl.  
-If not specified, the `DD_COMPUTE_PASSWORD` environment variable will be used instead.
+If not specified, the `MCP_PASSWORD` environment variable will be used instead.
 * `region` - (Optional) The Managed Cloud Platform region code (e.g. 'AU' - Australia, 'EU' - Europe, 'NA' - North America) that identifies the CloudControl end-point to connect to.
 * `retry_count` - (Optional) The maximum number of times that the provider should retry operations that fail due to a network connectivity error.
 * `retry_delay` - (Optional) The time (in seconds) to delay between operation retries.

@@ -1,4 +1,4 @@
-VERSION = 1.1.2
+VERSION = 1.1.3
 
 default: fmt build test
 
@@ -44,8 +44,8 @@ test: fmt
 testacc: fmt
 	rm -f "${PWD}/AccTest.log"
 	TF_ACC=1 TF_LOG=DEBUG TF_LOG_PATH="${PWD}/AccTest.log" \
-	DD_COMPUTE_EXTENDED_LOGGING=1 \
-	DD_COMPUTE_MAX_RETRY=6 DD_COMPUTE_RETRY_DELAY=10 \
+	MCP_EXTENDED_LOGGING=1 \
+	MCP_MAX_RETRY=6 MCP_RETRY_DELAY=10 \
 		go test -v \
 		github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/ddcloud \
 		-timeout 120m \
