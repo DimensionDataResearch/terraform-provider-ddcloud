@@ -2,6 +2,10 @@
 
 ## v1.1.3
 
+Changes:
+
+* The `ddcloud` provider will now automatically retry requests to the CloudControl API if they fail due to network errors (default value for `retry_count` is now 3).
+
 Breaking changes:
 
 * Environment variables that previously had a `DDCLOUD_` prefix will now have an `MCP_` prefix (required for [docker-machine-driver-ddcloud #4](https://github.com/DimensionDataResearch/docker-machine-driver-ddcloud/issues/4))

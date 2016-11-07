@@ -40,7 +40,7 @@ func Provider() terraform.ResourceProvider {
 			"retry_count": &schema.Schema{
 				Type:        schema.TypeInt,
 				Optional:    true,
-				Default:     0,
+				Default:     3,
 				Description: "The maximum number of times to retry operations that fail due to network connectivity errors.",
 			},
 			"retry_delay": &schema.Schema{
