@@ -106,7 +106,6 @@ func resourceServer() *schema.Resource {
 			},
 			resourceKeyServerPrimaryIPv4: &schema.Schema{
 				Type:        schema.TypeString,
-				ForceNew:    true,
 				Optional:    true,
 				Computed:    true,
 				Default:     nil,
@@ -454,16 +453,6 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error {
 	serverID := data.Id()
 
-	// These changes can only be made through the V1 API (we're mostly using V2).
-	// Later, we can come back and implement the required functionality in the compute API client.
-	if data.HasChange(resourceKeyServerName) {
-		return fmt.Errorf("Changing the 'name' property of a 'ddcloud_server' resource type is not yet implemented.")
-	}
-
-	if data.HasChange(resourceKeyServerDescription) {
-		return fmt.Errorf("Changing the 'description' property of a 'ddcloud_server' resource type is not yet implemented.")
-	}
-
 	log.Printf("Update server '%s'.", serverID)
 
 	providerState := provider.(*providerState)
@@ -488,6 +477,31 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 	data.Partial(true)
 
 	propertyHelper := propertyHelper(data)
+
+	var name, description *string
+	if data.HasChange(resourceKeyServerName) {
+		name = propertyHelper.GetOptionalString(resourceKeyServerName, true)
+	}
+
+	if data.HasChange(resourceKeyServerDescription) {
+		description = propertyHelper.GetOptionalString(resourceKeyServerDescription, true)
+	}
+
+	if name != nil || description != nil {
+		log.Printf("Server name / description change detected.")
+
+		err = apiClient.ModifyServer(serverID, name, description)
+		if err != nil {
+			return err
+		}
+
+		if data.HasChange(resourceKeyServerName) {
+			data.SetPartial(resourceKeyServerName)
+		}
+		if data.HasChange(resourceKeyServerDescription) {
+			data.SetPartial(resourceKeyServerDescription)
+		}
+	}
 
 	var memoryGB, cpuCount, cpuCoreCount *int
 	var cpuSpeed *string
