@@ -495,10 +495,10 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 			return err
 		}
 
-		if data.HasChange(resourceKeyServerName) {
+		if name != nil {
 			data.SetPartial(resourceKeyServerName)
 		}
-		if data.HasChange(resourceKeyServerDescription) {
+		if description != nil {
 			data.SetPartial(resourceKeyServerDescription)
 		}
 	}
