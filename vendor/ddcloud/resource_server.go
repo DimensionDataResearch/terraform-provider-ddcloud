@@ -490,7 +490,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 	if name != nil || description != nil {
 		log.Printf("Server name / description change detected.")
 
-		err = apiClient.ModifyServer(serverID, name, description)
+		err = apiClient.EditServerMetadata(serverID, name, description)
 		if err != nil {
 			return err
 		}
