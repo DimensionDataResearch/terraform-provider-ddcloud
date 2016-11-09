@@ -2,6 +2,10 @@
 
 ## v1.1.3
 
+Bug fixes:
+
+* Server name and description can now be modified after deployment (#47).
+
 Changes:
 
 * The `ddcloud` provider will now automatically retry requests to the CloudControl API if they fail due to network errors (default value for `retry_count` is now 3).
