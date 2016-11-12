@@ -28,3 +28,4 @@ Links a `ddcloud_vip_node` (and optionally a port) to a `ddcloud_vip_pool`.
 And the following data-source types:
 
 * [ddcloud_networkdomain](datasource_types/networkdomain.md) - A CloudControl network domain (lookup by name and data centre).
+* [ddcloud_vlan](datasource_types/vlan.md) - A CloudControl Virtual LAN (VLAN) (lookup by name and network domain).
