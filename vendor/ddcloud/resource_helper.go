@@ -17,6 +17,12 @@ func propertyHelper(data *schema.ResourceData) resourcePropertyHelper {
 	return resourcePropertyHelper{data}
 }
 
+func (helper resourcePropertyHelper) HasProperty(key string) bool {
+	_, ok := helper.data.GetOk(key)
+
+	return ok
+}
+
 func (helper resourcePropertyHelper) GetOptionalString(key string, allowEmpty bool) *string {
 	value := helper.data.Get(key)
 	switch typedValue := value.(type) {

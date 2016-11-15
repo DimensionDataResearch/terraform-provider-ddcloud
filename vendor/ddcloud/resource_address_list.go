@@ -1,6 +1,7 @@
 package ddcloud
 
 import (
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 )
@@ -10,7 +11,8 @@ const (
 	resourceKeyAddressListName              = "name"
 	resourceKeyAddressListDescription       = "description"
 	resourceKeyAddressListIPVersion         = "ip_version"
-	resourceKeyAddressListAddresses         = "address"
+	resourceKeyAddressListAddresses         = "addresses"
+	resourceKeyAddressListAddress           = "address"
 	resourceKeyAddressListAddressBegin      = "begin"
 	resourceKeyAddressListAddressEnd        = "end"
 	resourceKeyAddressListAddressNetwork    = "network"
@@ -51,10 +53,10 @@ func resourceAddressList() *schema.Resource {
 				ForceNew:    true,
 				Description: "The IP version (IPv4 or IPv6) used by the address list",
 			},
-			resourceKeyAddressListAddresses: &schema.Schema{
+			resourceKeyAddressListAddress: &schema.Schema{
 				Type:        schema.TypeList,
 				Optional:    true,
-				Description: "Addresses included in the address list",
+				Description: "Complex IP addresses or networks included in the address list",
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						resourceKeyAddressListAddressBegin: &schema.Schema{
@@ -73,8 +75,8 @@ func resourceAddressList() *schema.Resource {
 							Optional:    true,
 							Description: "The base address for an IP network",
 							ConflictsWith: []string{
-								resourceKeyAddressListAddresses + "." + resourceKeyAddressListAddressBegin,
-								resourceKeyAddressListAddresses + "." + resourceKeyAddressListAddressEnd,
+								resourceKeyAddressListAddress + "." + resourceKeyAddressListAddressBegin,
+								resourceKeyAddressListAddress + "." + resourceKeyAddressListAddressEnd,
 							},
 						},
 						resourceKeyAddressListAddressPrefixSize: &schema.Schema{
@@ -82,12 +84,23 @@ func resourceAddressList() *schema.Resource {
 							Optional:    true,
 							Description: "The prefix size for an IP network",
 							ConflictsWith: []string{
-								resourceKeyAddressListAddresses + "." + resourceKeyAddressListAddressBegin,
-								resourceKeyAddressListAddresses + "." + resourceKeyAddressListAddressEnd,
+								resourceKeyAddressListAddress + "." + resourceKeyAddressListAddressBegin,
+								resourceKeyAddressListAddress + "." + resourceKeyAddressListAddressEnd,
 							},
 						},
 					},
 				},
+				ConflictsWith: []string{resourceKeyAddressListAddresses},
+			},
+			resourceKeyAddressListAddresses: &schema.Schema{
+				Type:        schema.TypeSet,
+				Optional:    true,
+				Description: "Simple IP addresses included in the address list",
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+				Set:           schema.HashString,
+				ConflictsWith: []string{resourceKeyAddressListAddress},
 			},
 			resourceKeyAddressListChildIDs: &schema.Schema{
 				Type:        schema.TypeSet,
@@ -126,13 +139,26 @@ func resourceAddressListCreate(data *schema.ResourceData, provider interface{}) 
 	name := data.Get(resourceKeyAddressListName).(string)
 	description := data.Get(resourceKeyAddressListDescription).(string)
 	ipVersion := data.Get(resourceKeyAddressListIPVersion).(string)
-	addresses := propertyHelper.GetAddressListAddresses()
 	childListIDs := propertyHelper.GetStringSetItems(resourceKeyAddressListChildIDs)
+
+	var addressListEntries []compute.IPAddressListEntry
+	if propertyHelper.HasProperty(resourceKeyAddressListAddresses) {
+		// Address list entries from a simple set of IP addresses.
+		simpleAddresses := propertyHelper.GetStringSetItems(resourceKeyAddressListAddresses)
+		for _, simpleAddress := range simpleAddresses {
+			addressListEntries = append(addressListEntries, compute.IPAddressListEntry{
+				Begin: simpleAddress,
+			})
+		}
+	} else { // Default for backward compatibility
+		// Raw address list entries.
+		addressListEntries = propertyHelper.GetAddressListAddresses()
+	}
 
 	log.Printf("Create address list '%s' in network domain '%s'.", name, networkDomainID)
 
 	client := provider.(*providerState).Client()
-	addressListID, err := client.CreateIPAddressList(name, description, ipVersion, networkDomainID, addresses, childListIDs)
+	addressListID, err := client.CreateIPAddressList(name, description, ipVersion, networkDomainID, addressListEntries, childListIDs)
 	if err != nil {
 		return err
 	}
@@ -170,8 +196,20 @@ func resourceAddressListRead(data *schema.ResourceData, provider interface{}) er
 
 	propertyHelper := propertyHelper(data)
 	data.Set(resourceKeyAddressListDescription, addressList.Description)
-	propertyHelper.SetAddressListAddresses(addressList.Addresses)
 	propertyHelper.SetStringSetItems(resourceKeyAddressListChildIDs, childListIDs)
+
+	var addressListEntries []compute.IPAddressListEntry
+	if propertyHelper.HasProperty(resourceKeyAddressListAddresses) {
+		simpleAddresses := propertyHelper.GetStringSetItems(resourceKeyAddressListAddresses)
+		for _, simpleAddress := range simpleAddresses {
+			addressListEntries = append(addressListEntries, compute.IPAddressListEntry{
+				Begin: simpleAddress,
+			})
+		}
+	} else { // Default for backward compatibility
+		addressListEntries = addressList.Addresses
+	}
+	propertyHelper.SetAddressListAddresses(addressListEntries)
 
 	return nil
 }
@@ -203,8 +241,22 @@ func resourceAddressListUpdate(data *schema.ResourceData, provider interface{}) 
 	if data.HasChange(resourceKeyAddressListDescription) {
 		editRequest.Description = data.Get(resourceKeyAddressListDescription).(string)
 	}
-	if data.HasChange(resourceKeyAddressListAddresses) {
-		editRequest.Addresses = propertyHelper.GetAddressListAddresses()
+	if data.HasChange(resourceKeyAddressListAddress) || data.HasChange(resourceKeyAddressListAddresses) {
+		var addressListEntries []compute.IPAddressListEntry
+		if propertyHelper.HasProperty(resourceKeyAddressListAddresses) {
+			// Address list entries from a simple set of IP addresses.
+			simpleAddresses := propertyHelper.GetStringSetItems(resourceKeyAddressListAddresses)
+			for _, simpleAddress := range simpleAddresses {
+				addressListEntries = append(addressListEntries, compute.IPAddressListEntry{
+					Begin: simpleAddress,
+				})
+			}
+		} else { // Default for backward compatibility
+			// Raw address list entries.
+			addressListEntries = propertyHelper.GetAddressListAddresses()
+		}
+
+		editRequest.Addresses = addressListEntries
 	}
 	if data.HasChange(resourceKeyAddressListChildIDs) {
 		editRequest.ChildListIDs = propertyHelper.GetStringSetItems(resourceKeyAddressListChildIDs)
