@@ -34,5 +34,5 @@ The following arguments are supported:
 
 The following additional attributes are exported:
 
-* `ipv6_base_address` - (Required) The base address of the VLAN's IPv6 network.
-* `ipv6_prefix_size` - (Required) The prefix size of the VLAN's IPv6 network.
+* `ipv6_base_address` - The base address of the VLAN's IPv6 network.
+* `ipv6_prefix_size` - The prefix size of the VLAN's IPv6 network.
