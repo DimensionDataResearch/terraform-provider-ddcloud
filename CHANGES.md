@@ -2,6 +2,11 @@
 
 ## v1.1.3
 
+New features:
+
+* `ddcloud_address_list` now also supports specifying a list of simple IP addresses (#49).
+* Enable specifying of custom URL for CloudControl API end point (#48).
+
 Bug fixes:
 
 * Server name and description can now be modified after deployment (#47).
