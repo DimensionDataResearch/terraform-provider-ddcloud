@@ -20,9 +20,18 @@ func Provider() terraform.ResourceProvider {
 		// Provider settings schema
 		Schema: map[string]*schema.Schema{
 			"region": &schema.Schema{
-				Type:        schema.TypeString,
-				Required:    true,
-				Description: "The region code that identifies the target end-point for the Dimension Data CloudControl API.",
+				Type:          schema.TypeString,
+				Optional:      true,
+				Default:       "",
+				Description:   "The region code that identifies the target end-point for the Dimension Data CloudControl API.",
+				ConflictsWith: []string{"cloudcontrol_endpoint"},
+			},
+			"cloudcontrol_endpoint": &schema.Schema{
+				Type:          schema.TypeString,
+				Optional:      true,
+				Default:       "",
+				Description:   "The base URL of a custom target end-point for the Dimension Data CloudControl API.",
+				ConflictsWith: []string{"region"},
 			},
 			"username": &schema.Schema{
 				Type:        schema.TypeString,
@@ -124,19 +133,15 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	// Log provider version (for diagnostic purposes).
 	log.Print("ddcloud provider version is " + ProviderVersion)
 
-	var (
-		region   string
-		username string
-		password string
-		client   *compute.Client
-		provider *providerState
-		err      error
+	region := strings.ToLower(
+		providerSettings.Get("region").(string),
 	)
+	customEndPoint := providerSettings.Get("cloudcontrol_endpoint").(string)
+	if region == "" && customEndPoint == "" {
+		return nil, fmt.Errorf("Neither the 'region' nor the 'cloudcontrol_endpoint' provider properties were specified (the 'ddcloud' provider requires exactly one of these properties to be configured).")
+	}
 
-	region = providerSettings.Get("region").(string)
-	region = strings.ToLower(region)
-
-	username = providerSettings.Get("username").(string)
+	username := providerSettings.Get("username").(string)
 	if isEmpty(username) {
 		username = os.Getenv("MCP_USER")
 		if isEmpty(username) {
@@ -144,7 +149,7 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 		}
 	}
 
-	password = providerSettings.Get("password").(string)
+	password := providerSettings.Get("password").(string)
 	if isEmpty(password) {
 		password = os.Getenv("MCP_PASSWORD")
 		if isEmpty(password) {
@@ -152,7 +157,12 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 		}
 	}
 
-	client = compute.NewClient(region, username, password)
+	var client *compute.Client
+	if region != "" {
+		client = compute.NewClient(region, username, password)
+	} else {
+		client = compute.NewClientWithBaseAddress(customEndPoint, username, password)
+	}
 
 	// Configure retry, if required.
 	var (
@@ -194,7 +204,7 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 		settings.AutoCreateTagKeys = autoCreateTagKeys
 	}
 
-	provider = newProvider(client, settings)
+	provider := newProvider(client, settings)
 
 	return provider, nil
 }

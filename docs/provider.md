@@ -75,6 +75,11 @@ resource "ddcloud_firewall_rule" "myvm_http_in" {
 
 The following arguments are supported:
 
+* `region` - (Optional) The Managed Cloud Platform region code (e.g. 'AU' - Australia, 'EU' - Europe, 'NA' - North America) that identifies the CloudControl end-point to connect to.  
+Must specify exactly one of either `region` or `cloudcontrol_endpoint`.
+* `cloudcontrol_endpoint` - (Optional) The base URL of the CloudControl end-point to connect to.  
+Use this property if you are using PCEE or some other custom end-point that does not follow the standard pattern (`https://api-<region>.dimensiondata.com/`).  
+Must specify exactly one of either `cloudcontrol_endpoint` or `region`.
 * `username` - (Optional) The user name for authenticating to CloudControl.  
 If not specified, the `MCP_USER` environment variable will be used instead.
 * `password` - (Optional) The password for authenticating to CloudControl.  
