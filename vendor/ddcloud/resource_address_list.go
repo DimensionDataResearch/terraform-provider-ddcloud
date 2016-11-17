@@ -198,18 +198,18 @@ func resourceAddressListRead(data *schema.ResourceData, provider interface{}) er
 	data.Set(resourceKeyAddressListDescription, addressList.Description)
 	propertyHelper.SetStringSetItems(resourceKeyAddressListChildIDs, childListIDs)
 
-	var addressListEntries []compute.IPAddressListEntry
 	if propertyHelper.HasProperty(resourceKeyAddressListAddresses) {
-		simpleAddresses := propertyHelper.GetStringSetItems(resourceKeyAddressListAddresses)
-		for _, simpleAddress := range simpleAddresses {
-			addressListEntries = append(addressListEntries, compute.IPAddressListEntry{
-				Begin: simpleAddress,
-			})
+		// Note that if the address list now has complex entries (rather than the simple ones configured), then we won't pick that up here.
+		// TODO: Modify this logic to switch over to complex addresses if resource state indicates it's necessary
+
+		var addresses []string
+		for _, addressListEntry := range addressList.Addresses {
+			addresses = append(addresses, addressListEntry.Begin)
 		}
+		propertyHelper.SetStringSetItems(resourceKeyAddressListAddresses, addresses)
 	} else { // Default for backward compatibility
-		addressListEntries = addressList.Addresses
+		propertyHelper.SetAddressListAddresses(addressList.Addresses)
 	}
-	propertyHelper.SetAddressListAddresses(addressListEntries)
 
 	return nil
 }

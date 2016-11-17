@@ -170,18 +170,18 @@ func resourcePortListRead(data *schema.ResourceData, provider interface{}) error
 	data.Set(resourceKeyPortListDescription, portList.Description)
 	propertyHelper.SetStringSetItems(resourceKeyPortListChildIDs, childListIDs)
 
-	var portListEntries []compute.PortListEntry
 	if propertyHelper.HasProperty(resourceKeyPortListPorts) {
-		simplePorts := propertyHelper.GetIntSetItems(resourceKeyPortListPorts)
-		for _, simplePort := range simplePorts {
-			portListEntries = append(portListEntries, compute.PortListEntry{
-				Begin: simplePort,
-			})
+		// Note that if the port list now has complex entries (rather than the simple ones configured), then we won't pick that up here.
+		// TODO: Modify this logic to switch over to complex ports if resource state indicates it's necessary
+
+		var ports []int
+		for _, portListEntry := range portList.Ports {
+			ports = append(ports, portListEntry.Begin)
 		}
+		propertyHelper.SetIntSetItems(resourceKeyPortListPorts, ports)
 	} else { // Default for backward compatibility
-		portListEntries = portList.Ports
+		propertyHelper.SetPortListPorts(portList.Ports)
 	}
-	propertyHelper.SetPortListPorts(portListEntries)
 
 	return nil
 }
