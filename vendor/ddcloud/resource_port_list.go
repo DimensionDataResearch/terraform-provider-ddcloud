@@ -63,7 +63,7 @@ func resourcePortList() *schema.Resource {
 						},
 					},
 				},
-				ConflictsWith: []string{resourceKeyPortListPort},
+				ConflictsWith: []string{resourceKeyPortListPorts},
 			},
 			resourceKeyPortListPorts: &schema.Schema{
 				Type:        schema.TypeSet,
@@ -73,7 +73,7 @@ func resourcePortList() *schema.Resource {
 					Type: schema.TypeString,
 				},
 				Set:           schema.HashString,
-				ConflictsWith: []string{resourceKeyPortListPorts},
+				ConflictsWith: []string{resourceKeyPortListPort},
 			},
 			resourceKeyPortListChildIDs: &schema.Schema{
 				Type:        schema.TypeSet,
