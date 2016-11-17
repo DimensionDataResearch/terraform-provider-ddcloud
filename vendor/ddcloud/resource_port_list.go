@@ -173,6 +173,7 @@ func resourcePortListRead(data *schema.ResourceData, provider interface{}) error
 	if propertyHelper.HasProperty(resourceKeyPortListPorts) {
 		// Note that if the port list now has complex entries (rather than the simple ones configured), then we won't pick that up here.
 		// TODO: Modify this logic to switch over to complex ports if resource state indicates it's necessary
+		// For example, if portListEntry.End is populated, then we need to switch over to complex ports.
 
 		var ports []int
 		for _, portListEntry := range portList.Ports {

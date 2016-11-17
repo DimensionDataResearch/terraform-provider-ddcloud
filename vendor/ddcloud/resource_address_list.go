@@ -201,6 +201,7 @@ func resourceAddressListRead(data *schema.ResourceData, provider interface{}) er
 	if propertyHelper.HasProperty(resourceKeyAddressListAddresses) {
 		// Note that if the address list now has complex entries (rather than the simple ones configured), then we won't pick that up here.
 		// TODO: Modify this logic to switch over to complex addresses if resource state indicates it's necessary
+		// For example, if addressListEntry.End or addressListEntry.PrefixSize is populated, then we need to switch over to complex ports.
 
 		var addresses []string
 		for _, addressListEntry := range addressList.Addresses {
