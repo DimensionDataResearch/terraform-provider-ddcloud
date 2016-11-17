@@ -83,6 +83,35 @@ func (helper resourcePropertyHelper) SetStringSetItems(key string, items []strin
 	)
 }
 
+func (helper resourcePropertyHelper) GetIntSetItems(key string) (items []int) {
+	value, ok := helper.data.GetOk(key)
+	if !ok || value == nil {
+		return
+	}
+	rawItems := value.(*schema.Set).List()
+
+	items = make([]int, len(rawItems))
+	for index, item := range rawItems {
+		items[index] = item.(int)
+	}
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetIntSetItems(key string, items []int) error {
+	rawItems := make([]interface{}, len(items))
+	for index, item := range items {
+		rawItems[index] = item
+	}
+
+	hashInt := func(value interface{}) int {
+		return value.(int)
+	}
+	return helper.data.Set(key,
+		schema.NewSet(hashInt, rawItems),
+	)
+}
+
 func (helper resourcePropertyHelper) GetStringListItems(key string) (items []string) {
 	value, ok := helper.data.GetOk(key)
 	if !ok || value == nil {
@@ -223,7 +252,7 @@ func (helper resourcePropertyHelper) SetAddressListAddresses(addresses []compute
 }
 
 func (helper resourcePropertyHelper) GetPortListPorts() (ports []compute.PortListEntry) {
-	value, ok := helper.data.GetOk(resourceKeyPortListPorts)
+	value, ok := helper.data.GetOk(resourceKeyPortListPort)
 	if !ok {
 		return
 	}
@@ -262,7 +291,7 @@ func (helper resourcePropertyHelper) SetPortListPorts(ports []compute.PortListEn
 		}
 	}
 
-	helper.data.Set(resourceKeyPortListPorts, portProperties)
+	helper.data.Set(resourceKeyPortListPort, portProperties)
 }
 
 func (helper resourcePropertyHelper) GetServerDisks() (disks []compute.VirtualMachineDisk) {

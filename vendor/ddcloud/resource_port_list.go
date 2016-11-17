@@ -1,6 +1,7 @@
 package ddcloud
 
 import (
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 )
@@ -9,7 +10,8 @@ const (
 	resourceKeyPortListNetworkDomainID = "networkdomain"
 	resourceKeyPortListName            = "name"
 	resourceKeyPortListDescription     = "description"
-	resourceKeyPortListPorts           = "port"
+	resourceKeyPortListPort            = "port"
+	resourceKeyPortListPorts           = "ports"
 	resourceKeyPortListPortBegin       = "begin"
 	resourceKeyPortListPortEnd         = "end"
 	resourceKeyPortListChildIDs        = "child_lists"
@@ -42,7 +44,7 @@ func resourcePortList() *schema.Resource {
 				Default:     "",
 				Description: "A description for the firewall rule",
 			},
-			resourceKeyPortListPorts: &schema.Schema{
+			resourceKeyPortListPort: &schema.Schema{
 				Type:        schema.TypeList,
 				Optional:    true,
 				Description: "Ports included in the port list",
@@ -61,6 +63,17 @@ func resourcePortList() *schema.Resource {
 						},
 					},
 				},
+				ConflictsWith: []string{resourceKeyPortListPort},
+			},
+			resourceKeyPortListPorts: &schema.Schema{
+				Type:        schema.TypeSet,
+				Optional:    true,
+				Description: "Simple ports included in the port list",
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+				},
+				Set:           schema.HashString,
+				ConflictsWith: []string{resourceKeyPortListPorts},
 			},
 			resourceKeyPortListChildIDs: &schema.Schema{
 				Type:        schema.TypeSet,
@@ -98,13 +111,26 @@ func resourcePortListCreate(data *schema.ResourceData, provider interface{}) err
 	networkDomainID := data.Get(resourceKeyPortListNetworkDomainID).(string)
 	name := data.Get(resourceKeyPortListName).(string)
 	description := data.Get(resourceKeyPortListDescription).(string)
-	ports := propertyHelper.GetPortListPorts()
 	childListIDs := propertyHelper.GetStringSetItems(resourceKeyPortListChildIDs)
+
+	var portListEntries []compute.PortListEntry
+	if propertyHelper.HasProperty(resourceKeyPortListPorts) {
+		// Port list entries from a simple set of ports.
+		simplePorts := propertyHelper.GetIntSetItems(resourceKeyPortListPorts)
+		for _, simplePort := range simplePorts {
+			portListEntries = append(portListEntries, compute.PortListEntry{
+				Begin: simplePort,
+			})
+		}
+	} else { // Default for backward compatibility
+		// Raw port list entries.
+		portListEntries = propertyHelper.GetPortListPorts()
+	}
 
 	log.Printf("Create port list '%s' in network domain '%s'.", name, networkDomainID)
 
 	client := provider.(*providerState).Client()
-	portListID, err := client.CreatePortList(name, description, networkDomainID, ports, childListIDs)
+	portListID, err := client.CreatePortList(name, description, networkDomainID, portListEntries, childListIDs)
 	if err != nil {
 		return err
 	}
@@ -142,8 +168,20 @@ func resourcePortListRead(data *schema.ResourceData, provider interface{}) error
 
 	propertyHelper := propertyHelper(data)
 	data.Set(resourceKeyPortListDescription, portList.Description)
-	propertyHelper.SetPortListPorts(portList.Ports)
 	propertyHelper.SetStringSetItems(resourceKeyPortListChildIDs, childListIDs)
+
+	var portListEntries []compute.PortListEntry
+	if propertyHelper.HasProperty(resourceKeyPortListPorts) {
+		simplePorts := propertyHelper.GetIntSetItems(resourceKeyPortListPorts)
+		for _, simplePort := range simplePorts {
+			portListEntries = append(portListEntries, compute.PortListEntry{
+				Begin: simplePort,
+			})
+		}
+	} else { // Default for backward compatibility
+		portListEntries = portList.Ports
+	}
+	propertyHelper.SetPortListPorts(portListEntries)
 
 	return nil
 }
@@ -175,8 +213,22 @@ func resourcePortListUpdate(data *schema.ResourceData, provider interface{}) err
 	if data.HasChange(resourceKeyPortListDescription) {
 		editRequest.Description = data.Get(resourceKeyPortListDescription).(string)
 	}
-	if data.HasChange(resourceKeyPortListPorts) {
-		editRequest.Ports = propertyHelper.GetPortListPorts()
+	if data.HasChange(resourceKeyPortListPort) || data.HasChange(resourceKeyPortListPorts) {
+		var portListEntries []compute.PortListEntry
+		if propertyHelper.HasProperty(resourceKeyPortListPorts) {
+			// Port list entries from a simple set of IP ports.
+			simplePorts := propertyHelper.GetIntSetItems(resourceKeyPortListPorts)
+			for _, simplePort := range simplePorts {
+				portListEntries = append(portListEntries, compute.PortListEntry{
+					Begin: simplePort,
+				})
+			}
+		} else { // Default for backward compatibility
+			// Raw port list entries.
+			portListEntries = propertyHelper.GetPortListPorts()
+		}
+
+		editRequest.Ports = portListEntries
 	}
 	if data.HasChange(resourceKeyPortListChildIDs) {
 		editRequest.ChildListIDs = propertyHelper.GetStringSetItems(resourceKeyPortListChildIDs)

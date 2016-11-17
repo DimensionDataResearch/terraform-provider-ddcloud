@@ -1,5 +1,11 @@
 # Changes
 
+## v1.1.4
+
+New features:
+
+* `ddcloud_port_list` now also supports specifying a list of simple ports (#50).
+
 ## v1.1.3
 
 New features:
