@@ -52,7 +52,7 @@ func resourceServerNIC() *schema.Resource {
 			resourceKeyNICAdapterType: &schema.Schema{
 				Type:         schema.TypeString,
 				Optional:     true,
-				Computed:     true,
+				ForceNew:     true,
 				Default:      nil,
 				Description:  "The type of network adapter (E1000 or VMXNET3)",
 				ValidateFunc: validateNICAdapterType,
