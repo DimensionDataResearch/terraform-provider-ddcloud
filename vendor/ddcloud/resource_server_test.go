@@ -2,11 +2,12 @@ package ddcloud
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"strings"
-	"testing"
 )
 
 /*
@@ -513,9 +514,9 @@ func testCheckDDCloudServerMatches(name string, networkDomainName string, expect
 			return fmt.Errorf("Bad: Primary network adapter for server '%s' has IPv4 address '%s' (expected '%s')", serverID, actualPrimaryIPv4, expectedPrimaryIPv4)
 		}
 
-		expectedPrimaryIPv6, ok := serverResource.Primary.Attributes[resourceKeyServerPrimaryIPv6]
+		expectedPrimaryIPv6, ok := serverResource.Primary.Attributes[resourceKeyServerPrimaryAdapterIPv6]
 		if !ok {
-			return fmt.Errorf("Bad: %s.%s is missing '%s' attribute.", serverResource.Type, name, resourceKeyServerPrimaryIPv6)
+			return fmt.Errorf("Bad: %s.%s is missing '%s' attribute.", serverResource.Type, name, resourceKeyServerPrimaryAdapterIPv6)
 		}
 
 		actualPrimaryIPv6 := *server.Network.PrimaryAdapter.PrivateIPv6Address
