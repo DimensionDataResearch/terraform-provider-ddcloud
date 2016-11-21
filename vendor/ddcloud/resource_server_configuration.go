@@ -2,9 +2,10 @@ package ddcloud
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
-	"log"
 )
 
 // updateServerConfiguration reconfigures a server, changing the allocated RAM and / or CPU count.
@@ -44,19 +45,19 @@ func updateServerConfiguration(apiClient *compute.Client, server *compute.Server
 }
 
 func captureServerNetworkConfiguration(server *compute.Server, data *schema.ResourceData, isPartial bool) {
-	data.Set(resourceKeyServerPrimaryVLAN, *server.Network.PrimaryAdapter.VLANID)
+	data.Set(resourceKeyServerPrimaryAdapterVLAN, *server.Network.PrimaryAdapter.VLANID)
 	if isPartial {
-		data.SetPartial(resourceKeyServerPrimaryVLAN)
+		data.SetPartial(resourceKeyServerPrimaryAdapterVLAN)
 	}
 
-	data.Set(resourceKeyServerPrimaryIPv4, *server.Network.PrimaryAdapter.PrivateIPv4Address)
+	data.Set(resourceKeyServerPrimaryAdapterIPv4, *server.Network.PrimaryAdapter.PrivateIPv4Address)
 	if isPartial {
-		data.SetPartial(resourceKeyServerPrimaryIPv4)
+		data.SetPartial(resourceKeyServerPrimaryAdapterIPv4)
 	}
 
-	data.Set(resourceKeyServerPrimaryIPv6, *server.Network.PrimaryAdapter.PrivateIPv6Address)
+	data.Set(resourceKeyServerPrimaryAdapterIPv6, *server.Network.PrimaryAdapter.PrivateIPv6Address)
 	if isPartial {
-		data.SetPartial(resourceKeyServerPrimaryIPv6)
+		data.SetPartial(resourceKeyServerPrimaryAdapterIPv6)
 	}
 
 	data.Set(resourceKeyServerNetworkDomainID, server.Network.NetworkDomainID)

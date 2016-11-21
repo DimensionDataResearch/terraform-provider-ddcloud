@@ -10,25 +10,26 @@ import (
 )
 
 const (
-	resourceKeyServerName              = "name"
-	resourceKeyServerDescription       = "description"
-	resourceKeyServerAdminPassword     = "admin_password"
-	resourceKeyServerNetworkDomainID   = "networkdomain"
-	resourceKeyServerMemoryGB          = "memory_gb"
-	resourceKeyServerCPUCount          = "cpu_count"
-	resourceKeyServerCPUCoreCount      = "cores_per_cpu"
-	resourceKeyServerCPUSpeed          = "cpu_speed"
-	resourceKeyServerOSImageID         = "os_image_id"
-	resourceKeyServerOSImageName       = "os_image_name"
-	resourceKeyServerCustomerImageID   = "customer_image_id"
-	resourceKeyServerCustomerImageName = "customer_image_name"
-	resourceKeyServerPrimaryVLAN       = "primary_adapter_vlan"
-	resourceKeyServerPrimaryIPv4       = "primary_adapter_ipv4"
-	resourceKeyServerPrimaryIPv6       = "primary_adapter_ipv6"
-	resourceKeyServerPublicIPv4        = "public_ipv4"
-	resourceKeyServerPrimaryDNS        = "dns_primary"
-	resourceKeyServerSecondaryDNS      = "dns_secondary"
-	resourceKeyServerAutoStart         = "auto_start"
+	resourceKeyServerName               = "name"
+	resourceKeyServerDescription        = "description"
+	resourceKeyServerAdminPassword      = "admin_password"
+	resourceKeyServerNetworkDomainID    = "networkdomain"
+	resourceKeyServerMemoryGB           = "memory_gb"
+	resourceKeyServerCPUCount           = "cpu_count"
+	resourceKeyServerCPUCoreCount       = "cores_per_cpu"
+	resourceKeyServerCPUSpeed           = "cpu_speed"
+	resourceKeyServerOSImageID          = "os_image_id"
+	resourceKeyServerOSImageName        = "os_image_name"
+	resourceKeyServerCustomerImageID    = "customer_image_id"
+	resourceKeyServerCustomerImageName  = "customer_image_name"
+	resourceKeyServerPrimaryAdapterVLAN = "primary_adapter_vlan"
+	resourceKeyServerPrimaryAdapterIPv4 = "primary_adapter_ipv4"
+	resourceKeyServerPrimaryAdapterIPv6 = "primary_adapter_ipv6"
+	resourceKeyServerPrimaryAdapterType = "primary_adapter_type"
+	resourceKeyServerPublicIPv4         = "public_ipv4"
+	resourceKeyServerPrimaryDNS         = "dns_primary"
+	resourceKeyServerSecondaryDNS       = "dns_secondary"
+	resourceKeyServerAutoStart          = "auto_start"
 
 	resourceCreateTimeoutServer = 30 * time.Minute
 	resourceUpdateTimeoutServer = 10 * time.Minute
@@ -96,7 +97,7 @@ func resourceServer() *schema.Resource {
 				Required:    true,
 				Description: "The Id of the network domain in which the server is deployed",
 			},
-			resourceKeyServerPrimaryVLAN: &schema.Schema{
+			resourceKeyServerPrimaryAdapterVLAN: &schema.Schema{
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Optional:    true,
@@ -104,12 +105,20 @@ func resourceServer() *schema.Resource {
 				Default:     nil,
 				Description: "The Id of the VLAN to which the server's primary network adapter will be attached (the first available IPv4 address will be allocated)",
 			},
-			resourceKeyServerPrimaryIPv4: &schema.Schema{
+			resourceKeyServerPrimaryAdapterIPv4: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Computed:    true,
 				Default:     nil,
 				Description: "The IPv4 address for the server's primary network adapter",
+			},
+			resourceKeyServerPrimaryAdapterType: &schema.Schema{
+				Type:         schema.TypeString,
+				Optional:     true,
+				ForceNew:     true,
+				Default:      nil,
+				Description:  "The type of the server's primary network adapter (E1000 or VMXNET3)",
+				ValidateFunc: validateNICAdapterType,
 			},
 			resourceKeyServerPublicIPv4: &schema.Schema{
 				Type:        schema.TypeString,
@@ -117,7 +126,7 @@ func resourceServer() *schema.Resource {
 				Default:     nil,
 				Description: "The server's public IPv4 address (if any)",
 			},
-			resourceKeyServerPrimaryIPv6: &schema.Schema{
+			resourceKeyServerPrimaryAdapterIPv6: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The IPv6 address of the server's primary network adapter",
@@ -323,14 +332,16 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	// Network
-	primaryVLANID := propertyHelper.GetOptionalString(resourceKeyServerPrimaryVLAN, false)
-	primaryIPv4Address := propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv4, false)
+	primaryVLANID := propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterVLAN, false)
+	primaryIPv4Address := propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterIPv4, false)
+	primaryAdapterType := propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterType, false)
 
 	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
 		NetworkDomainID: networkDomainID,
 		PrimaryAdapter: compute.VirtualMachineNetworkAdapter{
 			VLANID:             primaryVLANID,
 			PrivateIPv4Address: primaryIPv4Address,
+			AdapterType:        primaryAdapterType,
 		},
 	}
 	deploymentConfiguration.PrimaryDNS = primaryDNS
@@ -536,11 +547,11 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	var primaryIPv4, primaryIPv6 *string
-	if data.HasChange(resourceKeyServerPrimaryIPv4) {
-		primaryIPv4 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv4, false)
+	if data.HasChange(resourceKeyServerPrimaryAdapterIPv4) {
+		primaryIPv4 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterIPv4, false)
 	}
-	if data.HasChange(resourceKeyServerPrimaryIPv6) {
-		primaryIPv6 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryIPv6, false)
+	if data.HasChange(resourceKeyServerPrimaryAdapterIPv6) {
+		primaryIPv6 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterIPv6, false)
 	}
 
 	if primaryIPv4 != nil || primaryIPv6 != nil {
@@ -551,12 +562,12 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 			return err
 		}
 
-		if data.HasChange(resourceKeyServerPrimaryIPv4) {
-			data.SetPartial(resourceKeyServerPrimaryIPv4)
+		if data.HasChange(resourceKeyServerPrimaryAdapterIPv4) {
+			data.SetPartial(resourceKeyServerPrimaryAdapterIPv4)
 		}
 
-		if data.HasChange(resourceKeyServerPrimaryIPv6) {
-			data.SetPartial(resourceKeyServerPrimaryIPv6)
+		if data.HasChange(resourceKeyServerPrimaryAdapterIPv6) {
+			data.SetPartial(resourceKeyServerPrimaryAdapterIPv6)
 		}
 
 		var publicIPv4Address string

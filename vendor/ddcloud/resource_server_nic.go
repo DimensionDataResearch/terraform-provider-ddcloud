@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	resourceKeyNicServerID    = "server"
-	resourceKeyNicVLANID      = "vlan"
-	resourceKeyNicPrivateIPV4 = "private_ipv4"
-	resourceKeyNicPrivateIPV6 = "private_ipv6"
+	resourceKeyNICServerID    = "server"
+	resourceKeyNICVLANID      = "vlan"
+	resourceKeyNICPrivateIPV4 = "private_ipv4"
+	resourceKeyNICPrivateIPV6 = "private_ipv6"
+	resourceKeyNICAdapterType = "adapter_type"
 )
 
 func resourceServerNIC() *schema.Resource {
@@ -24,29 +25,37 @@ func resourceServerNIC() *schema.Resource {
 		Delete: resourceServerNICDelete,
 
 		Schema: map[string]*schema.Schema{
-			resourceKeyNicServerID: &schema.Schema{
+			resourceKeyNICServerID: &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				Description: "ID of the server to which the additional nics needs to be updated",
 			},
 
-			resourceKeyNicVLANID: &schema.Schema{
+			resourceKeyNICVLANID: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
 				Optional:    true,
 				Description: "VLAN ID of the nic",
 				ForceNew:    true,
 			},
-			resourceKeyNicPrivateIPV4: &schema.Schema{
+			resourceKeyNICPrivateIPV4: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Computed:    true,
 				Description: "Private IPV4 address for the nic",
 			},
-			resourceKeyNicPrivateIPV6: &schema.Schema{
+			resourceKeyNICPrivateIPV6: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "Private IPV6 Address for the nic",
+			},
+			resourceKeyNICAdapterType: &schema.Schema{
+				Type:         schema.TypeString,
+				Optional:     true,
+				Computed:     true,
+				Default:      nil,
+				Description:  "The type of network adapter (E1000 or VMXNET3)",
+				ValidateFunc: validateNICAdapterType,
 			},
 		},
 	}
@@ -55,9 +64,12 @@ func resourceServerNIC() *schema.Resource {
 
 func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) error {
 	apiClient := provider.(*providerState).Client()
-	serverID := data.Get(resourceKeyNicServerID).(string)
-	ipv4Address := data.Get(resourceKeyNicPrivateIPV4).(string)
-	vlanID := data.Get(resourceKeyNicVLANID).(string)
+
+	propertyHelper := propertyHelper(data)
+	serverID := data.Get(resourceKeyNICServerID).(string)
+	ipv4Address := data.Get(resourceKeyNICPrivateIPV4).(string)
+	vlanID := data.Get(resourceKeyNICVLANID).(string)
+	adapterType := propertyHelper.GetOptionalString(resourceKeyNICVLANID, false)
 
 	log.Printf("Configure additional nics for server '%s'...", serverID)
 
@@ -86,7 +98,12 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 	}
 
 	log.Printf("create nic in the server id %s", serverID)
-	nicID, err := apiClient.AddNicToServer(serverID, ipv4Address, vlanID)
+	var nicID string
+	if adapterType != nil {
+		nicID, err = apiClient.AddNicWithTypeToServer(serverID, ipv4Address, vlanID, *adapterType)
+	} else {
+		nicID, err = apiClient.AddNicToServer(serverID, ipv4Address, vlanID)
+	}
 
 	if err != nil {
 		if isStarted {
@@ -117,7 +134,7 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 		return err
 	}
 
-	data.SetId(nicID) //Nic created
+	data.SetId(nicID) //NIC created
 	log.Printf("created the nic with the id %s", nicID)
 
 	if isStarted {
@@ -142,28 +159,28 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 		return err
 	}
 
-	serverNics := server.Network.AdditionalNetworkAdapters
+	serverNICs := server.Network.AdditionalNetworkAdapters
 
-	var serverNic compute.VirtualMachineNetworkAdapter
-	for _, nic := range serverNics {
+	var serverNIC compute.VirtualMachineNetworkAdapter
+	for _, nic := range serverNICs {
 		if *nic.ID == nicID {
-			serverNic = nic
+			serverNIC = nic
 			break
 		}
 	}
 
-	if serverNic.ID == nil {
-		log.Printf("Nic with the id %s doesn't exists", nicID)
-		data.SetId("") // Nic deleted
+	if serverNIC.ID == nil {
+		log.Printf("NIC with the id %s doesn't exists", nicID)
+		data.SetId("") // NIC deleted
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	data.Set(resourceKeyNicPrivateIPV4, serverNic.PrivateIPv4Address)
-	data.Set(resourceKeyNicVLANID, serverNic.VLANID)
-	data.Set(resourceKeyNicPrivateIPV6, serverNic.PrivateIPv6Address)
-	data.Set(resourceKeyNicPrivateIPV4, serverNic.PrivateIPv4Address)
+	data.Set(resourceKeyNICPrivateIPV4, serverNIC.PrivateIPv4Address)
+	data.Set(resourceKeyNICVLANID, serverNIC.VLANID)
+	data.Set(resourceKeyNICPrivateIPV6, serverNIC.PrivateIPv6Address)
+	data.Set(resourceKeyNICPrivateIPV4, serverNIC.PrivateIPv4Address)
 
 	return nil
 }
@@ -172,7 +189,7 @@ func resourceServerNICExists(data *schema.ResourceData, provider interface{}) (b
 
 	nicExists := false
 
-	serverID := data.Get(resourceKeyNicServerID).(string)
+	serverID := data.Get(resourceKeyNICServerID).(string)
 
 	apiClient := provider.(*providerState).Client()
 
@@ -189,8 +206,8 @@ func resourceServerNICExists(data *schema.ResourceData, provider interface{}) (b
 	if err != nil {
 		return nicExists, err
 	}
-	serverNics := server.Network.AdditionalNetworkAdapters
-	for _, nic := range serverNics {
+	serverNICs := server.Network.AdditionalNetworkAdapters
+	for _, nic := range serverNICs {
 
 		if *nic.ID == nicID {
 			nicExists = true
@@ -204,7 +221,7 @@ func resourceServerNICRead(data *schema.ResourceData, provider interface{}) erro
 
 	id := data.Id()
 
-	serverID := data.Get(resourceKeyNicServerID).(string)
+	serverID := data.Get(resourceKeyNICServerID).(string)
 
 	apiClient := provider.(*providerState).Client()
 
@@ -220,42 +237,43 @@ func resourceServerNICRead(data *schema.ResourceData, provider interface{}) erro
 		return err
 	}
 
-	serverNics := server.Network.AdditionalNetworkAdapters
+	serverNICs := server.Network.AdditionalNetworkAdapters
 
-	var serverNic compute.VirtualMachineNetworkAdapter
-	for _, nic := range serverNics {
+	var serverNIC compute.VirtualMachineNetworkAdapter
+	for _, nic := range serverNICs {
 		if *nic.ID == id {
-			serverNic = nic
+			serverNIC = nic
 			break
 		}
 	}
 
-	if serverNic.ID == nil {
-		log.Printf("Nic with the id %s doesn't exists", id)
-		data.SetId("") // Nic deleted
+	if serverNIC.ID == nil {
+		log.Printf("NIC with the id %s doesn't exists", id)
+		data.SetId("") // NIC deleted
 		return nil
 	}
 
 	if err != nil {
 		return err
 	}
-	data.Set(resourceKeyNicPrivateIPV4, serverNic.PrivateIPv4Address)
-	data.Set(resourceKeyNicVLANID, serverNic.VLANID)
-	data.Set(resourceKeyNicPrivateIPV6, serverNic.PrivateIPv6Address)
-	data.Set(resourceKeyNicPrivateIPV4, serverNic.PrivateIPv4Address)
+	data.Set(resourceKeyNICPrivateIPV4, serverNIC.PrivateIPv4Address)
+	data.Set(resourceKeyNICVLANID, serverNIC.VLANID)
+	data.Set(resourceKeyNICPrivateIPV6, serverNIC.PrivateIPv6Address)
+	data.Set(resourceKeyNICPrivateIPV4, serverNIC.PrivateIPv4Address)
+
 	return nil
 }
 
 func resourceServerNICUpdate(data *schema.ResourceData, provider interface{}) error {
 	propertyHelper := propertyHelper(data)
 	nicID := data.Id()
-	serverID := data.Get(resourceKeyNicServerID).(string)
-	privateIPV4 := propertyHelper.GetOptionalString(resourceKeyNicPrivateIPV4, true)
+	serverID := data.Get(resourceKeyNICServerID).(string)
+	privateIPV4 := propertyHelper.GetOptionalString(resourceKeyNICPrivateIPV4, true)
 
-	if data.HasChange(resourceKeyNicPrivateIPV4) {
+	if data.HasChange(resourceKeyNICPrivateIPV4) {
 		log.Printf("changing the ip address of the nic with the id %s to %s", nicID, *privateIPV4)
 		apiClient := provider.(*providerState).Client()
-		err := updateNicIPAddress(apiClient, serverID, nicID, privateIPV4)
+		err := updateNICIPAddress(apiClient, serverID, nicID, privateIPV4)
 		if err != nil {
 			return err
 		}
@@ -266,7 +284,7 @@ func resourceServerNICUpdate(data *schema.ResourceData, provider interface{}) er
 
 func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) error {
 	nicID := data.Id()
-	serverID := data.Get(resourceKeyNicServerID).(string)
+	serverID := data.Get(resourceKeyNICServerID).(string)
 	apiClient := provider.(*providerState).Client()
 
 	log.Printf("Removing additional nics for server '%s'...", serverID)
@@ -327,7 +345,7 @@ func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) er
 		return err
 	}
 
-	data.SetId("") //Nic Deleted
+	data.SetId("") //NIC Deleted
 	log.Printf("Deleted the nic with the id %s", nicID)
 
 	if isStarted {
@@ -343,8 +361,8 @@ func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) er
 	return nil
 }
 
-// updateNicIPAddress notifies the compute infrastructure that a Nic's IP address has changed.
-func updateNicIPAddress(apiClient *compute.Client, serverID string, nicID string, primaryIPv4 *string) error {
+// updateNICIPAddress notifies the compute infrastructure that a NIC's IP address has changed.
+func updateNICIPAddress(apiClient *compute.Client, serverID string, nicID string, primaryIPv4 *string) error {
 	log.Printf("Update IP address(es) for nic '%s'...", nicID)
 
 	err := apiClient.NotifyServerIPAddressChange(nicID, primaryIPv4, nil)
@@ -356,4 +374,31 @@ func updateNicIPAddress(apiClient *compute.Client, serverID string, nicID string
 	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
 
 	return err
+}
+
+func validateNICAdapterType(value interface{}, propertyName string) (messages []string, errors []error) {
+	if value == nil {
+		return
+	}
+
+	adapterType, ok := value.(string)
+	if !ok {
+		errors = append(errors,
+			fmt.Errorf("Unexpected value type '%v'", value),
+		)
+
+		return
+	}
+
+	switch adapterType {
+	case compute.NetworkAdapterTypeE1000:
+	case compute.NetworkAdapterTypeVMXNET3:
+		break
+	default:
+		errors = append(errors,
+			fmt.Errorf("Invalid network adapter type '%s'", value),
+		)
+	}
+
+	return
 }

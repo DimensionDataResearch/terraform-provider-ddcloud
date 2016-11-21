@@ -1,5 +1,11 @@
 # Changes
 
+## v1.1.5
+
+New features:
+
+* Enable specifying the network adapter type on `ddcloud_server` and `ddcloud_server_nic` (#52).
+
 ## v1.1.4
 
 New features:
