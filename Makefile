@@ -1,4 +1,4 @@
-VERSION = 1.1.3
+VERSION = 1.1.4
 
 default: fmt build test
 
@@ -10,10 +10,13 @@ dev: version fmt
 	go build -o _bin/terraform-provider-ddcloud
 
 # Perform a full (all-platforms) build.
-build: version build-windows64 build-linux64 build-mac64
+build: version build-windows64 build-windows32 build-linux64 build-mac64
 
 build-windows64:
 	GOOS=windows GOARCH=amd64 go build -o _bin/windows-amd64/terraform-provider-ddcloud.exe
+
+build-windows32:
+	GOOS=windows GOARCH=386 go build -o _bin/windows-386/terraform-provider-ddcloud.exe
 
 build-linux64:
 	GOOS=linux GOARCH=amd64 go build -o _bin/linux-amd64/terraform-provider-ddcloud
@@ -33,9 +36,14 @@ push-docker: build-docker
 
 # Produce archives for a GitHub release.
 dist: build
-	zip -9 _bin/windows-amd64.zip _bin/windows-amd64/terraform-provider-ddcloud.exe
-	zip -9 _bin/linux-amd64.zip _bin/linux-amd64/terraform-provider-ddcloud
-	zip -9 _bin/darwin-amd64.zip _bin/darwin-amd64/terraform-provider-ddcloud
+	cd _bin/windows-386 && \
+		zip -9 ../windows-386.zip terraform-provider-ddcloud.exe
+	cd _bin/windows-amd64 && \
+		zip -9 ../windows-amd64.zip terraform-provider-ddcloud.exe
+	cd _bin/linux-amd64 && \
+		zip -9 ../linux-amd64.zip terraform-provider-ddcloud
+	cd _bin/darwin-amd64 && \
+		zip -9 ../darwin-amd64.zip terraform-provider-ddcloud
 
 test: fmt
 	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/...

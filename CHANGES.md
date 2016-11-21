@@ -5,6 +5,7 @@
 New features:
 
 * `ddcloud_port_list` now also supports specifying a list of simple ports (#50).
+* Build executable for 32-bit Windows (Go calls this windows-386).
 
 ## v1.1.3
 
