@@ -1,4 +1,5 @@
 VERSION = 1.1.5
+VERSION_INFO_FILE = ./vendor/ddcloud/version-info.go
 
 default: fmt build test
 
@@ -59,5 +60,8 @@ testacc: fmt
 		-timeout 120m \
 		-run=TestAcc${TEST}
 
-version:
-	echo "package ddcloud\n\n// ProviderVersion is the current version of the ddcloud terraform provider.\nconst ProviderVersion = \"v${VERSION} (`git rev-parse HEAD`)\"" > ./vendor/ddcloud/version-info.go
+version: $(VERSION_INFO_FILE)
+
+$(VERSION_INFO_FILE): Makefile
+	@echo "Update version info: v$(VERSION)"
+	@echo "package ddcloud\n\n// ProviderVersion is the current version of the ddcloud terraform provider.\nconst ProviderVersion = \"v$(VERSION) (`git rev-parse HEAD`)\"" > $(VERSION_INFO_FILE)
