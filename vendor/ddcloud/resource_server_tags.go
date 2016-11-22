@@ -71,14 +71,6 @@ func applyServerTags(data *schema.ResourceData, apiClient *compute.Client, provi
 	if len(configuredTags) > 0 {
 		log.Printf("Applying %d tags to server '%s'...", len(configuredTags), serverID)
 
-		// Auto-create tag keys (if provider is configured to do so).
-		if providerSettings.AutoCreateTagKeys {
-			err = ensureTagKeysAreDefined(apiClient, configuredTags)
-			if err != nil {
-				return err
-			}
-		}
-
 		response, err = apiClient.ApplyAssetTags(serverID, compute.AssetTypeServer, configuredTags...)
 		if err != nil {
 			return err

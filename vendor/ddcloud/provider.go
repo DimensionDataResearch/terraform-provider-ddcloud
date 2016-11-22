@@ -64,12 +64,6 @@ func Provider() terraform.ResourceProvider {
 				Default:     true,
 				Description: "Allow rebooting of ddcloud_server instances (e.g. for adding / removing NICs)?",
 			},
-			"auto_create_tag_keys": &schema.Schema{
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				Description: "When applying a tag, automatically create the corresponding tag key if it is not defined?",
-			},
 		},
 
 		// Provider resource definitions
@@ -189,19 +183,12 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 
 	settings := &ProviderSettings{
 		AllowServerReboots: providerSettings.Get("allow_server_reboot").(bool),
-		AutoCreateTagKeys:  providerSettings.Get("auto_create_tag_keys").(bool),
 	}
 
 	// Override server reboot behaviour with environment variables, if required.
 	allowRebootValue, err := strconv.ParseBool(os.Getenv("MCP_ALLOW_SERVER_REBOOT"))
 	if err == nil {
 		settings.AllowServerReboots = allowRebootValue
-	}
-
-	// Override automatic tag creation behaviour with environment variables, if required.
-	autoCreateTagKeys, err := strconv.ParseBool(os.Getenv("MCP_AUTO_CREATE_TAG_KEYS"))
-	if err == nil {
-		settings.AutoCreateTagKeys = autoCreateTagKeys
 	}
 
 	provider := newProvider(client, settings)
@@ -215,9 +202,6 @@ type ProviderSettings struct {
 	//
 	// For example, servers must be rebooted to add or remove network adapters.
 	AllowServerReboots bool
-
-	// Automatically create a tag keys if the tag being applied is not already defined?
-	AutoCreateTagKeys bool
 }
 
 type providerState struct {

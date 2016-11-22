@@ -4,8 +4,10 @@
 
 Bug fixes:
 
-* Settings such as `allow_server_reboots` and `auto_create_tag_keys` are now correctly honoured by the provider (previously, they were incorrectly overridden to `false`).
+* Settings such as `allow_server_reboots` are now correctly honoured by the provider (previously, they were incorrectly overridden to `false`).
 * Correctly apply partial state when deploying a new `ddcloud_server`
+* Removed `auto_create_tag_keys` setting and the ability to automatically create tag keys (#53)  
+CloudControl support for this feature is too fragile (e.g. only works in home region), and considering how infrequently it's used it's not worth the effort.
 
 ## v1.1.5
 
