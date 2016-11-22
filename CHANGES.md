@@ -1,5 +1,12 @@
 # Changes
 
+## v1.1.6
+
+Bug fixes:
+
+* Settings such as `allow_server_reboots` and `auto_create_tag_keys` are now correctly honoured by the provider (previously, they were incorrectly overridden to `false`).
+* Correctly apply partial state when deploying a new `ddcloud_server`
+
 ## v1.1.5
 
 New features:
