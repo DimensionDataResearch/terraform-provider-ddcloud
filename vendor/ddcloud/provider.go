@@ -194,13 +194,13 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 
 	// Override server reboot behaviour with environment variables, if required.
 	allowRebootValue, err := strconv.ParseBool(os.Getenv("MCP_ALLOW_SERVER_REBOOT"))
-	if err != nil {
+	if err == nil {
 		settings.AllowServerReboots = allowRebootValue
 	}
 
 	// Override automatic tag creation behaviour with environment variables, if required.
 	autoCreateTagKeys, err := strconv.ParseBool(os.Getenv("MCP_AUTO_CREATE_TAG_KEYS"))
-	if err != nil {
+	if err == nil {
 		settings.AutoCreateTagKeys = autoCreateTagKeys
 	}
 
