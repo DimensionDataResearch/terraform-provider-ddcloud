@@ -69,7 +69,7 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 	serverID := data.Get(resourceKeyNICServerID).(string)
 	ipv4Address := data.Get(resourceKeyNICPrivateIPV4).(string)
 	vlanID := data.Get(resourceKeyNICVLANID).(string)
-	adapterType := propertyHelper.GetOptionalString(resourceKeyNICVLANID, false)
+	adapterType := propertyHelper.GetOptionalString(resourceKeyNICAdapterType, false)
 
 	log.Printf("Configure additional nics for server '%s'...", serverID)
 
