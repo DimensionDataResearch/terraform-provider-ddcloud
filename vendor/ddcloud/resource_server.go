@@ -365,10 +365,9 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	// Capture additional properties that may only be available after deployment.
-	server := resource.(*compute.Server)
-	captureServerNetworkConfiguration(server, data, false)
-
 	data.Partial(true)
+	server := resource.(*compute.Server)
+	captureServerNetworkConfiguration(server, data, true)
 
 	var publicIPv4Address string
 	publicIPv4Address, err = findPublicIPv4Address(apiClient,
@@ -383,7 +382,6 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	} else {
 		data.Set(resourceKeyServerPublicIPv4, nil)
 	}
-
 	data.SetPartial(resourceKeyServerPublicIPv4)
 
 	err = applyServerTags(data, apiClient, providerState.Settings())
