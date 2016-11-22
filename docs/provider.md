@@ -90,6 +90,3 @@ If not specified, the `MCP_PASSWORD` environment variable will be used instead.
 * `allow_server_reboot` - (Optional) Allow servers to be rebooted due to configuration changes?  
   If `false`, then the provider will fail any operation (except deletion) that requires a server to be rebooted.  
   Default is `true`.
-* `auto_create_tag_keys` - (Optional) When applying a tag (e.g. to a server), automatically create the corresponding tag key if it is not already defined?  
-  If `true`, the user must have permission to create tag keys for their organisation.  
-  Default is `false`.
