@@ -1,11 +1,12 @@
 package ddcloud
 
 import (
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (
@@ -14,6 +15,7 @@ const (
 	resourceKeyNetworkDomainPlan           = "plan"
 	resourceKeyNetworkDomainDataCenter     = "datacenter"
 	resourceKeyNetworkDomainNatIPv4Address = "nat_ipv4_address"
+	resourceKeyNetworkDomainFirewallRule   = "default_firewall_rule"
 	resourceCreateTimeoutNetworkDomain     = 5 * time.Minute
 	resourceDeleteTimeoutNetworkDomain     = 5 * time.Minute
 )
@@ -59,6 +61,13 @@ func resourceNetworkDomain() *schema.Resource {
 				Computed:    true,
 				Description: "The IPv4 address for the network domain's IPv6->IPv4 Source Network Address Translation (SNAT). This is the IPv4 address of the network domain's IPv4 egress",
 			},
+			resourceKeyNetworkDomainFirewallRule: &schema.Schema{
+				Type:        schema.TypeSet,
+				Elem:        schemaNetworkDomainFirewallRule(),
+				Set:         hashNetworkDomainFirewallRule,
+				Optional:    true,
+				Description: "One or more default firewall rules (name starts with 'CCDefault.') for the network domain",
+			},
 		},
 	}
 }
@@ -90,9 +99,19 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 		return err
 	}
 
+	data.Partial(true)
+
 	// Capture additional properties that are only available after deployment.
 	networkDomain := resource.(*compute.NetworkDomain)
 	data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
+	data.SetPartial(resourceKeyNetworkDomainNatIPv4Address)
+
+	err = applyNetworkDomainDefaultFirewallRules(data, apiClient)
+	if err != nil {
+		return err
+	}
+
+	data.Partial(false)
 
 	return nil
 }
@@ -116,15 +135,29 @@ func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) 
 		return err
 	}
 
+	data.Partial(true)
+
 	if networkDomain != nil {
 		data.Set(resourceKeyNetworkDomainName, networkDomain.Name)
+		data.SetPartial(resourceKeyNetworkDomainName)
 		data.Set(resourceKeyNetworkDomainDescription, networkDomain.Description)
+		data.SetPartial(resourceKeyNetworkDomainDescription)
 		data.Set(resourceKeyNetworkDomainPlan, networkDomain.Type)
+		data.SetPartial(resourceKeyNetworkDomainPlan)
 		data.Set(resourceKeyNetworkDomainDataCenter, networkDomain.DatacenterID)
+		data.SetPartial(resourceKeyNetworkDomainDataCenter)
 		data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
+		data.SetPartial(resourceKeyNetworkDomainNatIPv4Address)
 	} else {
 		data.SetId("") // Mark resource as deleted.
 	}
+
+	err = readNetworkDomainDefaultFirewallRules(data, apiClient)
+	if err != nil {
+		return err
+	}
+
+	data.Partial(false)
 
 	return nil
 }
@@ -158,8 +191,21 @@ func resourceNetworkDomainUpdate(data *schema.ResourceData, provider interface{}
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	// TODO: Handle RESOURCE_BUSY response (retry?)
-	return apiClient.EditNetworkDomain(id, newName, newDescription, newPlan)
+	var err error
+	if newName != nil || newPlan != nil {
+		// TODO: Handle RESOURCE_BUSY response (retry?)
+		err = apiClient.EditNetworkDomain(id, newName, newDescription, newPlan)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = applyNetworkDomainDefaultFirewallRules(data, apiClient)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Delete a network domain resource.
