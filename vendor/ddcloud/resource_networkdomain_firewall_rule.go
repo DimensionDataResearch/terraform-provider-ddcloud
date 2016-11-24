@@ -69,17 +69,9 @@ func readNetworkDomainDefaultFirewallRules(data *schema.ResourceData, apiClient 
 		return err
 	}
 
-	log.Printf("ExistingRules = %#v", existingRules)
-	log.Printf("Before: DefaultRules = %#v", existingRules)
-
 	// We only update state for rules already defined in the network domain's configuration
 	for _, defaultRule := range defaultRules {
 		ruleProperties := defaultRule.(map[string]interface{})
-		log.Printf("\tBefore: DefaultRule = %#v (%d)",
-			ruleProperties,
-			hashNetworkDomainFirewallRule(ruleProperties),
-		)
-
 		ruleType := ruleProperties[resourceKeyNetworkDomainFirewallRuleType].(string)
 		existingRule, ok := existingRules[ruleType]
 		if !ok {
@@ -90,14 +82,7 @@ func readNetworkDomainDefaultFirewallRules(data *schema.ResourceData, apiClient 
 		}
 
 		ruleProperties[resourceKeyNetworkDomainFirewallRuleEnabled] = existingRule.Enabled
-
-		log.Printf("After: DefaultRule = %#v (%d)",
-			ruleProperties,
-			hashNetworkDomainFirewallRule(ruleProperties),
-		)
 	}
-
-	log.Printf("After: DefaultRules = %#v", defaultRules)
 
 	// Persist changes.
 	defaultRuleSet := schema.NewSet(hashNetworkDomainFirewallRule, defaultRules)
