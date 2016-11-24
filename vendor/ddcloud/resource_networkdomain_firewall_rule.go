@@ -33,21 +33,27 @@ var defaultRuleTypes = []string{
 }
 
 // Schema for ddcloud_networkdomain.default_firewall_rule
-func schemaNetworkDomainFirewallRule() *schema.Resource {
-	return &schema.Resource{
-		Schema: map[string]*schema.Schema{
-			resourceKeyNetworkDomainFirewallRuleType: &schema.Schema{
-				Type:         schema.TypeString,
-				Required:     true,
-				ValidateFunc: validateNetworkDomainFirewallRuleType,
-				Description:  "The type of default firewall rule (without the 'CCDefault.' prefix)",
-			},
-			resourceKeyNetworkDomainFirewallRuleEnabled: &schema.Schema{
-				Type:        schema.TypeBool,
-				Required:    true,
-				Description: "Is the firewall rule enabled",
+func schemaNetworkDomainFirewallRule() *schema.Schema {
+	return &schema.Schema{
+		Type:        schema.TypeSet,
+		Optional:    true,
+		Description: "One or more default firewall rules (name starts with 'CCDefault.') for the network domain",
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				resourceKeyNetworkDomainFirewallRuleType: &schema.Schema{
+					Type:         schema.TypeString,
+					Required:     true,
+					ValidateFunc: validateNetworkDomainFirewallRuleType,
+					Description:  "The type of default firewall rule (without the 'CCDefault.' prefix)",
+				},
+				resourceKeyNetworkDomainFirewallRuleEnabled: &schema.Schema{
+					Type:        schema.TypeBool,
+					Required:    true,
+					Description: "Is the firewall rule enabled",
+				},
 			},
 		},
+		Set: hashNetworkDomainFirewallRule,
 	}
 }
 

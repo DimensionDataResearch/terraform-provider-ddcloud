@@ -61,13 +61,7 @@ func resourceNetworkDomain() *schema.Resource {
 				Computed:    true,
 				Description: "The IPv4 address for the network domain's IPv6->IPv4 Source Network Address Translation (SNAT). This is the IPv4 address of the network domain's IPv4 egress",
 			},
-			resourceKeyNetworkDomainFirewallRule: &schema.Schema{
-				Type:        schema.TypeSet,
-				Elem:        schemaNetworkDomainFirewallRule(),
-				Set:         hashNetworkDomainFirewallRule,
-				Optional:    true,
-				Description: "One or more default firewall rules (name starts with 'CCDefault.') for the network domain",
-			},
+			resourceKeyNetworkDomainFirewallRule: schemaNetworkDomainFirewallRule(),
 		},
 	}
 }
