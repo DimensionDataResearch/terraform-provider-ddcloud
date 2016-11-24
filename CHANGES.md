@@ -1,5 +1,11 @@
 # Changes
 
+## v1.1.7
+
+New features:
+
+* Add the ability to manage default firewall rules (#54)
+
 ## v1.1.6
 
 Bug fixes:
