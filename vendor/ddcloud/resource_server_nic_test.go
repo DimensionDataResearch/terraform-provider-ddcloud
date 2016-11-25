@@ -2,19 +2,20 @@ package ddcloud
 
 import (
 	"fmt"
-	"testing"
 
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
 )
 
-// Acceptance test configuration - ddcloud_server_nic (IP of the second nic)
-func testAccDDCloudServerNICToServerUsingIPV4Address(name string, description string, primaryIPv4Address string, secondNicIPAddress string) string {
+// Acceptance test configuration - ddcloud_server with single network_adapter (primary with IPv4 address)
+func testAccDDCloudServerNetworkAdapterPrimaryWithIPV4Address(name string, description string, vlanBaseIPAddress string) string {
 	return fmt.Sprintf(`
 		provider "ddcloud" {
 			region		= "AU"
 			allow_server_reboot = true
 		}
+
+		variable "vlan_network" { default = "%s" }
 
 		resource "ddcloud_networkdomain" "acc_test_domain" {
 			name		= "acc-test-networkdomain"
@@ -28,19 +29,8 @@ func testAccDDCloudServerNICToServerUsingIPV4Address(name string, description st
 
 			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
 
-			ipv4_base_address	= "192.168.17.0"
-			ipv4_prefix_size	= 24
-			depends_on = ["ddcloud_networkdomain.acc_test_domain"]
-		}
-
-    resource "ddcloud_vlan" "acc_test_vlan1" {
-			name				= "acc-test-vlan1"
-			description 		= "VLAN1 for Terraform acceptance test."
-
-			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
-
-			ipv4_base_address	= "192.168.18.0"
-			ipv4_prefix_size	= 24
+			ipv4_base_address	= "${element(split("/", var.vlan_network), 0)}"
+			ipv4_prefix_size	= "${element(split("/", var.vlan_network), 1)}"
 			depends_on = ["ddcloud_networkdomain.acc_test_domain"]
 		}
 
@@ -52,8 +42,6 @@ func testAccDDCloudServerNICToServerUsingIPV4Address(name string, description st
 			memory_gb			 = 8
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "%s"
 
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
@@ -68,144 +56,14 @@ func testAccDDCloudServerNICToServerUsingIPV4Address(name string, description st
 				size_gb          = 10
 				speed            = "STANDARD"
 			}
-			depends_on = ["ddcloud_vlan.acc_test_vlan"]
-		}
 
-    resource "ddcloud_server_nic" "additional_nic_test" {
-      server = "${ddcloud_server.acc_test_server.id}"
-      private_ipv4 = "%s"
-      depends_on = ["ddcloud_server.acc_test_server", "ddcloud_vlan.acc_test_vlan1"]
-    }
-	`, name, description, primaryIPv4Address, secondNicIPAddress)
-}
-
-// Acceptance test configuration - ddcloud_server_nic (VLANID of the second nic)
-func testAccDDCloudServerNICToServerUsingVLANID(name string, description string, primaryIPv4Address string) string {
-	return fmt.Sprintf(`
-		provider "ddcloud" {
-			region		= "AU"
-			allow_server_reboot = true
-		}
-
-		resource "ddcloud_networkdomain" "acc_test_domain" {
-			name		= "acc-test-networkdomain"
-			description	= "Network domain for Terraform acceptance test."
-			datacenter	= "AU10"
-		}
-
-		resource "ddcloud_vlan" "acc_test_vlan" {
-			name				= "acc-test-vlan"
-			description 		= "VLAN for Terraform acceptance test."
-
-			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
-
-			ipv4_base_address	= "192.168.17.0"
-			ipv4_prefix_size	= 24
-			depends_on = ["ddcloud_networkdomain.acc_test_domain"]
-		}
-
-
-    resource "ddcloud_vlan" "acc_test_vlan1" {
-			name				= "acc-test-vlan1"
-			description 		= "VLAN1 for Terraform acceptance test."
-
-			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
-
-			ipv4_base_address	= "192.168.18.0"
-			ipv4_prefix_size	= 24
-			depends_on = ["ddcloud_networkdomain.acc_test_domain"]
-		}
-
-		resource "ddcloud_server" "acc_test_server" {
-			name				 = "%s"
-			description 		 = "%s"
-			admin_password		 = "snausages!"
-
-			memory_gb			 = 8
-
-			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "%s"
-
-			dns_primary			 = "8.8.8.8"
-			dns_secondary		 = "8.8.4.4"
-
-			os_image_name		 = "CentOS 7 64-bit 2 CPU"
-
-			auto_start			 = false
-
-			# Image disk
-			disk {
-				scsi_unit_id     = 0
-				size_gb          = 10
-				speed            = "STANDARD"
+			network_adapter {
+				ipv4 = "${cidrhost(var.vlan_network, 20)}"
 			}
+
 			depends_on = ["ddcloud_vlan.acc_test_vlan"]
 		}
-
-    resource "ddcloud_server_nic" "additional_nic_test" {
-      server = "${ddcloud_server.acc_test_server.id}"
-      vlan = "${ddcloud_vlan.acc_test_vlan1.id}"
-      depends_on =  ["ddcloud_server.acc_test_server", "ddcloud_vlan.acc_test_vlan1"]
-    }
-	`, name, description, primaryIPv4Address)
-}
-
-// add a nic to the server with ipv4address as input and verify that it gets created with the correct configuration.
-func TestAccServerServerNICCreateWithIPV4Address(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		Providers: testAccProviders,
-		CheckDestroy: resource.ComposeTestCheckFunc(
-			testCheckDDCloudServerNICDestroy,
-			testCheckDDCloudServerDestroy,
-			testCheckDDCloudVLANDestroy,
-			testCheckDDCloudNetworkDomainDestroy,
-		),
-		Steps: []resource.TestStep{
-			resource.TestStep{
-				Config: testAccDDCloudServerNICToServerUsingIPV4Address(
-					"acc-test-server",
-					"Server for Terraform acceptance test.",
-					"192.168.17.11",
-					"192.168.18.100",
-				),
-				Check: resource.ComposeTestCheckFunc(
-					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudServerNICMatchesIPV4("ddcloud_server.acc_test_server",
-						"192.168.18.100",
-					),
-				),
-			},
-		},
-	})
-}
-
-// add a nic to the server with ipv4address as input and verify that it gets created with the correct configuration.
-func TestAccServerServerNICCreateWithVLANID(t *testing.T) {
-	resource.Test(t, resource.TestCase{
-		Providers: testAccProviders,
-		CheckDestroy: resource.ComposeTestCheckFunc(
-			testCheckDDCloudServerNICDestroy,
-			testCheckDDCloudServerDestroy,
-			testCheckDDCloudVLANDestroy,
-			testCheckDDCloudNetworkDomainDestroy,
-		),
-		Steps: []resource.TestStep{
-			resource.TestStep{
-				Config: testAccDDCloudServerNICToServerUsingVLANID(
-					"acc-test-server",
-					"Server for Terraform acceptance test.",
-					"192.168.17.11",
-				),
-				Check: resource.ComposeTestCheckFunc(
-					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudServerNICMatchesVLANID("ddcloud_server.acc_test_server",
-						"ddcloud_vlan.acc_test_vlan1",
-					),
-				),
-			},
-		},
-	})
+	`, vlanBaseIPAddress, name, description)
 }
 
 // Check if the additional nic configuration matches the expected configuration.

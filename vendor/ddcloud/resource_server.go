@@ -120,8 +120,9 @@ func resourceServer() *schema.Resource {
 				ForceNew:     true,
 				Default:      nil,
 				Description:  "The type of the server's primary network adapter (E1000 or VMXNET3)",
-				ValidateFunc: validateNICAdapterType,
+				ValidateFunc: validateNetworkAdapterAdapterType,
 			},
+			resourceKeyServerNetworkAdapter: schemaServerNetworkAdapter(),
 			resourceKeyServerPublicIPv4: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,

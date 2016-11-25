@@ -77,9 +77,6 @@ func Provider() terraform.ResourceProvider {
 			// A server (virtual machine).
 			"ddcloud_server": resourceServer(),
 
-			// An additional network interface card (NIC) in a server.
-			"ddcloud_server_nic": resourceServerNIC(),
-
 			// A server anti-affinity rule.
 			"ddcloud_server_anti_affinity": resourceServerAntiAffinityRule(),
 
