@@ -1,4 +1,4 @@
-VERSION = 1.1.7
+VERSION = 1.1.8
 VERSION_INFO_FILE = ./vendor/ddcloud/version-info.go
 
 default: fmt build test

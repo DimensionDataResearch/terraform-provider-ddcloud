@@ -1,5 +1,17 @@
 # Changes
 
+## v1.1.8
+
+Breaking changes:
+
+* `ddcloud_server` properties `primary_adapter_vlan` and `primary_adapter_ipv4` are now mutually exclusive (this is OK because specifying one implies the other)
+* `ddcloud_server_nic` properties `vlan` and `private_ipv4` are now mutually exclusive (this is OK because specifying one implies the other)
+
+Bug fixes:
+
+* `ddcloud_server_nic` now respects per-server locks (so the error message about servers already being rebooted should no longer occur).
+* `ddcloud_server_nic` now correctly applies its `adapter_type` property
+
 ## v1.1.7
 
 New features:

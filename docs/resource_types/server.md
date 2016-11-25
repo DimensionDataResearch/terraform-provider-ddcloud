@@ -56,10 +56,10 @@ Default is `STANDARD`.
     * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, or `HIGHPERFORMANCE` (but varies between data centres).
 * `networkdomain` - (Required) The Id of the network domain in which the server is deployed.
 * `primary_adapter_ipv4` - (Optional) The IPv4 address for the server's primary network adapter.  
-Must specify at least one one of `primary_adapter_ipv4` or `primary_adapter_vlan`.  
-If this property is _not_ specified (i.e. value will be computed at deploy time), you will get `UNEXPECTED_ERROR` from the CloudControl API when simultaneously deploying multiple servers onto the same VLAN.
+Must specify either `primary_adapter_ipv4` or `primary_adapter_vlan` (but not both).
 * `primary_adapter_vlan` - (Optional) The Id of the VLAN to which the server's primary network adapter will be attached (the first available IPv4 address will be allocated).  
-Must specify at least one one of `primary_adapter_ipv4` or `primary_adapter_vlan`.  
+Must specify either `primary_adapter_vlan` or `primary_adapter_ipv4` (but not both).  
+If `primary_adapter_vlan` is specified rather than `primary_adapter_ipv4`, then you may get an `UNEXPECTED_ERROR` response from CloudControl when deploying multiple servers onto the same VLAN simultaneously.
 **Note**: Changing this property will result in the server being destroyed and re-created.
 * `primary_adapter_type` - (Optional) The type of the server's primary network adapter (`E1000` or `VMXNET3`).  
 **Note**: Changing this property will result in the server being destroyed and re-created.

@@ -32,17 +32,19 @@ func resourceServerNIC() *schema.Resource {
 			},
 
 			resourceKeyNICVLANID: &schema.Schema{
-				Type:        schema.TypeString,
-				Computed:    true,
-				Optional:    true,
-				Description: "VLAN ID of the nic",
-				ForceNew:    true,
+				Type:          schema.TypeString,
+				Computed:      true,
+				Optional:      true,
+				Description:   "VLAN ID of the nic",
+				ForceNew:      true,
+				ConflictsWith: []string{resourceKeyNICPrivateIPV4},
 			},
 			resourceKeyNICPrivateIPV4: &schema.Schema{
-				Type:        schema.TypeString,
-				Optional:    true,
-				Computed:    true,
-				Description: "Private IPV4 address for the nic",
+				Type:          schema.TypeString,
+				Optional:      true,
+				Computed:      true,
+				Description:   "Private IPV4 address for the nic",
+				ConflictsWith: []string{resourceKeyNICVLANID},
 			},
 			resourceKeyNICPrivateIPV6: &schema.Schema{
 				Type:        schema.TypeString,
