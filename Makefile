@@ -1,6 +1,9 @@
 VERSION = 1.1.8
 VERSION_INFO_FILE = ./vendor/ddcloud/version-info.go
 
+EXECUTABLE_NAME = terraform-provider-ddcloud
+DIST_ZIP_PREFIX = $(EXECUTABLE_NAME)-v$(VERSION)
+
 default: fmt build test
 
 fmt:
@@ -8,22 +11,22 @@ fmt:
 
 # Peform a development (current-platform-only) build.
 dev: version fmt
-	go build -o _bin/terraform-provider-ddcloud
+	go build -o _bin/$(EXECUTABLE_NAME)
 
 # Perform a full (all-platforms) build.
 build: version build-windows64 build-windows32 build-linux64 build-mac64
 
 build-windows64:
-	GOOS=windows GOARCH=amd64 go build -o _bin/windows-amd64/terraform-provider-ddcloud.exe
+	GOOS=windows GOARCH=amd64 go build -o _bin/windows-amd64/$(EXECUTABLE_NAME).exe
 
 build-windows32:
-	GOOS=windows GOARCH=386 go build -o _bin/windows-386/terraform-provider-ddcloud.exe
+	GOOS=windows GOARCH=386 go build -o _bin/windows-386/$(EXECUTABLE_NAME).exe
 
 build-linux64:
-	GOOS=linux GOARCH=amd64 go build -o _bin/linux-amd64/terraform-provider-ddcloud
+	GOOS=linux GOARCH=amd64 go build -o _bin/linux-amd64/$(EXECUTABLE_NAME)
 
 build-mac64:
-	GOOS=darwin GOARCH=amd64 go build -o _bin/darwin-amd64/terraform-provider-ddcloud
+	GOOS=darwin GOARCH=amd64 go build -o _bin/darwin-amd64/$(EXECUTABLE_NAME)
 
 # Build docker image
 build-docker: build-linux64
@@ -38,13 +41,13 @@ push-docker: build-docker
 # Produce archives for a GitHub release.
 dist: build
 	cd _bin/windows-386 && \
-		zip -9 ../windows-386.zip terraform-provider-ddcloud.exe
+		zip -9 ../$(DIST_ZIP_PREFIX)-windows-386.zip $(EXECUTABLE_NAME).exe
 	cd _bin/windows-amd64 && \
-		zip -9 ../windows-amd64.zip terraform-provider-ddcloud.exe
+		zip -9 ../$(DIST_ZIP_PREFIX)-windows-amd64.zip $(EXECUTABLE_NAME).exe
 	cd _bin/linux-amd64 && \
-		zip -9 ../linux-amd64.zip terraform-provider-ddcloud
+		zip -9 ../$(DIST_ZIP_PREFIX)-linux-amd64.zip $(EXECUTABLE_NAME)
 	cd _bin/darwin-amd64 && \
-		zip -9 ../darwin-amd64.zip terraform-provider-ddcloud
+		zip -9 ../$(DIST_ZIP_PREFIX)-darwin-amd64.zip $(EXECUTABLE_NAME)
 
 test: fmt
 	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/...
