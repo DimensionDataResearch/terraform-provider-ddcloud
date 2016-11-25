@@ -63,8 +63,6 @@ func resourceServerNIC() *schema.Resource {
 }
 
 func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) error {
-	apiClient := provider.(*providerState).Client()
-
 	propertyHelper := propertyHelper(data)
 	serverID := data.Get(resourceKeyNICServerID).(string)
 	ipv4Address := data.Get(resourceKeyNICPrivateIPV4).(string)
@@ -73,12 +71,18 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 
 	log.Printf("Configure additional nics for server '%s'...", serverID)
 
+	providerState := provider.(*providerState)
+	serverLock := providerState.GetServerLock(serverID, "resourceServerNICCreate(id = '%s')", serverID)
+	serverLock.Lock()
+	defer serverLock.Unlock()
+
+	apiClient := providerState.Client()
 	server, err := apiClient.GetServer(serverID)
 	if err != nil {
 		return err
 	}
 
-	settings := provider.(*providerState).Settings()
+	settings := providerState.Settings()
 
 	isStarted := server.Started
 	if isStarted {
@@ -223,18 +227,17 @@ func resourceServerNICRead(data *schema.ResourceData, provider interface{}) erro
 
 	serverID := data.Get(resourceKeyNICServerID).(string)
 
-	apiClient := provider.(*providerState).Client()
-
 	log.Printf("Get the server with the ID %s", serverID)
 
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
 	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
 
 	if server == nil {
 		log.Printf("server with the id %s cannot be found", serverID)
-	}
-
-	if err != nil {
-		return err
 	}
 
 	serverNICs := server.Network.AdditionalNetworkAdapters
@@ -270,15 +273,21 @@ func resourceServerNICUpdate(data *schema.ResourceData, provider interface{}) er
 	serverID := data.Get(resourceKeyNICServerID).(string)
 	privateIPV4 := propertyHelper.GetOptionalString(resourceKeyNICPrivateIPV4, true)
 
+	providerState := provider.(*providerState)
+	serverLock := providerState.GetServerLock(serverID, "resourceServerNICUpdate(id = '%s', serverID = '%s')", nicID, serverID)
+	serverLock.Lock()
+	defer serverLock.Unlock()
+
 	if data.HasChange(resourceKeyNICPrivateIPV4) {
 		log.Printf("changing the ip address of the nic with the id %s to %s", nicID, *privateIPV4)
-		apiClient := provider.(*providerState).Client()
+		apiClient := providerState.Client()
 		err := updateNICIPAddress(apiClient, serverID, nicID, privateIPV4)
 		if err != nil {
 			return err
 		}
 		log.Printf("IP address of the nic with the id %s changed to %s", nicID, *privateIPV4)
 	}
+
 	return nil
 }
 
@@ -294,7 +303,11 @@ func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) er
 		return err
 	}
 
-	settings := provider.(*providerState).Settings()
+	providerState := provider.(*providerState)
+	settings := providerState.Settings()
+	serverLock := providerState.GetServerLock(serverID, "resourceServerNICUpdate(id = '%s', serverID = '%s')", nicID, serverID)
+	serverLock.Lock()
+	defer serverLock.Unlock()
 
 	isStarted := server.Started
 	if isStarted {
