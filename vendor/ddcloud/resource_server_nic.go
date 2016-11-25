@@ -19,7 +19,9 @@ const (
 
 func schemaServerNetworkAdapter() *schema.Schema {
 	return &schema.Schema{
-		Type: schema.TypeList,
+		Type:     schema.TypeList,
+		Optional: true,
+		Computed: true,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				resourceKeyServerNetworkAdapterIndex: &schema.Schema{
@@ -35,14 +37,14 @@ func schemaServerNetworkAdapter() *schema.Schema {
 					Optional:      true,
 					Description:   "VLAN ID of the network adapter",
 					ForceNew:      true,
-					ConflictsWith: []string{resourceKeyServerNetworkAdapterIPV4},
+					ConflictsWith: []string{resourceKeyServerNetworkAdapter + "." + resourceKeyServerNetworkAdapterIPV4},
 				},
 				resourceKeyServerNetworkAdapterIPV4: &schema.Schema{
 					Type:          schema.TypeString,
 					Optional:      true,
 					Computed:      true,
 					Description:   "The IPV4 address associated with the network adapter",
-					ConflictsWith: []string{resourceKeyServerNetworkAdapterVLANID},
+					ConflictsWith: []string{resourceKeyServerNetworkAdapter + "." + resourceKeyServerNetworkAdapterVLANID},
 				},
 				resourceKeyServerNetworkAdapterIPV6: &schema.Schema{
 					Type:        schema.TypeString,
