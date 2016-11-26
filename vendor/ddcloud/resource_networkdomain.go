@@ -75,14 +75,23 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 	plan = data.Get(resourceKeyNetworkDomainPlan).(string)
 	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
+	providerState := provider.(*providerState)
+
 	log.Printf("Create network domain '%s' in data center '%s' (plan = '%s', description = '%s').", name, dataCenterID, plan, description)
 
+	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
+	defer asyncLock.Release()
+
 	// TODO: Handle RESOURCE_BUSY response (retry?)
-	apiClient := provider.(*providerState).Client()
+	apiClient := providerState.Client()
 	networkDomainID, err := apiClient.DeployNetworkDomain(name, description, plan, dataCenterID)
 	if err != nil {
 		return err
 	}
+
+	// Operation initiated; we don't need the lock anymore.
+	asyncLock.Release()
 
 	data.SetId(networkDomainID)
 
@@ -212,7 +221,8 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 
 	log.Printf("Delete network domain '%s' ('%s') in data center '%s'.", networkDomainID, name, dataCenterID)
 
-	apiClient := provider.(*providerState).Client()
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
 
 	// First, check if the network domain has any allocated public IP blocks.
 	page := compute.DefaultPaging()
@@ -240,11 +250,18 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 		page.Next()
 	}
 
+	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	asyncLock := providerState.AcquireAsyncOperationLock("Delete network domain '%s'", networkDomainID)
+	defer asyncLock.Release()
+
 	// TODO: Handle RESOURCE_BUSY response (retry?)
 	err = apiClient.DeleteNetworkDomain(networkDomainID)
 	if err != nil {
 		return err
 	}
+
+	// Operation initiated; we don't need the lock anymore.
+	asyncLock.Release()
 
 	log.Printf("Network domain '%s' is being deleted...", networkDomainID)
 

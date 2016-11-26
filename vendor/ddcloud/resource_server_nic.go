@@ -86,22 +86,34 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 
 	isStarted := server.Started
 	if isStarted {
-		if settings.AllowServerReboots {
-			err = apiClient.ShutdownServer(serverID)
-			if err != nil {
-				return err
-			}
+		if !settings.AllowServerReboots {
+			return fmt.Errorf("Cannot reboot server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
+		}
 
-			_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shutdown server", serverShutdownTimeout)
-			if err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("Cannot reboot server '%s' because server reboots have been disabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Shut down server '%s'", serverID)
+		defer asyncLock.Release()
+
+		err = apiClient.ShutdownServer(serverID)
+		if err != nil {
+			return err
+		}
+
+		// Operation initiated; we no longer need this lock.
+		asyncLock.Release()
+
+		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shutdown server", serverShutdownTimeout)
+		if err != nil {
+			return err
 		}
 	}
 
-	log.Printf("create nic in the server id %s", serverID)
+	log.Printf("Add network adapter to server '%s'...", serverID)
+
+	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	asyncLock := providerState.AcquireAsyncOperationLock("Add network adapter to server '%s'", serverID)
+	defer asyncLock.Release()
+
 	var nicID string
 	if adapterType != nil {
 		nicID, err = apiClient.AddNicWithTypeToServer(serverID, ipv4Address, vlanID, *adapterType)
@@ -109,21 +121,10 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 		nicID, err = apiClient.AddNicToServer(serverID, ipv4Address, vlanID)
 	}
 
-	if err != nil {
-		if isStarted {
-			err = apiClient.StartServer(serverID)
-			if err != nil {
-				return err
-			}
-			_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
-			if err != nil {
-				return err
-			}
-		}
-		return err
-	}
+	// Operation initiated; we no longer need this lock.
+	asyncLock.Release()
 
-	log.Printf("Adding nic with ID %s to server '%s'...",
+	log.Printf("Adding network adapter '%s' to server '%s'...",
 		nicID,
 		serverID,
 	)
@@ -142,10 +143,18 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 	log.Printf("created the nic with the id %s", nicID)
 
 	if isStarted {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Start server '%s'", serverID)
+		defer asyncLock.Release()
+
 		err = apiClient.StartServer(serverID)
 		if err != nil {
 			return err
 		}
+
+		// Operation initiated; we no longer need this lock.
+		asyncLock.Release()
+
 		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
 		if err != nil {
 			return err
@@ -280,8 +289,7 @@ func resourceServerNICUpdate(data *schema.ResourceData, provider interface{}) er
 
 	if data.HasChange(resourceKeyNICPrivateIPV4) {
 		log.Printf("changing the ip address of the nic with the id %s to %s", nicID, *privateIPV4)
-		apiClient := providerState.Client()
-		err := updateNICIPAddress(apiClient, serverID, nicID, privateIPV4)
+		err := updateNICIPAddress(providerState, serverID, nicID, privateIPV4)
 		if err != nil {
 			return err
 		}
@@ -311,43 +319,46 @@ func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) er
 
 	isStarted := server.Started
 	if isStarted {
-		if settings.AllowServerReboots {
-			err = apiClient.ShutdownServer(serverID)
-			if err != nil {
-				return err
-			}
-
-			_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shutdown server", serverShutdownTimeout)
-			if err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("Cannot reboot server '%s' because server reboots have been disabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
+		if !settings.AllowServerReboots {
+			return fmt.Errorf("Cannot reboot server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
 		}
 
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Shut down server '%s'", serverID)
+		defer asyncLock.Release()
+
+		err = apiClient.ShutdownServer(serverID)
+		if err != nil {
+			return err
+		}
+
+		// Operation initiated; we no longer need this lock.
+		asyncLock.Release()
+
+		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shutdown server", serverShutdownTimeout)
+		if err != nil {
+			return err
+		}
 	}
 
-	log.Printf("deleting the nic with the id %s", nicID)
+	log.Printf("Remove network adapter '%s' from server '%s'.", nicID, serverID)
+
+	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	asyncLock := providerState.AcquireAsyncOperationLock("Remove NIC from server '%s'", serverID)
+	defer asyncLock.Release()
+
 	err = apiClient.RemoveNicFromServer(nicID)
-	if err != nil {
-		if isStarted {
-			err = apiClient.StartServer(serverID)
-			if err != nil {
-				return err
-			}
-			_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
-			if err != nil {
-				return err
-			}
-		}
+	if err == nil {
 		return err
 	}
 
-	log.Printf("Removing nic with ID %s to server '%s'...",
+	// Operation initiated; we no longer need this lock.
+	asyncLock.Release()
+
+	log.Printf("Removing network adapter with ID %s from server '%s'...",
 		nicID,
 		serverID,
 	)
-
 	_, err = apiClient.WaitForChange(
 		compute.ResourceTypeServer,
 		serverID,
@@ -359,29 +370,50 @@ func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) er
 	}
 
 	data.SetId("") //NIC Deleted
-	log.Printf("Deleted the nic with the id %s", nicID)
+
+	log.Printf("Removed network adapter with ID %s from server '%s'.",
+		nicID,
+		serverID,
+	)
 
 	if isStarted {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Start server '%s'", serverID)
+		defer asyncLock.Release()
+
 		err = apiClient.StartServer(serverID)
 		if err != nil {
 			return err
 		}
+
+		// Operation initiated; we no longer need this lock.
+		asyncLock.Release()
+
 		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
 // updateNICIPAddress notifies the compute infrastructure that a NIC's IP address has changed.
-func updateNICIPAddress(apiClient *compute.Client, serverID string, nicID string, primaryIPv4 *string) error {
+func updateNICIPAddress(providerState *providerState, serverID string, nicID string, primaryIPv4 *string) error {
 	log.Printf("Update IP address(es) for nic '%s'...", nicID)
 
+	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	asyncLock := providerState.AcquireAsyncOperationLock("Update IP address(es) for nic '%s'", nicID)
+	defer asyncLock.Release()
+
+	apiClient := providerState.Client()
 	err := apiClient.NotifyServerIPAddressChange(nicID, primaryIPv4, nil)
 	if err != nil {
 		return err
 	}
+
+	// Operation initiated; we no longer need this lock.
+	asyncLock.Release()
 
 	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, nicID)
 	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)

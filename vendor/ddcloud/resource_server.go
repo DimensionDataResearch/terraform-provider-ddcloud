@@ -350,10 +350,17 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server deployment configuration: %+v", deploymentConfiguration)
 	log.Printf("Server CPU deployment configuration: %+v", deploymentConfiguration.CPU)
 
+	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
+	defer asyncLock.Release()
+
 	serverID, err := apiClient.DeployServer(deploymentConfiguration)
 	if err != nil {
 		return err
 	}
+
+	// Operation initiated; we no longer need this lock.
+	asyncLock.Release()
 
 	data.SetId(serverID)
 
@@ -390,7 +397,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 	data.SetPartial(resourceKeyServerTag)
 
-	err = createDisks(server.Disks, data, apiClient)
+	err = createDisks(server.Disks, data, providerState)
 	if err != nil {
 		return err
 	}
@@ -593,7 +600,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	if data.HasChange(resourceKeyServerDisk) {
-		err = updateDisks(data, apiClient)
+		err = updateDisks(data, providerState)
 		if err != nil {
 			return err
 		}
@@ -635,10 +642,17 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	if server.Started {
 		log.Printf("Server '%s' is currently running. The server will be powered off.", id)
 
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
+		defer asyncLock.Release()
+
 		err = apiClient.PowerOffServer(id)
 		if err != nil {
 			return err
 		}
+
+		// Operation initiated; we no longer need this lock.
+		asyncLock.Release()
 
 		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, id, "Power off server", serverShutdownTimeout)
 		if err != nil {
@@ -648,10 +662,17 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 
 	log.Printf("Server '%s' is being deleted...", id)
 
+	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
+	defer asyncLock.Release()
+
 	err = apiClient.DeleteServer(id)
 	if err != nil {
 		return err
 	}
+
+	// Operation initiated; we no longer need this lock.
+	asyncLock.Release()
 
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
 }
