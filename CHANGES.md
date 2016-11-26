@@ -2,7 +2,12 @@
 
 ## v1.2.0
 
+## v1.1.9
 
+Breaking changes:
+
+* `ddcloud_server` properties `primary_adapter_vlan` and `primary_adapter_ipv4` can be specified together but if `primary_adapter_ipv4` is specified, then `primary_adapter_vlan` is ignored (this is OK because specifying one implies the other)
+* `ddcloud_server_nic` properties `vlan` and `private_ipv4` can be specified together but if `primary_adapter_ipv4` is specified, then `primary_adapter_vlan` is ignored (this is OK because specifying one implies the other) 
 
 ## v1.1.8
 

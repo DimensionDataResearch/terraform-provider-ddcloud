@@ -56,10 +56,11 @@ Default is `STANDARD`.
     * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, or `HIGHPERFORMANCE` (but varies between data centres).
 * `networkdomain` - (Required) The Id of the network domain in which the server is deployed.
 * `primary_adapter_ipv4` - (Optional) The IPv4 address for the server's primary network adapter.  
-Must specify either `primary_adapter_ipv4` or `primary_adapter_vlan` (but not both).
+Must specify at least one of `primary_adapter_ipv4` or `primary_adapter_vlan`.
 * `primary_adapter_vlan` - (Optional) The Id of the VLAN to which the server's primary network adapter will be attached (the first available IPv4 address will be allocated).  
-Must specify either `primary_adapter_vlan` or `primary_adapter_ipv4` (but not both).  
-If `primary_adapter_vlan` is specified rather than `primary_adapter_ipv4`, then you may get an `UNEXPECTED_ERROR` response from CloudControl when deploying multiple servers onto the same VLAN simultaneously.
+Must specify at least one of `primary_adapter_vlan` or `primary_adapter_ipv4`.  
+`primary_adapter_vlan` is ignored if `primary_adapter_ipv4` is also specified.  
+It's still useful to supply both, though, since it sets up a dependency between the server and the VLAN.
 **Note**: Changing this property will result in the server being destroyed and re-created.
 * `primary_adapter_type` - (Optional) The type of the server's primary network adapter (`E1000` or `VMXNET3`).  
 **Note**: Changing this property will result in the server being destroyed and re-created.
