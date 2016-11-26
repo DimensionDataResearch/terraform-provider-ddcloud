@@ -79,28 +79,39 @@ func schemaServerNetworkAdapter() *schema.Schema {
 	}
 }
 
+// TODO: Define MapStructure-compatible structures to represent configured network adapters.
+// TODO: Give these structures methods for reading / writing VirtualMachineNetworkAdapter.
+
 func addNetworkAdapterToServer(apiClient *compute.Client, serverID string, ipv4Address *string, vlanID *string, adapterType *string) error {
-	// TODO: Implement
+	// TODO: Implement (remember to use providerState.AcquireAsyncOperationLock)
 
 	return fmt.Errorf("addNetworkAdapterToServer is not yet implemented")
 }
 
 func removeNetworkAdapterFromServer(apiClient *compute.Client, serverID string, networkAdapterID string) error {
-	// TODO: Implement
+	// TODO: Implement (remember to use providerState.AcquireAsyncOperationLock)
 
 	return fmt.Errorf("addNetworkAdapterToServer is not yet implemented")
 }
 
-// updateNetworkAdapterIPAddress notifies the compute infrastructure that a NetworkAdapter's IP address has changed.
-func updateNetworkAdapterIPAddress(apiClient *compute.Client, serverID string, networkAdapterID string, primaryIPv4 *string) error {
-	log.Printf("Update IP address(es) for NetworkAdapter '%s'...", networkAdapterID)
+// updateNICIPAddress notifies the compute infrastructure that a NIC's IP address has changed.
+func updateNICIPAddress(providerState *providerState, serverID string, nicID string, primaryIPv4 *string) error {
+	log.Printf("Update IP address(es) for nic '%s'...", nicID)
 
-	err := apiClient.NotifyServerIPAddressChange(networkAdapterID, primaryIPv4, nil)
+	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	asyncLock := providerState.AcquireAsyncOperationLock("Update IP address(es) for nic '%s'", nicID)
+	defer asyncLock.Release()
+
+	apiClient := providerState.Client()
+	err := apiClient.NotifyServerIPAddressChange(nicID, primaryIPv4, nil)
 	if err != nil {
 		return err
 	}
 
-	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapterID)
+	// Operation initiated; we no longer need this lock.
+	asyncLock.Release()
+
+	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, nicID)
 	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
 
 	return err

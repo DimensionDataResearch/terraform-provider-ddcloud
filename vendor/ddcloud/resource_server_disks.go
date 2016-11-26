@@ -2,9 +2,10 @@ package ddcloud
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
-	"log"
 )
 
 const (
@@ -54,8 +55,9 @@ func schemaServerDisk() *schema.Schema {
 
 // When creating a server resource, synchronise the server's disks with its resource data.
 // imageDisks refers to the newly-deployed server's collection of disks (i.e. image disks).
-func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceData, apiClient *compute.Client) (err error) {
+func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceData, providerState *providerState) (err error) {
 	propertyHelper := propertyHelper(data)
+	apiClient := providerState.Client()
 
 	serverID := data.Id()
 
@@ -123,6 +125,10 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 			configuredImageDisk.SizeGB,
 		)
 
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Expand disk '%s' for server '%s'", imageDiskID, serverID)
+		defer asyncLock.Release()
+
 		response, err := apiClient.ResizeServerDisk(serverID, imageDiskID, configuredImageDisk.SizeGB)
 		if err != nil {
 			return err
@@ -135,6 +141,9 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 				serverID,
 			)
 		}
+
+		// Operation initiated; we no longer need this lock.
+		asyncLock.Release()
 
 		resource, err := apiClient.WaitForChange(
 			compute.ResourceTypeServer,
@@ -165,9 +174,13 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 	log.Printf("Configure additional disks for server '%s'...", serverID)
 
 	for additionalDiskUnitID := range configuredDisksByUnitID {
-		log.Printf("Add disk with SCSI unit ID %d to server '%s'...", additionalDiskUnitID, serverID)
+		log.Printf("Add disk with SCSI unit Id %d to server '%s'...", additionalDiskUnitID, serverID)
 
 		configuredAdditionalDisk := configuredDisksByUnitID[additionalDiskUnitID]
+
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Add disk with SCSI unit Id %d to server '%s'", additionalDiskUnitID, serverID)
+		defer asyncLock.Release()
 
 		var additionalDiskID string
 		additionalDiskID, err = apiClient.AddDiskToServer(
@@ -179,6 +192,9 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 		if err != nil {
 			return
 		}
+
+		// Operation initiated; we no longer need this lock.
+		asyncLock.Release()
 
 		log.Printf("Adding disk '%s' (%dGB, speed = '%s') with SCSI unit ID %d to server '%s'...",
 			additionalDiskID,
@@ -219,8 +235,9 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 
 // When updating a server resource, synchronise the server's image disk attributes with its resource data
 // Removes image disks from existingDisksByUnitID as they are processed, leaving only additional disks.
-func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
+func updateDisks(data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
+	apiClient := providerState.Client()
 
 	serverID := data.Id()
 
@@ -293,6 +310,10 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 				configuredDisk.SizeGB,
 			)
 
+			// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+			asyncLock := providerState.AcquireAsyncOperationLock("Expanding disk '%s' to server '%s'", diskID, serverID)
+			defer asyncLock.Release()
+
 			response, err := apiClient.ResizeServerDisk(serverID, diskID, configuredDisk.SizeGB)
 			if err != nil {
 				return err
@@ -300,6 +321,9 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 			if response.Result != compute.ResultSuccess {
 				return response.ToError("Unexpected result '%s' when resizing server disk '%s' for server '%s'.", response.Result, diskID, serverID)
 			}
+
+			// Operation initiated; we no longer need this lock.
+			asyncLock.Release()
 
 			resource, err := apiClient.WaitForChange(
 				compute.ResourceTypeServer,
@@ -329,6 +353,10 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 			// New disk.
 			log.Printf("Adding disk with SCSI unit ID %d to server '%s'...", configuredDisk.SCSIUnitID, serverID)
 
+			// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+			asyncLock := providerState.AcquireAsyncOperationLock("Add disk with SCSI unit Id %d to server '%s'", configuredDisk.SCSIUnitID, serverID)
+			defer asyncLock.Release()
+
 			var diskID string
 			diskID, err = apiClient.AddDiskToServer(
 				serverID,
@@ -339,6 +367,9 @@ func updateDisks(data *schema.ResourceData, apiClient *compute.Client) error {
 			if err != nil {
 				return err
 			}
+
+			// Operation initiated; we no longer need this lock.
+			asyncLock.Release()
 
 			log.Printf("New disk '%s' has SCSI unit ID %d in server '%s'...", diskID, configuredDisk.SCSIUnitID, serverID)
 

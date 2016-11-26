@@ -1,10 +1,11 @@
 package ddcloud
 
 import (
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"time"
+
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (
@@ -87,6 +88,10 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
+	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
+	defer asyncLock.Release()
+
 	domainLock := providerState.GetDomainLock(networkDomainID, "resourceVLANCreate(name = '%s')", name)
 	domainLock.Lock()
 	defer domainLock.Unlock()
@@ -96,6 +101,9 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	// Operation initiated; we no longer need this lock.
+	asyncLock.Release()
 
 	data.SetId(vlanID)
 
@@ -196,6 +204,10 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
+	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
+	defer asyncLock.Release()
+
 	domainLock := providerState.GetDomainLock(networkDomainID, "resourceVLANDelete(id = '%s', name = '%s')", id, name)
 	domainLock.Lock()
 	defer domainLock.Unlock()
@@ -204,6 +216,9 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 	if err != nil {
 		return err
 	}
+
+	// Operation initiated; we no longer need this lock.
+	asyncLock.Release()
 
 	log.Printf("VLAN '%s' is being deleted...", id)
 

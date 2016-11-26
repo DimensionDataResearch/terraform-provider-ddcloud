@@ -211,6 +211,9 @@ type providerState struct {
 	// Global lock for provider state.
 	stateLock *sync.Mutex
 
+	// Global lock for initiating asynchronous operations.
+	asyncOperationLock *sync.Mutex
+
 	// Lock per network domain (prevent parallel provisioning for some resource types).
 	domainLocks map[string]*sync.Mutex
 
@@ -220,11 +223,12 @@ type providerState struct {
 
 func newProvider(client *compute.Client, settings *ProviderSettings) *providerState {
 	return &providerState{
-		apiClient:   client,
-		settings:    settings,
-		stateLock:   &sync.Mutex{},
-		domainLocks: make(map[string]*sync.Mutex),
-		serverLocks: make(map[string]*sync.Mutex),
+		apiClient:          client,
+		settings:           settings,
+		stateLock:          &sync.Mutex{},
+		asyncOperationLock: &sync.Mutex{},
+		domainLocks:        make(map[string]*sync.Mutex),
+		serverLocks:        make(map[string]*sync.Mutex),
 	}
 }
 
@@ -236,6 +240,38 @@ func (state *providerState) Client() *compute.Client {
 // Settings retrieves a copy of the provider settings.
 func (state *providerState) Settings() ProviderSettings {
 	return *state.settings // We return a copy because these settings should be read-only once the provider has been created.
+}
+
+// AcquireAsyncOperationLock acquires (locks) the global lock used to synchronise initiation of global operations.
+func (state *providerState) AcquireAsyncOperationLock(ownerNameOrFormat string, formatArgs ...interface{}) *asyncOperationLock {
+	asyncLock := &asyncOperationLock{
+		ownerName:   fmt.Sprintf(ownerNameOrFormat, formatArgs...),
+		lock:        state.asyncOperationLock,
+		releaseOnce: &sync.Once{},
+	}
+
+	log.Printf("%s acquiring global asynchronous operation lock...", asyncLock.ownerName)
+	asyncLock.lock.Lock()
+	log.Printf("%s acquired global asynchronous operation lock.", asyncLock.ownerName)
+
+	return asyncLock
+}
+
+type asyncOperationLock struct {
+	ownerName   string
+	lock        *sync.Mutex
+	releaseOnce *sync.Once
+}
+
+// Release the global asynchronous operation lock.
+//
+// Safe to call multiple times - subsequent calls to Release have no effect (call providerState.AcquireAsyncOperationLock to reacquire the lock).
+func (asyncLock *asyncOperationLock) Release() {
+	asyncLock.releaseOnce.Do(func() {
+		log.Printf("%s acquiring global asynchronous operation lock...", asyncLock.ownerName)
+		asyncLock.lock.Unlock()
+		log.Printf("%s acquired global asynchronous operation lock.", asyncLock.ownerName)
+	})
 }
 
 // GetDomainLock retrieves the global lock for the specified network domain.
