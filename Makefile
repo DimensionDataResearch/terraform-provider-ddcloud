@@ -1,4 +1,4 @@
-VERSION = 1.1.8
+VERSION = 1.1.9
 VERSION_INFO_FILE = ./vendor/ddcloud/version-info.go
 
 EXECUTABLE_NAME = terraform-provider-ddcloud
