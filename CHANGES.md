@@ -1,5 +1,9 @@
 # Changes
 
+## v1.2.0
+
+
+
 ## v1.1.8
 
 Breaking changes:
