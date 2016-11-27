@@ -269,23 +269,23 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		}
 
 		log.Printf("Server will be deployed from customer image named '%s' (Id = '%s').", customerImage.Name, customerImage.ID)
-		data.Set(resourceKeyServerOSImageName, osImage.Name)
+		data.Set(resourceKeyServerCustomerImageName, customerImage.Name)
 	} else if customerImageName != nil {
 		log.Printf("Looking up customer image '%s' by name...", *customerImageName)
 
-		osImage, err = apiClient.FindOSImage(*customerImageName, dataCenterID)
+		customerImage, err = apiClient.FindCustomerImage(*customerImageName, dataCenterID)
 		if err != nil {
 			return err
 		}
 
-		if osImage == nil {
+		if customerImage == nil {
 			log.Printf("Warning - unable to find a customer image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *customerImageName, dataCenterID, networkDomainID)
 
 			return fmt.Errorf("Unable to find a customer image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *customerImageName, dataCenterID, networkDomainID)
 		}
 
 		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').", osImage.Name, osImage.ID)
-		data.Set(resourceKeyServerOSImageID, osImage.ID)
+		data.Set(resourceKeyServerCustomerImageID, customerImage.ID)
 	}
 
 	if osImage != nil {
