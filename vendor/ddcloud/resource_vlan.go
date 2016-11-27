@@ -1,9 +1,11 @@
 package ddcloud
 
 import (
+	"fmt"
 	"log"
 	"time"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -18,6 +20,10 @@ const (
 	resourceKeyVLANIPv6PrefixSize  = "ipv6_prefix_size"
 	resourceCreateTimeoutVLAN      = 5 * time.Minute
 	resourceDeleteTimeoutVLAN      = 5 * time.Minute
+
+	// No more than 3 at a time for now
+	deployTimeoutVLAN = 3 * resourceCreateTimeoutVLAN
+	deleteTimeoutVLAN = 3 * resourceDeleteTimeoutVLAN
 )
 
 func resourceVLAN() *schema.Resource {
@@ -88,22 +94,36 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-	asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
-	defer asyncLock.Release()
+	var (
+		vlanID string
+		err    error
+	)
 
-	domainLock := providerState.GetDomainLock(networkDomainID, "resourceVLANCreate(name = '%s')", name)
-	domainLock.Lock()
-	defer domainLock.Unlock()
+	operationDescription := fmt.Sprintf("Create VLAN '%s'", name)
 
-	// TODO: Handle RESOURCE_BUSY response (retry?)
-	vlanID, err := apiClient.DeployVLAN(networkDomainID, name, description, ipv4BaseAddress, ipv4PrefixSize)
+	err = retry.DoAction(operationDescription, deployTimeoutVLAN, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription, name)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
+		// TODO: Get rid of domain-level locks.
+		domainLock := providerState.GetDomainLock(networkDomainID, "resourceVLANCreate(name = '%s')", name)
+		domainLock.Lock()
+		defer domainLock.Unlock()
+
+		var deployError error
+		vlanID, deployError = apiClient.DeployVLAN(networkDomainID, name, description, ipv4BaseAddress, ipv4PrefixSize)
+		if deployError != nil {
+			if compute.IsResourceBusyError(deployError) {
+				context.Retry()
+			} else {
+				context.Fail(deployError)
+			}
+		}
+	})
 	if err != nil {
 		return err
 	}
-
-	// Operation initiated; we no longer need this lock.
-	asyncLock.Release()
 
 	data.SetId(vlanID)
 
@@ -204,21 +224,29 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-	asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
-	defer asyncLock.Release()
+	operationDescription := fmt.Sprintf("Delete VLAN '%s'", id)
+	err := retry.DoAction(operationDescription, deleteTimeoutVLAN, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released once the current attempt is complete.
 
-	domainLock := providerState.GetDomainLock(networkDomainID, "resourceVLANDelete(id = '%s', name = '%s')", id, name)
-	domainLock.Lock()
-	defer domainLock.Unlock()
+		// TODO: Get rid of domain-level locks.
+		domainLock := providerState.GetDomainLock(networkDomainID, "resourceVLANDelete(id = '%s', name = '%s')", id, name)
+		domainLock.Lock()
+		defer domainLock.Unlock()
 
-	err := apiClient.DeleteVLAN(id)
+		deleteError := apiClient.DeleteVLAN(id)
+		if deleteError != nil {
+			if compute.IsResourceBusyError(deleteError) {
+				context.Retry()
+			} else {
+				context.Fail(deleteError)
+			}
+		}
+	})
 	if err != nil {
 		return err
 	}
-
-	// Operation initiated; we no longer need this lock.
-	asyncLock.Release()
 
 	log.Printf("VLAN '%s' is being deleted...", id)
 
