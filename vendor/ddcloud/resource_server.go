@@ -241,8 +241,18 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		if err != nil {
 			return err
 		}
+		if osImage == nil {
+			return fmt.Errorf("Unable to find OS image with Id '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
+				*osImageID,
+				dataCenterID,
+				networkDomainID,
+			)
+		}
 
-		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').", osImage.Name, osImage.ID)
+		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').",
+			osImage.Name,
+			osImage.ID,
+		)
 		data.Set(resourceKeyServerOSImageName, osImage.Name)
 	} else if osImageName != nil {
 		log.Printf("Looking up OS image '%s' by name...", *osImageName)
@@ -251,14 +261,19 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		if err != nil {
 			return err
 		}
-
 		if osImage == nil {
-			log.Printf("Warning - unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *osImageName, dataCenterID, networkDomainID)
-
-			return fmt.Errorf("Unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *osImageName, dataCenterID, networkDomainID)
+			return fmt.Errorf(
+				"Unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
+				*osImageName,
+				dataCenterID,
+				networkDomainID,
+			)
 		}
 
-		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').", osImage.Name, osImage.ID)
+		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').",
+			osImage.Name,
+			osImage.ID,
+		)
 		data.Set(resourceKeyServerOSImageID, osImage.ID)
 	} else if customerImageID != nil {
 		log.Printf("Looking up customer image '%s' by Id...", *customerImageID)
@@ -267,8 +282,18 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		if err != nil {
 			return err
 		}
+		if customerImage == nil {
+			return fmt.Errorf("Unable to find customer image with Id '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
+				*customerImageID,
+				dataCenterID,
+				networkDomainID,
+			)
+		}
 
-		log.Printf("Server will be deployed from customer image named '%s' (Id = '%s').", customerImage.Name, customerImage.ID)
+		log.Printf("Server will be deployed from customer image named '%s' (Id = '%s').",
+			customerImage.Name,
+			customerImage.ID,
+		)
 		data.Set(resourceKeyServerCustomerImageName, customerImage.Name)
 	} else if customerImageName != nil {
 		log.Printf("Looking up customer image '%s' by name...", *customerImageName)
@@ -277,14 +302,19 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		if err != nil {
 			return err
 		}
-
 		if customerImage == nil {
-			log.Printf("Warning - unable to find a customer image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *customerImageName, dataCenterID, networkDomainID)
-
-			return fmt.Errorf("Unable to find a customer image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).", *customerImageName, dataCenterID, networkDomainID)
+			return fmt.Errorf(
+				"Unable to find a customer image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
+				*customerImageName,
+				dataCenterID,
+				networkDomainID,
+			)
 		}
 
-		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').", osImage.Name, osImage.ID)
+		log.Printf("Server will be deployed from customer image named '%s' (Id = '%s').",
+			customerImage.Name,
+			customerImage.ID,
+		)
 		data.Set(resourceKeyServerCustomerImageID, customerImage.ID)
 	}
 
