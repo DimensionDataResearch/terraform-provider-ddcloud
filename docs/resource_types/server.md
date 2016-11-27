@@ -65,9 +65,9 @@ It's still useful to supply both, though, since it sets up a dependency between 
 * `primary_adapter_type` - (Optional) The type of the server's primary network adapter (`E1000` or `VMXNET3`).  
 **Note**: Changing this property will result in the server being destroyed and re-created.
 * `dns_primary` - (Required) The IP address of the server's primary DNS server.  
-If not specified, Google DNS (`8.8.8.8`) is used.
+If not specified, the default (region-dependent) CloudControl DNS is used.
 * `dns_secondary` - (Required) The IP address of the server's secondary DNS.  
-If not specified, Google DNS (`8.8.4.4`) is used.
+If not specified, the default (region-dependent) CloudControl DNS is used.
 * `os_image_id` - (Required) The Id of the OS (built-in) image from which the server will be created. Must specify exactly one of `os_image_id`, `os_image_name`, `customer_image_id`, `customer_image_name`.
 * `os_image_name` - (Required) The name of the OS (built-in) image from which the server will be created (the name must be unique within the data center in which the network domain is deployed). Must specify exactly one of `os_image_id`, `os_image_name`, `customer_image_id`, `customer_image_name`.
 * `customer_image_id` - (Required) The Id of the customer (custom) image from which the server will be created. Must specify exactly one of `os_image_id`, `os_image_name`, `customer_image_id`, `customer_image_name`.
