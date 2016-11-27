@@ -139,14 +139,14 @@ func resourceServer() *schema.Resource {
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Optional:    true,
-				Default:     "8.8.8.8",
+				Default:     "",
 				Description: "The IP address of the server's primary DNS server",
 			},
 			resourceKeyServerSecondaryDNS: &schema.Schema{
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Optional:    true,
-				Default:     "8.8.4.4",
+				Default:     "",
 				Description: "The IP address of the server's secondary DNS server",
 			},
 			resourceKeyServerOSImageID: &schema.Schema{
