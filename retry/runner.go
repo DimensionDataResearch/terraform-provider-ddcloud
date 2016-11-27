@@ -95,13 +95,13 @@ func (runner *retryRunner) DoAction(description string, timeout time.Duration, a
 			log.Printf("%s - operation timed out after %d seconds (%d attempts)",
 				description,
 				timeout/time.Second,
-				context.iterationCount,
+				context.IterationCount,
 			)
 
 			return &OperationTimeoutError{
 				OperationDescription: description,
 				Timeout:              timeout,
-				Attempts:             context.iterationCount,
+				Attempts:             context.IterationCount,
 			}
 
 		case <-retryTicker.C:
@@ -113,10 +113,10 @@ func (runner *retryRunner) DoAction(description string, timeout time.Duration, a
 			)
 
 			action(context)
-			if context.Err != nil {
+			if context.Error != nil {
 				log.Printf("%s - attempt %d failed: %s.",
 					description,
-					context.iterationCount,
+					context.IterationCount,
 					context.Error,
 				)
 
@@ -126,7 +126,7 @@ func (runner *retryRunner) DoAction(description string, timeout time.Duration, a
 			if context.ShouldRetry {
 				log.Printf("%s - attempt %d marked for retry (will try again)...",
 					description,
-					context.iterationCount,
+					context.IterationCount,
 				)
 
 				continue
@@ -134,7 +134,7 @@ func (runner *retryRunner) DoAction(description string, timeout time.Duration, a
 
 			log.Printf("%s - operation sucessful after %d attempt(s).",
 				description,
-				context.iterationCount,
+				context.IterationCount,
 			)
 
 			return nil

@@ -1,6 +1,9 @@
 package retry
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // IsTimeoutError determines whether the specified error represents an operation timeout.
 func IsTimeoutError(err error) bool {

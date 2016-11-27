@@ -22,8 +22,8 @@ func newRunnerContext(operationDescription string) *runnerContext {
 	return &runnerContext{
 		OperationDescription: operationDescription,
 		IterationCount:       0,
-		Retry:                false,
-		Err:                  nil,
+		ShouldRetry:          false,
+		Error:                nil,
 	}
 }
 
@@ -52,14 +52,14 @@ func (context *runnerContext) Fail(err error) {
 
 	if err != nil {
 		iterationDescription := ""
-		if context.iterationCount > 1 {
+		if context.IterationCount > 1 {
 			iterationDescription = fmt.Sprintf(" (retry %d)",
-				context.iterationCount,
+				context.IterationCount,
 			)
 		}
 
 		log.Printf("%s%s failed: %s",
-			context.operationDescription,
+			context.OperationDescription,
 			iterationDescription,
 			err,
 		)
@@ -69,6 +69,6 @@ func (context *runnerContext) Fail(err error) {
 // NextIteration resets the context for the next iteration.
 func (context *runnerContext) NextIteration() {
 	context.ShouldRetry = false
-	context.Err = nil
+	context.Error = nil
 	context.IterationCount++
 }
