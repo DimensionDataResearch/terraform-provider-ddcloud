@@ -4,10 +4,23 @@
 
 ## v1.1.9
 
+New features:
+
+* Automatically retry network operations that fail due to `RESOURCE_BUSY` response from CloudControl (#11)
+* Use default DNS when deploying a server if no specific DNS IPs are configured (#62) 
+
+Bug fixes:
+
+* Fix crashes when customer_image_id or customer_image_name is used with ddcloud_server (#64)
+* Fix `UNEXPECTED_ERROR` responses from CloudControl due to simultaneously initiating multiple asynchronous operations  
+Multiple asynchronous operations can run in parallel, but only 1 can be initiated at a time
+
 Breaking changes:
 
 * `ddcloud_server` properties `primary_adapter_vlan` and `primary_adapter_ipv4` can be specified together but if `primary_adapter_ipv4` is specified, then `primary_adapter_vlan` is ignored (this is OK because specifying one implies the other)
-* `ddcloud_server_nic` properties `vlan` and `private_ipv4` can be specified together but if `primary_adapter_ipv4` is specified, then `primary_adapter_vlan` is ignored (this is OK because specifying one implies the other) 
+* `ddcloud_server_nic` properties `vlan` and `private_ipv4` can be specified together but if `primary_adapter_ipv4` is specified, then `primary_adapter_vlan` is ignored (this is OK because specifying one implies the other)
+* `retry_count` and `retry_delay` provider properties have been removed (use the `MCP_MAX_RETRY` and `MCP_RETRY_DELAY` environment variables)  
+`retry_delay` is now used to control retry of operations that fail due to `RESOURCE_BUSY` response from CloudControl
 
 ## v1.1.8
 
