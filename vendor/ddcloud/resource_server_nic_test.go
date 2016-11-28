@@ -17,7 +17,7 @@ func testAccDDCloudServerNICToServerUsingIPV4Address(name string, description st
 		}
 
 		resource "ddcloud_networkdomain" "acc_test_domain" {
-			name		= "acc-test-networkdomain"
+			name		= "acc-test-server-nic-networkdomain"
 			description	= "Network domain for Terraform acceptance test."
 			datacenter	= "AU10"
 		}
@@ -88,7 +88,7 @@ func testAccDDCloudServerNICToServerUsingVLANID(name string, description string,
 		}
 
 		resource "ddcloud_networkdomain" "acc_test_domain" {
-			name		= "acc-test-networkdomain"
+			name		= "acc-test-server-nic-networkdomain"
 			description	= "Network domain for Terraform acceptance test."
 			datacenter	= "AU10"
 		}
@@ -152,7 +152,7 @@ func testAccDDCloudServerNICToServerUsingVLANID(name string, description string,
 }
 
 // add a nic to the server with ipv4address as input and verify that it gets created with the correct configuration.
-func TestAccServerServerNICCreateWithIPV4Address(t *testing.T) {
+func TestAccServerNICCreateWithIPV4Address(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
@@ -181,7 +181,7 @@ func TestAccServerServerNICCreateWithIPV4Address(t *testing.T) {
 }
 
 // add a nic to the server with ipv4address as input and verify that it gets created with the correct configuration.
-func TestAccServerServerNICCreateWithVLANID(t *testing.T) {
+func TestAccServerNICCreateWithVLANID(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(

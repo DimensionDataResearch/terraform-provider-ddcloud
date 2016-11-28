@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -82,27 +83,9 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 		return err
 	}
 
-	settings := providerState.Settings()
-
 	isStarted := server.Started
 	if isStarted {
-		if !settings.AllowServerReboots {
-			return fmt.Errorf("Cannot reboot server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
-		}
-
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock("Shut down server '%s'", serverID)
-		defer asyncLock.Release()
-
-		err = apiClient.ShutdownServer(serverID)
-		if err != nil {
-			return err
-		}
-
-		// Operation initiated; we no longer need this lock.
-		asyncLock.Release()
-
-		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shutdown server", serverShutdownTimeout)
+		err = serverShutdown(providerState, serverID)
 		if err != nil {
 			return err
 		}
@@ -143,19 +126,7 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 	log.Printf("created the nic with the id %s", nicID)
 
 	if isStarted {
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock("Start server '%s'", serverID)
-		defer asyncLock.Release()
-
-		err = apiClient.StartServer(serverID)
-		if err != nil {
-			return err
-		}
-
-		// Operation initiated; we no longer need this lock.
-		asyncLock.Release()
-
-		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
+		err = serverStart(providerState, serverID)
 		if err != nil {
 			return err
 		}
@@ -302,7 +273,10 @@ func resourceServerNICUpdate(data *schema.ResourceData, provider interface{}) er
 func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) error {
 	nicID := data.Id()
 	serverID := data.Get(resourceKeyNICServerID).(string)
-	apiClient := provider.(*providerState).Client()
+
+	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
 
 	log.Printf("Removing additional nics for server '%s'...", serverID)
 
@@ -311,31 +285,13 @@ func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) er
 		return err
 	}
 
-	providerState := provider.(*providerState)
-	settings := providerState.Settings()
-	serverLock := providerState.GetServerLock(serverID, "resourceServerNICUpdate(id = '%s', serverID = '%s')", nicID, serverID)
+	serverLock := providerState.GetServerLock(serverID, "resourceServerNICDelete(id = '%s', serverID = '%s')", nicID, serverID)
 	serverLock.Lock()
 	defer serverLock.Unlock()
 
 	isStarted := server.Started
 	if isStarted {
-		if !settings.AllowServerReboots {
-			return fmt.Errorf("Cannot reboot server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
-		}
-
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock("Shut down server '%s'", serverID)
-		defer asyncLock.Release()
-
-		err = apiClient.ShutdownServer(serverID)
-		if err != nil {
-			return err
-		}
-
-		// Operation initiated; we no longer need this lock.
-		asyncLock.Release()
-
-		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shutdown server", serverShutdownTimeout)
+		err = serverShutdown(providerState, serverID)
 		if err != nil {
 			return err
 		}
@@ -343,17 +299,24 @@ func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) er
 
 	log.Printf("Remove network adapter '%s' from server '%s'.", nicID, serverID)
 
-	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-	asyncLock := providerState.AcquireAsyncOperationLock("Remove NIC from server '%s'", serverID)
-	defer asyncLock.Release()
+	operationDescription := fmt.Sprintf("Remove network adapter '%s' from server '%s'", nicID, serverID)
+	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Remove NIC from server '%s'", serverID)
+		defer asyncLock.Release() // Released once the current attempt is complete
 
-	err = apiClient.RemoveNicFromServer(nicID)
-	if err == nil {
+		removeError := apiClient.RemoveNicFromServer(nicID)
+		if removeError == nil {
+			if compute.IsResourceBusyError(removeError) {
+				context.Retry()
+			} else {
+				context.Fail(removeError)
+			}
+		}
+	})
+	if err != nil {
 		return err
 	}
-
-	// Operation initiated; we no longer need this lock.
-	asyncLock.Release()
 
 	log.Printf("Removing network adapter with ID %s from server '%s'...",
 		nicID,
@@ -377,19 +340,7 @@ func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) er
 	)
 
 	if isStarted {
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock("Start server '%s'", serverID)
-		defer asyncLock.Release()
-
-		err = apiClient.StartServer(serverID)
-		if err != nil {
-			return err
-		}
-
-		// Operation initiated; we no longer need this lock.
-		asyncLock.Release()
-
-		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
+		err = serverStart(providerState, serverID)
 		if err != nil {
 			return err
 		}
@@ -446,4 +397,72 @@ func validateNICAdapterType(value interface{}, propertyName string) (messages []
 	}
 
 	return
+}
+
+// Shut a server down.
+func serverShutdown(providerState *providerState, serverID string) error {
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	if !providerSettings.AllowServerReboots {
+		return fmt.Errorf("Cannot shut down server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
+	}
+
+	operationDescription := fmt.Sprintf("Shut down server '%s'", serverID)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Shut down server '%s'", serverID)
+		defer asyncLock.Release() // Released when the current attempt is complete.
+
+		shutdownError := apiClient.ShutdownServer(serverID)
+		if compute.IsResourceBusyError(shutdownError) {
+			context.Retry()
+		} else if shutdownError != nil {
+			context.Fail(shutdownError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shut down server", serverShutdownTimeout)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Start a server.
+func serverStart(providerState *providerState, serverID string) error {
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	if !providerSettings.AllowServerReboots {
+		return fmt.Errorf("Cannot start server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
+	}
+
+	operationDescription := fmt.Sprintf("Start server '%s'", serverID)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Start server '%s'", serverID)
+		defer asyncLock.Release() // Released when the current attempt is complete.
+
+		startError := apiClient.StartServer(serverID)
+		if compute.IsResourceBusyError(startError) {
+			context.Retry()
+		} else if startError != nil {
+			context.Fail(startError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

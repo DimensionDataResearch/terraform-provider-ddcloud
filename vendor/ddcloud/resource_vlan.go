@@ -103,7 +103,7 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	operationDescription := fmt.Sprintf("Create VLAN '%s'", name)
 	err = retry.Action(operationDescription, deployTimeoutVLAN, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription, name)
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release() // Released at the end of the current attempt.
 
 		var deployError error
@@ -203,7 +203,7 @@ func resourceVLANUpdate(data *schema.ResourceData, provider interface{}) error {
 
 	return retry.Action(operationDescription, deployTimeoutVLAN, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription, name)
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release() // Released at the end of the current attempt.
 
 		editError := apiClient.EditVLAN(id, newName, newDescription)
