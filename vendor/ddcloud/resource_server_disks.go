@@ -570,13 +570,13 @@ func splitConfiguredDisksByAction(configuredDisks []compute.VirtualMachineDisk, 
 		if ok {
 			// Existing disk.
 			if configuredDisk.SizeGB != actualDisk.SizeGB {
-				changeDisks = append(changeDisks, *actualDisk)
+				changeDisks = append(changeDisks, configuredDisk)
 			} else if configuredDisk.Speed != actualDisk.Speed {
-				changeDisks = append(changeDisks, *actualDisk)
+				changeDisks = append(changeDisks, configuredDisk)
 			}
 		} else {
 			// New disk.
-			addDisks = append(addDisks, *actualDisk)
+			addDisks = append(addDisks, configuredDisk)
 		}
 	}
 
