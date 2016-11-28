@@ -7,9 +7,6 @@ import (
 
 // Context represents contextual information about the current iteration of a retryable operation.
 type Context interface {
-	// Write a formatted message to the log.
-	Log(format string, v ...interface{})
-
 	// Retry the operation once the current iteration completes.
 	Retry()
 
@@ -17,9 +14,9 @@ type Context interface {
 	Fail(err error)
 }
 
-// Create a new runnerContext.
-func newRunnerContext(operationDescription string) *runnerContext {
-	return &runnerContext{
+// Create a new doContext.
+func newDoContext(operationDescription string) *doContext {
+	return &doContext{
 		OperationDescription: operationDescription,
 		IterationCount:       0,
 		ShouldRetry:          false,
@@ -27,27 +24,22 @@ func newRunnerContext(operationDescription string) *runnerContext {
 	}
 }
 
-type runnerContext struct {
+type doContext struct {
 	OperationDescription string
 	IterationCount       int
 	ShouldRetry          bool
 	Error                error
 }
 
-var _ Context = &runnerContext{}
-
-// Write a formatted message to the log.
-func (context *runnerContext) Log(format string, formatArgs ...interface{}) {
-	log.Printf(format, formatArgs...)
-}
+var _ Context = &doContext{}
 
 // Retry the operation once the current iteration completes.
-func (context *runnerContext) Retry() {
+func (context *doContext) Retry() {
 	context.ShouldRetry = true
 }
 
 // Mark the current iteration as failed due to the specified error.
-func (context *runnerContext) Fail(err error) {
+func (context *doContext) Fail(err error) {
 	context.Error = err
 
 	if err != nil {
@@ -67,7 +59,7 @@ func (context *runnerContext) Fail(err error) {
 }
 
 // NextIteration resets the context for the next iteration.
-func (context *runnerContext) NextIteration() {
+func (context *doContext) NextIteration() {
 	context.ShouldRetry = false
 	context.Error = nil
 	context.IterationCount++
