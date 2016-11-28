@@ -1,4 +1,5 @@
-# dd-cloud-compute-terraform
+# terraform-provider-ddcloud
+
 [Terraform](https://terraform.io/) provider for Dimension Data cloud compute.
 
 Currently, the following resource types are supported:
