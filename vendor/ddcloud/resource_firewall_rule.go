@@ -2,12 +2,14 @@ package ddcloud
 
 import (
 	"fmt"
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (
@@ -234,13 +236,28 @@ func resourceFirewallRuleCreate(data *schema.ResourceData, provider interface{})
 	log.Printf("Firewall rule configuration: '%#v'", configuration)
 
 	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
-	domainLock := providerState.GetDomainLock(configuration.NetworkDomainID, "resourceFirewallRuleCreate('%s')", configuration.Name)
-	domainLock.Lock()
-	defer domainLock.Unlock()
+	var (
+		ruleID      string
+		createError error
+	)
+	operationDescription := fmt.Sprintf("Create firewall rule '%s'", configuration.Name)
+	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
 
-	ruleID, err := apiClient.CreateFirewallRule(*configuration)
+		ruleID, createError = apiClient.CreateFirewallRule(*configuration)
+		if createError != nil {
+			if compute.IsResourceBusyError(createError) {
+				context.Retry()
+			} else {
+				context.Fail(createError)
+			}
+		}
+	})
 	if err != nil {
 		return err
 	}
@@ -281,17 +298,12 @@ func resourceFirewallRuleRead(data *schema.ResourceData, provider interface{}) e
 // Update a firewall rule resource.
 func resourceFirewallRuleUpdate(data *schema.ResourceData, provider interface{}) error {
 	id := data.Id()
-	name := data.Get(resourceKeyFirewallRuleName).(string)
 	networkDomainID := data.Get(resourceKeyFirewallRuleNetworkDomainID).(string)
 
 	log.Printf("Update firewall rule '%s' in network domain '%s'.", id, networkDomainID)
 
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
-
-	domainLock := providerState.GetDomainLock(networkDomainID, "resourceFirewallRuleUpdate(id = '%s', name = '%s')", id, name)
-	domainLock.Lock()
-	defer domainLock.Unlock()
 
 	if data.HasChange(resourceKeyFirewallRuleEnabled) {
 		enable := data.Get(resourceKeyFirewallRuleEnabled).(bool)
@@ -316,19 +328,30 @@ func resourceFirewallRuleUpdate(data *schema.ResourceData, provider interface{})
 // Delete a firewall rule resource.
 func resourceFirewallRuleDelete(data *schema.ResourceData, provider interface{}) error {
 	id := data.Id()
-	name := data.Get(resourceKeyFirewallRuleName).(string)
 	networkDomainID := data.Get(resourceKeyFirewallRuleNetworkDomainID).(string)
 
 	log.Printf("Delete firewall rule '%s' in network domain '%s'.", id, networkDomainID)
 
 	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
-	domainLock := providerState.GetDomainLock(networkDomainID, "resourceFirewallRuleDelete(id = '%s', name = '%s')", id, name)
-	domainLock.Lock()
-	defer domainLock.Unlock()
+	var deleteError error
+	operationDescription := fmt.Sprintf("Delete firewall rule '%s'", id)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
 
-	err := apiClient.DeleteFirewallRule(id)
+		deleteError = apiClient.DeleteFirewallRule(id)
+		if deleteError != nil {
+			if compute.IsResourceBusyError(deleteError) {
+				context.Retry()
+			} else {
+				context.Fail(deleteError)
+			}
+		}
+	})
 	if err != nil {
 		return err
 	}

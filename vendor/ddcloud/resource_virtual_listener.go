@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -180,123 +181,103 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 	log.Printf("Create virtual listener '%s' ('%s') in network domain '%s'.", name, description, networkDomainID)
 
 	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	propertyHelper := propertyHelper(data)
 
-	// Map from names to Ids, as required.
+	var virtualListenerID string
 
-	persistenceProfileID, err := propertyHelper.GetVirtualListenerPersistenceProfileID(apiClient)
-	if err != nil {
-		return err
-	}
+	operationDescription := fmt.Sprintf("Create virtual listener '%s' ", name)
+	operationError := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// Map from names to Ids, as required.
+		persistenceProfileID, err := propertyHelper.GetVirtualListenerPersistenceProfileID(apiClient)
+		if err != nil {
+			context.Fail(err)
 
-	iRuleIDs, err := propertyHelper.GetVirtualListenerIRuleIDs(apiClient)
-	if err != nil {
-		return err
-	}
+			return
+		}
 
-	if len(listenerIPAddress) == 0 {
-		domainLock := providerState.GetDomainLock(networkDomainID, "resourceVirtualListenerCreate")
-		domainLock.Lock()
-		defer domainLock.Unlock()
+		iRuleIDs, err := propertyHelper.GetVirtualListenerIRuleIDs(apiClient)
+		if err != nil {
+			context.Fail(err)
 
-		// First, work out if we have any free public IP addresses.
-		freeIPs := newStringSet()
+			return
+		}
 
-		// Public IPs are allocated in blocks.
-		page := compute.DefaultPaging()
-		for {
-			var publicIPBlocks *compute.PublicIPBlocks
-			publicIPBlocks, err = apiClient.ListPublicIPBlocks(networkDomainID, page)
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
+		if len(listenerIPAddress) == 0 {
+			var freeIPs map[string]string
+			freeIPs, err = apiClient.GetAvailablePublicIPAddresses(networkDomainID)
 			if err != nil {
-				return err
-			}
-			if publicIPBlocks.IsEmpty() {
-				break // We're done
+				context.Fail(err)
 			}
 
-			var blockAddresses []string
-			for _, block := range publicIPBlocks.Blocks {
-				blockAddresses, err = calculateBlockAddresses(block)
+			if len(freeIPs) == 0 {
+				log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
+
+				var blockID string
+				blockID, err = apiClient.AddPublicIPBlock(networkDomainID)
 				if err != nil {
-					return err
+					if compute.IsResourceBusyError(err) {
+						context.Retry()
+					} else {
+						context.Fail(err)
+					}
+
+					return
 				}
 
-				for _, address := range blockAddresses {
-					freeIPs.Add(address)
+				var block *compute.PublicIPBlock
+				block, err = apiClient.GetPublicIPBlock(blockID)
+				if err != nil {
+					context.Fail(err)
+
+					return
 				}
+
+				if block == nil {
+					context.Fail(
+						fmt.Errorf("Cannot find newly-added public IPv4 address block '%s'.", blockID),
+					)
+
+					return
+				}
+
+				log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').", block.ID, block.Size, block.BaseIP)
 			}
-
-			page.Next()
-		}
-
-		// Some of those IPs may be reserved for other NAT rules or VIPs.
-		page.First()
-		for {
-			var reservedIPs *compute.ReservedPublicIPs
-			reservedIPs, err = apiClient.ListReservedPublicIPAddresses(networkDomainID, page)
-			if err != nil {
-				return err
-			}
-			if reservedIPs.IsEmpty() {
-				break // We're done
-			}
-
-			for _, reservedIP := range reservedIPs.IPs {
-				freeIPs.Remove(reservedIP.Address)
-			}
-
-			page.Next()
-		}
-
-		// Anything left is free to use.
-		// Note that there is still potentially a race condition here. Improved behaviour would be to handle the relevant error response from CreateNATRule and retry.
-
-		// If there are no free public IP's we'll need to request the allocation of a new block.
-		if freeIPs.Len() == 0 {
-			log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
-
-			var blockID string
-			blockID, err = apiClient.AddPublicIPBlock(networkDomainID)
-			if err != nil {
-				return err
-			}
-
-			var block *compute.PublicIPBlock
-			block, err = apiClient.GetPublicIPBlock(blockID)
-			if err != nil {
-				return err
-			}
-
-			if block == nil {
-				return fmt.Errorf("Cannot find newly-added public IPv4 address block '%s'.", blockID)
-			}
-
-			log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').", block.ID, block.Size, block.BaseIP)
 
 		}
-
-	}
-	virtualListenerID, err := apiClient.CreateVirtualListener(compute.NewVirtualListenerConfiguration{
-		Name:                   name,
-		Description:            description,
-		Type:                   data.Get(resourceKeyVirtualListenerType).(string),
-		Protocol:               data.Get(resourceKeyVirtualListenerProtocol).(string),
-		Port:                   data.Get(resourceKeyVirtualListenerPort).(int),
-		ListenerIPAddress:      propertyHelper.GetOptionalString(resourceKeyVirtualListenerIPv4Address, false),
-		Enabled:                data.Get(resourceKeyVirtualListenerEnabled).(bool),
-		ConnectionLimit:        data.Get(resourceKeyVirtualListenerConnectionLimit).(int),
-		ConnectionRateLimit:    data.Get(resourceKeyVirtualListenerConnectionRateLimit).(int),
-		SourcePortPreservation: data.Get(resourceKeyVirtualListenerSourcePortPreservation).(string),
-		PoolID:                 propertyHelper.GetOptionalString(resourceKeyVirtualListenerPoolID, false),
-		PersistenceProfileID:   persistenceProfileID,
-		IRuleIDs:               iRuleIDs,
-		OptimizationProfiles:   propertyHelper.GetStringSetItems(resourceKeyVirtualListenerOptimizationProfiles),
-		NetworkDomainID:        networkDomainID,
+		virtualListenerID, err = apiClient.CreateVirtualListener(compute.NewVirtualListenerConfiguration{
+			Name:                   name,
+			Description:            description,
+			Type:                   data.Get(resourceKeyVirtualListenerType).(string),
+			Protocol:               data.Get(resourceKeyVirtualListenerProtocol).(string),
+			Port:                   data.Get(resourceKeyVirtualListenerPort).(int),
+			ListenerIPAddress:      propertyHelper.GetOptionalString(resourceKeyVirtualListenerIPv4Address, false),
+			Enabled:                data.Get(resourceKeyVirtualListenerEnabled).(bool),
+			ConnectionLimit:        data.Get(resourceKeyVirtualListenerConnectionLimit).(int),
+			ConnectionRateLimit:    data.Get(resourceKeyVirtualListenerConnectionRateLimit).(int),
+			SourcePortPreservation: data.Get(resourceKeyVirtualListenerSourcePortPreservation).(string),
+			PoolID:                 propertyHelper.GetOptionalString(resourceKeyVirtualListenerPoolID, false),
+			PersistenceProfileID:   persistenceProfileID,
+			IRuleIDs:               iRuleIDs,
+			OptimizationProfiles:   propertyHelper.GetStringSetItems(resourceKeyVirtualListenerOptimizationProfiles),
+			NetworkDomainID:        networkDomainID,
+		})
+		if err != nil {
+			if compute.IsResourceBusyError(err) {
+				context.Retry()
+			} else {
+				context.Fail(err)
+			}
+		}
 	})
-	if err != nil {
-		return err
+	if operationError != nil {
+		return operationError
 	}
 
 	data.SetId(virtualListenerID)
@@ -433,7 +414,23 @@ func resourceVirtualListenerDelete(data *schema.ResourceData, provider interface
 	log.Printf("Delete virtual listener '%s' ('%s') from network domain '%s'...", name, id, networkDomainID)
 
 	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
-	return apiClient.DeleteVirtualListener(id)
+	operationDescription := fmt.Sprintf("Delete virtual listener '%s", id)
+
+	return providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
+		err := apiClient.DeleteVirtualListener(id)
+		if err != nil {
+			if compute.IsResourceBusyError(err) {
+				context.Retry()
+			} else {
+				context.Fail(err)
+			}
+		}
+	})
 }

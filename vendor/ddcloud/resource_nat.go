@@ -2,12 +2,14 @@ package ddcloud
 
 import (
 	"fmt"
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (
@@ -88,88 +90,69 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 	log.Printf("Create NAT rule (from public IP '%s' to private IP '%s') in network domain '%s'.", publicIPDescription, privateIP, networkDomainID)
 
 	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
-	domainLock := providerState.GetDomainLock(networkDomainID, "resourceNATCreate(%s -> %s)", privateIP, publicIPDescription)
-	domainLock.Lock()
-	defer domainLock.Unlock()
+	var (
+		natRuleID   string
+		createError error
+	)
 
-	// First, work out if we have any free public IP addresses.
-	freeIPs := newStringSet()
-
-	// Public IPs are allocated in blocks.
-	page := compute.DefaultPaging()
-	for {
-		var publicIPBlocks *compute.PublicIPBlocks
-		publicIPBlocks, err = apiClient.ListPublicIPBlocks(networkDomainID, page)
-		if err != nil {
-			return err
-		}
-		if publicIPBlocks.IsEmpty() {
-			break // We're done
+	operationDescription := fmt.Sprintf("Create NAT rule (from public IP '%s' to private IP '%s')", publicIPDescription, privateIP)
+	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		var freeIPs map[string]string
+		freeIPs, createError = apiClient.GetAvailablePublicIPAddresses(networkDomainID)
+		if createError != nil {
+			context.Fail(createError)
 		}
 
-		var blockAddresses []string
-		for _, block := range publicIPBlocks.Blocks {
-			blockAddresses, err = calculateBlockAddresses(block)
-			if err != nil {
-				return err
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
+		if len(freeIPs) == 0 {
+			log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
+
+			var blockID string
+			blockID, createError = apiClient.AddPublicIPBlock(networkDomainID)
+			if createError != nil {
+				if compute.IsResourceBusyError(createError) {
+					context.Retry()
+				} else {
+					context.Fail(createError)
+
+					return
+				}
 			}
 
-			for _, address := range blockAddresses {
-				freeIPs.Add(address)
+			var block *compute.PublicIPBlock
+			block, createError = apiClient.GetPublicIPBlock(blockID)
+			if createError != nil {
+				context.Fail(createError)
+
+				return
+			}
+
+			if block == nil {
+				context.Fail(
+					fmt.Errorf("Cannot find newly-added public IPv4 address block '%s'.", blockID),
+				)
+
+				return
+			}
+
+			log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').", block.ID, block.Size, block.BaseIP)
+		}
+
+		natRuleID, createError = apiClient.AddNATRule(networkDomainID, privateIP, publicIP)
+		if createError != nil {
+			if compute.IsResourceBusyError(createError) {
+				context.Retry()
+			} else {
+				context.Fail(createError)
 			}
 		}
-
-		page.Next()
-	}
-
-	// Some of those IPs may be reserved for other NAT rules or VIPs.
-	page.First()
-	for {
-		var reservedIPs *compute.ReservedPublicIPs
-		reservedIPs, err = apiClient.ListReservedPublicIPAddresses(networkDomainID, page)
-		if err != nil {
-			return err
-		}
-		if reservedIPs.IsEmpty() {
-			break // We're done
-		}
-
-		for _, reservedIP := range reservedIPs.IPs {
-			freeIPs.Remove(reservedIP.Address)
-		}
-
-		page.Next()
-	}
-
-	// Anything left is free to use.
-	// Note that there is still potentially a race condition here. Improved behaviour would be to handle the relevant error response from CreateNATRule and retry.
-
-	// If there are no free public IP's we'll need to request the allocation of a new block.
-	if freeIPs.Len() == 0 {
-		log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
-
-		var blockID string
-		blockID, err = apiClient.AddPublicIPBlock(networkDomainID)
-		if err != nil {
-			return err
-		}
-
-		var block *compute.PublicIPBlock
-		block, err = apiClient.GetPublicIPBlock(blockID)
-		if err != nil {
-			return err
-		}
-
-		if block == nil {
-			return fmt.Errorf("Cannot find newly-added public IPv4 address block '%s'.", blockID)
-		}
-
-		log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').", block.ID, block.Size, block.BaseIP)
-	}
-
-	natRuleID, err := apiClient.AddNATRule(networkDomainID, privateIP, publicIP)
+	})
 	if err != nil {
 		return err
 	}
@@ -237,13 +220,25 @@ func resourceNATDelete(data *schema.ResourceData, provider interface{}) error {
 	log.Printf("Delete NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIP, networkDomainID)
 
 	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
-	domainLock := providerState.GetDomainLock(networkDomainID, "resourceNATDelete(%s -> %s)", privateIP, publicIP)
-	domainLock.Lock()
-	defer domainLock.Unlock()
+	operationDescription := fmt.Sprintf("Delete NAT '%s", id)
 
-	return apiClient.DeleteNATRule(id)
+	return providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
+		err := apiClient.DeleteNATRule(id)
+		if err != nil {
+			if compute.IsResourceBusyError(err) {
+				context.Retry()
+			} else {
+				context.Fail(err)
+			}
+		}
+	})
 }
 
 func calculateBlockAddresses(block compute.PublicIPBlock) ([]string, error) {

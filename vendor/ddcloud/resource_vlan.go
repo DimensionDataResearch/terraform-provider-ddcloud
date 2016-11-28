@@ -19,10 +19,12 @@ const (
 	resourceKeyVLANIPv6BaseAddress = "ipv6_base_address"
 	resourceKeyVLANIPv6PrefixSize  = "ipv6_prefix_size"
 	resourceCreateTimeoutVLAN      = 5 * time.Minute
+	resourceEditTimeoutVLAN        = 3 * time.Minute
 	resourceDeleteTimeoutVLAN      = 5 * time.Minute
 
 	// No more than 3 at a time for now
 	deployTimeoutVLAN = 3 * resourceCreateTimeoutVLAN
+	editTimeoutVLAN   = 3 * resourceEditTimeoutVLAN
 	deleteTimeoutVLAN = 3 * resourceDeleteTimeoutVLAN
 )
 
@@ -98,18 +100,11 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 		vlanID string
 		err    error
 	)
-
 	operationDescription := fmt.Sprintf("Create VLAN '%s'", name)
-
-	err = retry.DoAction(operationDescription, deployTimeoutVLAN, func(context retry.Context) {
+	err = retry.Action(operationDescription, deployTimeoutVLAN, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription, name)
 		defer asyncLock.Release() // Released at the end of the current attempt.
-
-		// TODO: Get rid of domain-level locks.
-		domainLock := providerState.GetDomainLock(networkDomainID, "resourceVLANCreate(name = '%s')", name)
-		domainLock.Lock()
-		defer domainLock.Unlock()
 
 		var deployError error
 		vlanID, deployError = apiClient.DeployVLAN(networkDomainID, name, description, ipv4BaseAddress, ipv4PrefixSize)
@@ -184,7 +179,6 @@ func resourceVLANUpdate(data *schema.ResourceData, provider interface{}) error {
 	)
 
 	id = data.Id()
-	networkDomainID := data.Get(resourceKeyVLANNetworkDomainID).(string)
 
 	name = data.Get(resourceKeyVLANName).(string)
 	if data.HasChange(resourceKeyVLANName) {
@@ -201,16 +195,26 @@ func resourceVLANUpdate(data *schema.ResourceData, provider interface{}) error {
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	domainLock := providerState.GetDomainLock(networkDomainID, "resourceVLANUpdate(id = '%s', name = '%s')", id, name)
-	domainLock.Lock()
-	defer domainLock.Unlock()
-
 	if newName == nil && newDescription == nil {
 		return nil
 	}
 
-	// TODO: Handle RESOURCE_BUSY response (retry?)
-	return apiClient.EditVLAN(id, newName, newDescription)
+	operationDescription := fmt.Sprintf("Edit VLAN '%s'", name)
+
+	return retry.Action(operationDescription, deployTimeoutVLAN, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription, name)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
+		editError := apiClient.EditVLAN(id, newName, newDescription)
+		if editError != nil {
+			if compute.IsResourceBusyError(editError) {
+				context.Retry()
+			} else {
+				context.Fail(editError)
+			}
+		}
+	})
 }
 
 // Delete a VLAN resource.
@@ -225,15 +229,10 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Delete VLAN '%s'", id)
-	err := retry.DoAction(operationDescription, deleteTimeoutVLAN, func(context retry.Context) {
+	err := providerState.Retry().Action(operationDescription, deleteTimeoutVLAN, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release() // Released once the current attempt is complete.
-
-		// TODO: Get rid of domain-level locks.
-		domainLock := providerState.GetDomainLock(networkDomainID, "resourceVLANDelete(id = '%s', name = '%s')", id, name)
-		domainLock.Lock()
-		defer domainLock.Unlock()
 
 		deleteError := apiClient.DeleteVLAN(id)
 		if deleteError != nil {

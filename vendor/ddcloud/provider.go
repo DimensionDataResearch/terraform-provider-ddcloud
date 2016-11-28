@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
@@ -46,23 +47,23 @@ func Provider() terraform.ResourceProvider {
 				Default:     "",
 				Description: "The password used to authenticate to the Dimension Data CloudControl API (if not specified, then the MCP_PASSWORD environment variable will be used).",
 			},
-			"retry_count": &schema.Schema{
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Default:     3,
-				Description: "The maximum number of times to retry operations that fail due to network connectivity errors.",
-			},
-			"retry_delay": &schema.Schema{
-				Type:        schema.TypeInt,
-				Optional:    true,
-				Default:     5,
-				Description: "The number of seconds to delay between operation retries.",
-			},
 			"allow_server_reboot": &schema.Schema{
 				Type:        schema.TypeBool,
 				Optional:    true,
 				Default:     true,
 				Description: "Allow rebooting of ddcloud_server instances (e.g. for adding / removing NICs)?",
+			},
+			"retry_timeout": &schema.Schema{
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Default:     10 * 60, // 10 minutes
+				Description: "The number of seconds before retrying an operation times out.",
+			},
+			"retry_delay": &schema.Schema{
+				Type:        schema.TypeInt,
+				Optional:    true,
+				Default:     30,
+				Description: "The delay, in seconds, between retries of operations that fail due to a RESOURCE_BUSY response from CloudControl.",
 			},
 		},
 
@@ -156,16 +157,10 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	}
 
 	// Configure retry, if required.
-	var (
-		retryCount int
-		retryDelay int
-	)
-	value, ok := providerSettings.GetOk("retry_count")
-	if ok {
-		retryCount = value.(int)
-	}
+	retryCount := 0
+	retryDelay := 30 // Seconds
 
-	// Override retry configuration with environment variables, if required.
+	// Override default retry configuration with environment variables, if required.
 	retryValue, err := strconv.Atoi(os.Getenv("MCP_MAX_RETRY"))
 	if err == nil {
 		retryCount = retryValue
@@ -175,10 +170,11 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 			retryDelay = retryValue
 		}
 	}
-
 	client.ConfigureRetry(retryCount, time.Duration(retryDelay)*time.Second)
 
 	settings := &ProviderSettings{
+		RetryDelay:         time.Duration(providerSettings.Get("retry_delay").(int)) * time.Second,
+		RetryTimeout:       time.Duration(providerSettings.Get("retry_timeout").(int)) * time.Second,
 		AllowServerReboots: providerSettings.Get("allow_server_reboot").(bool),
 	}
 
@@ -199,6 +195,12 @@ type ProviderSettings struct {
 	//
 	// For example, servers must be rebooted to add or remove network adapters.
 	AllowServerReboots bool
+
+	// The period of time between retry attempts for asynchronous operations.
+	RetryDelay time.Duration
+
+	// The period of time before retrying of asynchronous operations time out.
+	RetryTimeout time.Duration
 }
 
 type providerState struct {
@@ -214,22 +216,24 @@ type providerState struct {
 	// Global lock for initiating asynchronous operations.
 	asyncOperationLock *sync.Mutex
 
-	// Lock per network domain (prevent parallel provisioning for some resource types).
-	domainLocks map[string]*sync.Mutex
-
 	// Lock per server (prevent parallel provisioning operations for a given ddcloud_server resource).
 	serverLocks map[string]*sync.Mutex
+
+	// Provider-global retry executor for asynchronous operations.
+	retry retry.Do
 }
 
 func newProvider(client *compute.Client, settings *ProviderSettings) *providerState {
-	return &providerState{
+	state := &providerState{
 		apiClient:          client,
 		settings:           settings,
 		stateLock:          &sync.Mutex{},
 		asyncOperationLock: &sync.Mutex{},
-		domainLocks:        make(map[string]*sync.Mutex),
 		serverLocks:        make(map[string]*sync.Mutex),
+		retry:              retry.NewDo(settings.RetryDelay),
 	}
+
+	return state
 }
 
 // Client retrieves the CloudControl API client from provider state.
@@ -240,6 +244,11 @@ func (state *providerState) Client() *compute.Client {
 // Settings retrieves a copy of the provider settings.
 func (state *providerState) Settings() ProviderSettings {
 	return *state.settings // We return a copy because these settings should be read-only once the provider has been created.
+}
+
+// Retry retrieves the provider's operation-retry executor.
+func (state *providerState) Retry() retry.Do {
+	return state.retry
 }
 
 // AcquireAsyncOperationLock acquires (locks) the global lock used to synchronise initiation of global operations.
@@ -272,44 +281,6 @@ func (asyncLock *asyncOperationLock) Release() {
 		asyncLock.lock.Unlock()
 		log.Printf("%s acquired global asynchronous operation lock.", asyncLock.ownerName)
 	})
-}
-
-// GetDomainLock retrieves the global lock for the specified network domain.
-func (state *providerState) GetDomainLock(id string, ownerNameOrFormat string, formatArgs ...interface{}) *providerDomainLock {
-	state.stateLock.Lock()
-	defer state.stateLock.Unlock()
-
-	lock, ok := state.domainLocks[id]
-	if !ok {
-		lock = &sync.Mutex{}
-		state.domainLocks[id] = lock
-	}
-
-	return &providerDomainLock{
-		domainID:  id,
-		ownerName: fmt.Sprintf(ownerNameOrFormat, formatArgs...),
-		lock:      lock,
-	}
-}
-
-type providerDomainLock struct {
-	domainID  string
-	ownerName string
-	lock      *sync.Mutex
-}
-
-// Acquire the network domain lock.
-func (domainLock *providerDomainLock) Lock() {
-	log.Printf("%s acquiring lock for domain '%s'...", domainLock.ownerName, domainLock.domainID)
-	domainLock.lock.Lock()
-	log.Printf("%s acquired lock for domain '%s'.", domainLock.ownerName, domainLock.domainID)
-}
-
-// Release the network domain lock.
-func (domainLock *providerDomainLock) Unlock() {
-	log.Printf("%s releasing lock for domain '%s'...", domainLock.ownerName, domainLock.domainID)
-	domainLock.lock.Unlock()
-	log.Printf("%s released lock for domain '%s'.", domainLock.ownerName, domainLock.domainID)
 }
 
 // GetServerLock retrieves the global lock for the specified server.

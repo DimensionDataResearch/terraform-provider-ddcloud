@@ -6,16 +6,16 @@ import (
 	"time"
 )
 
-// Runner is used to execute retriable operations.
-type Runner interface {
-	// GetRetryPeriod retrieves the runner's currently-configured retry period.
+// Do is used to execute retriable operations.
+type Do interface {
+	// GetRetryPeriod retrieves the Do's currently-configured retry period.
 	//
-	// This determines how often the Runner will retry operations.
+	// This determines how often the Do will retry operations.
 	GetRetryPeriod() time.Duration
 
-	// SetRetryPeriod configures the runner's retry period.
+	// SetRetryPeriod configures the Do's retry period.
 	//
-	// This determines how long the Runner will wait between retries operations.
+	// This determines how long the Do will wait between retries operations.
 	SetRetryPeriod(retryPeriod time.Duration)
 
 	// DoAction performs the specified action until it succeeds or times out.
@@ -25,42 +25,42 @@ type Runner interface {
 	// action is the action function to invoke
 	//
 	// Returns the error (if any) passed to Context.Fail or caused by the operation timing out.
-	DoAction(description string, timeout time.Duration, action ActionFunc) error
+	Action(description string, timeout time.Duration, action ActionFunc) error
 }
 
-// NewRunner creates a new Runner.
-func NewRunner(retryPeriod time.Duration) Runner {
-	return &retryRunner{
+// NewDo creates a new Do.
+func NewDo(retryPeriod time.Duration) Do {
+	return &doWithRetry{
 		stateLock:   &sync.Mutex{},
 		retryPeriod: retryPeriod,
 	}
 }
 
-type retryRunner struct {
+type doWithRetry struct {
 	stateLock   *sync.Mutex
 	retryPeriod time.Duration
 }
 
-var _ Runner = &retryRunner{}
+var _ Do = &doWithRetry{}
 
-// GetRetryPeriod retrieves the runner's currently-configured retry period.
+// GetRetryPeriod retrieves the Do's currently-configured retry period.
 //
-// This determines how often the Runner will retry operations.
-func (runner *retryRunner) GetRetryPeriod() time.Duration {
-	runner.stateLock.Lock()
-	defer runner.stateLock.Unlock()
+// This determines how often the Do will retry operations.
+func (Do *doWithRetry) GetRetryPeriod() time.Duration {
+	Do.stateLock.Lock()
+	defer Do.stateLock.Unlock()
 
-	return runner.retryPeriod
+	return Do.retryPeriod
 }
 
-// SetRetryPeriod configures the runner's retry period.
+// SetRetryPeriod configures the Do's retry period.
 //
-// This determines how long the Runner will wait between retries operations.
-func (runner *retryRunner) SetRetryPeriod(retryPeriod time.Duration) {
-	runner.stateLock.Lock()
-	defer runner.stateLock.Unlock()
+// This determines how long the Do will wait between retries operations.
+func (Do *doWithRetry) SetRetryPeriod(retryPeriod time.Duration) {
+	Do.stateLock.Lock()
+	defer Do.stateLock.Unlock()
 
-	runner.retryPeriod = retryPeriod
+	Do.retryPeriod = retryPeriod
 }
 
 // DoAction performs the specified action until it succeeds or times out.
@@ -70,11 +70,11 @@ func (runner *retryRunner) SetRetryPeriod(retryPeriod time.Duration) {
 // action is the action function to invoke
 //
 // Returns the error (if any) passed to Context.Fail or caused by the operation timing out.
-func (runner *retryRunner) DoAction(description string, timeout time.Duration, action ActionFunc) error {
+func (Do *doWithRetry) Action(description string, timeout time.Duration, action ActionFunc) error {
 	// Capture current configuration
-	runner.stateLock.Lock()
-	retryPeriod := runner.retryPeriod
-	runner.stateLock.Unlock()
+	Do.stateLock.Lock()
+	retryPeriod := Do.retryPeriod
+	Do.stateLock.Unlock()
 
 	waitTimeout := time.NewTimer(timeout)
 	defer waitTimeout.Stop()
@@ -84,11 +84,11 @@ func (runner *retryRunner) DoAction(description string, timeout time.Duration, a
 
 	log.Printf("%s - will attempt operation once every %d seconds until successful (timeout after %d seconds)...",
 		description,
-		runner.retryPeriod/time.Second,
+		Do.retryPeriod/time.Second,
 		timeout/time.Second,
 	)
 
-	context := newRunnerContext(description)
+	context := newDoContext(description)
 	for {
 		select {
 		case <-waitTimeout.C:
