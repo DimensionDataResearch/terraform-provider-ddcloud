@@ -53,8 +53,14 @@ dist: build
 	cd $(BIN_DIRECTORY)/darwin-amd64 && \
 		zip -9 ../$(DIST_ZIP_PREFIX)-darwin-amd64.zip $(EXECUTABLE_NAME)
 
-test: fmt
+testall: fmt
 	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/...
+
+test: testall
+	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/...
+
+testprovider: fmt
+	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/ddcloud
 
 # Run acceptance tests (since they're long-running, enable retry).
 testacc: fmt

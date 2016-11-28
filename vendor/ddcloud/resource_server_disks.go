@@ -15,6 +15,7 @@ const (
 	resourceKeyServerDiskUnitID = "scsi_unit_id"
 	resourceKeyServerDiskSizeGB = "size_gb"
 	resourceKeyServerDiskSpeed  = "speed"
+	// TODO: Consider adding "disk_type" property ("image" or "additional")
 )
 
 func schemaServerDisk() *schema.Schema {
@@ -530,4 +531,60 @@ func hashDisk(item interface{}) int {
 		diskData[resourceKeyServerDiskSizeGB].(int),
 		diskData[resourceKeyServerDiskSpeed].(string),
 	))
+}
+
+// Split an array of initially-configured disks by whether they represent image disks or additional disks.
+//
+// configuredDisks represents the disks currently specified in configuration.
+// actualDisks represents the disks in the server, as returned by CloudControl.
+//
+// This function only works right after the server has been deployed (i.e. no post-deployment disk changes (such as AddDiskToServer) have been made).
+func splitInitiallyConfiguredDisksByType(configuredDisks []compute.VirtualMachineDisk, actualDisks []compute.VirtualMachineDisk) (imageDisks []compute.VirtualMachineDisk, additionalDisks []compute.VirtualMachineDisk) {
+	actualDisksByUnitID := getDisksByUnitID(actualDisks)
+	for _, configuredDisk := range configuredDisks {
+		_, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
+		if ok {
+			// This is an image disk.
+			imageDisks = append(imageDisks, configuredDisk)
+		} else {
+			// This is an additional disk
+			additionalDisks = append(additionalDisks, configuredDisk)
+		}
+	}
+
+	return
+}
+
+// Split an array of configured server disks by the action to be performed (add, change, or remove).
+//
+// configuredDisks represents the disks currently specified in configuration.
+// actualDisks represents the disks in the server, as returned by CloudControl.
+func splitConfiguredDisksByAction(configuredDisks []compute.VirtualMachineDisk, actualDisks []compute.VirtualMachineDisk) (addDisks []compute.VirtualMachineDisk, changeDisks []compute.VirtualMachineDisk, removeDisks []compute.VirtualMachineDisk) {
+	actualDisksByUnitID := getDisksByUnitID(actualDisks)
+	for _, configuredDisk := range configuredDisks {
+		actualDisk, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
+
+		// We don't want to see this disk when we're looking for disks that don't appear in the configuration.
+		delete(actualDisksByUnitID, configuredDisk.SCSIUnitID)
+
+		if ok {
+			// Existing disk.
+			if configuredDisk.SizeGB != actualDisk.SizeGB {
+				changeDisks = append(changeDisks, *actualDisk)
+			} else if configuredDisk.Speed != actualDisk.Speed {
+				changeDisks = append(changeDisks, *actualDisk)
+			}
+		} else {
+			// New disk.
+			addDisks = append(addDisks, *actualDisk)
+		}
+	}
+
+	// By process of elimination, any remaining actual disks do not appear in the configuration and should be removed.
+	for unconfiguredDiskUnitID := range actualDisksByUnitID {
+		unconfiguredDisk := actualDisksByUnitID[unconfiguredDiskUnitID]
+		removeDisks = append(removeDisks, *unconfiguredDisk)
+	}
+
+	return
 }
