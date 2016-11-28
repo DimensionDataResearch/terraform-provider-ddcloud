@@ -14,7 +14,7 @@ If necessary, use the `depends_on` attribute to ensure that resources that relat
 ### Simple
 The following configuration permits TCP traffic over IPv4 on port 80 from any source address to the public address associated with a NAT rule.
 
-```
+```hcl
 resource "ddcloud_firewall_rule" "my_server_http_in" {
   name                = "test_vm.HTTP.Inbound"
   placement           = "first"
@@ -34,7 +34,7 @@ resource "ddcloud_firewall_rule" "my_server_http_in" {
 ### Port list
 The following configuration permits TCP traffic over IPv4 on ports 80 or 443 from any source address to the public address associated with a NAT rule.
 
-```
+```hcl
 resource "ddcloud_firewall_rule" "my_server_http_in" {
   name                  = "test_vm.HTTP.Inbound"
   placement             = "first"
@@ -67,7 +67,7 @@ resource "ddcloud_port_list" "web" {
 ### Address list
 The following configuration permits TCP traffic over IPv4 on port 80 from any source address to destination addresses in an address list.
 
-```
+```hcl
 resource "ddcloud_firewall_rule" "web_servers_http_in" {
   name                     = "test_vm.HTTP.Inbound"
   placement                = "first"
