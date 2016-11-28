@@ -385,6 +385,8 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 						response.ToError("Unexpected result '%s' when resizing server disk '%s' for server '%s'.", response.Result, diskID, serverID),
 					)
 				}
+
+				asyncLock.Release()
 			})
 			if err != nil {
 				return err

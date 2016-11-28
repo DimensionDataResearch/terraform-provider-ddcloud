@@ -184,40 +184,6 @@ func hashServerNetworkAdapter(value interface{}) int {
 	))
 }
 
-// Stop a server.
-func serverShutdown(providerState *providerState, serverID string) error {
-	providerSettings := providerState.Settings()
-	apiClient := providerState.Client()
-
-	if !providerSettings.AllowServerReboots {
-		return fmt.Errorf("Cannot shut down server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
-	}
-
-	operationDescription := fmt.Sprintf("Shut down server '%s'", serverID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock("Shut down server '%s'", serverID)
-		defer asyncLock.Release() // Released when the current attempt is complete.
-
-		shutdownError := apiClient.ShutdownServer(serverID)
-		if compute.IsResourceBusyError(shutdownError) {
-			context.Retry()
-		} else if shutdownError != nil {
-			context.Fail(shutdownError)
-		}
-	})
-	if err != nil {
-		return err
-	}
-
-	_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shut down server", serverShutdownTimeout)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Start a server.
 func serverStart(providerState *providerState, serverID string) error {
 	providerSettings := providerState.Settings()
@@ -239,12 +205,50 @@ func serverStart(providerState *providerState, serverID string) error {
 		} else if startError != nil {
 			context.Fail(startError)
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
 	}
 
 	_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Stop a server.
+func serverShutdown(providerState *providerState, serverID string) error {
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	if !providerSettings.AllowServerReboots {
+		return fmt.Errorf("Cannot shut down server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
+	}
+
+	operationDescription := fmt.Sprintf("Shut down server '%s'", serverID)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Shut down server '%s'", serverID)
+		defer asyncLock.Release() // Released when the current attempt is complete.
+
+		shutdownError := apiClient.ShutdownServer(serverID)
+		if compute.IsResourceBusyError(shutdownError) {
+			context.Retry()
+		} else if shutdownError != nil {
+			context.Fail(shutdownError)
+		}
+
+		asyncLock.Release()
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shut down server", serverShutdownTimeout)
 	if err != nil {
 		return err
 	}

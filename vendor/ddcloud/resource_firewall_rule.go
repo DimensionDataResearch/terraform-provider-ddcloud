@@ -247,7 +247,7 @@ func resourceFirewallRuleCreate(data *schema.ResourceData, provider interface{})
 	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-		defer asyncLock.Release() // Released at the end of the current attempt.
+		defer asyncLock.Release()
 
 		ruleID, createError = apiClient.CreateFirewallRule(*configuration)
 		if createError != nil {
@@ -257,6 +257,8 @@ func resourceFirewallRuleCreate(data *schema.ResourceData, provider interface{})
 				context.Fail(createError)
 			}
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
@@ -351,6 +353,8 @@ func resourceFirewallRuleDelete(data *schema.ResourceData, provider interface{})
 				context.Fail(deleteError)
 			}
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
