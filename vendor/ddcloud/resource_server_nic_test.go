@@ -14,53 +14,39 @@ func testAccDDCloudServerNetworkAdapterPrimaryWithIPV4Address(name string, descr
 			region		= "AU"
 			allow_server_reboot = true
 		}
-
 		variable "vlan_network" { default = "%s" }
-
 		resource "ddcloud_networkdomain" "acc_test_domain" {
 			name		= "acc-test-networkdomain"
 			description	= "Network domain for Terraform acceptance test."
 			datacenter	= "AU10"
 		}
-
 		resource "ddcloud_vlan" "acc_test_vlan" {
 			name				= "acc-test-vlan"
 			description 		= "VLAN for Terraform acceptance test."
-
 			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
-
 			ipv4_base_address	= "${element(split("/", var.vlan_network), 0)}"
 			ipv4_prefix_size	= "${element(split("/", var.vlan_network), 1)}"
 			depends_on = ["ddcloud_networkdomain.acc_test_domain"]
 		}
-
 		resource "ddcloud_server" "acc_test_server" {
 			name				 = "%s"
 			description 		 = "%s"
 			admin_password		 = "snausages!"
-
 			memory_gb			 = 8
-
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
-
 			os_image_name		 = "CentOS 7 64-bit 2 CPU"
-
 			auto_start			 = false
-
 			# Image disk
 			disk {
 				scsi_unit_id     = 0
 				size_gb          = 10
 				speed            = "STANDARD"
 			}
-
 			network_adapter {
 				ipv4 = "${cidrhost(var.vlan_network, 20)}"
 			}
-
 			depends_on = ["ddcloud_vlan.acc_test_vlan"]
 		}
 	`, vlanBaseIPAddress, name, description)
