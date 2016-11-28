@@ -103,6 +103,9 @@ func resourceServerNICCreate(data *schema.ResourceData, provider interface{}) er
 	} else {
 		nicID, err = apiClient.AddNicToServer(serverID, ipv4Address, vlanID)
 	}
+	if err != nil {
+		return err
+	}
 
 	// Operation initiated; we no longer need this lock.
 	asyncLock.Release()
@@ -313,6 +316,8 @@ func resourceServerNICDelete(data *schema.ResourceData, provider interface{}) er
 				context.Fail(removeError)
 			}
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
@@ -420,6 +425,8 @@ func serverShutdown(providerState *providerState, serverID string) error {
 		} else if shutdownError != nil {
 			context.Fail(shutdownError)
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
@@ -454,6 +461,8 @@ func serverStart(providerState *providerState, serverID string) error {
 		} else if startError != nil {
 			context.Fail(startError)
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err

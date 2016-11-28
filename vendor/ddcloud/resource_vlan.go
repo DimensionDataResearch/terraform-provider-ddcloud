@@ -115,6 +115,8 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 				context.Fail(deployError)
 			}
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
@@ -214,6 +216,8 @@ func resourceVLANUpdate(data *schema.ResourceData, provider interface{}) error {
 				context.Fail(editError)
 			}
 		}
+
+		asyncLock.Release()
 	})
 }
 
@@ -242,6 +246,8 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 				context.Fail(deleteError)
 			}
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
@@ -249,6 +255,5 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 
 	log.Printf("VLAN '%s' is being deleted...", id)
 
-	// TODO: Handle RESOURCE_BUSY response (retry?)
 	return apiClient.WaitForDelete(compute.ResourceTypeVLAN, id, resourceDeleteTimeoutServer)
 }

@@ -106,12 +106,12 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 			context.Fail(createError)
 		}
 
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-		defer asyncLock.Release() // Released at the end of the current attempt.
-
 		if len(freeIPs) == 0 {
 			log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
+
+			// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+			defer asyncLock.Release() // Released at the end of the current attempt.
 
 			var blockID string
 			blockID, createError = apiClient.AddPublicIPBlock(networkDomainID)
@@ -120,10 +120,12 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 					context.Retry()
 				} else {
 					context.Fail(createError)
-
-					return
 				}
+
+				return
 			}
+
+			asyncLock.Release()
 
 			var block *compute.PublicIPBlock
 			block, createError = apiClient.GetPublicIPBlock(blockID)
@@ -144,6 +146,10 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 			log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').", block.ID, block.Size, block.BaseIP)
 		}
 
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
 		natRuleID, createError = apiClient.AddNATRule(networkDomainID, privateIP, publicIP)
 		if createError != nil {
 			if compute.IsResourceBusyError(createError) {
@@ -152,6 +158,8 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 				context.Fail(createError)
 			}
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
@@ -238,6 +246,8 @@ func resourceNATDelete(data *schema.ResourceData, provider interface{}) error {
 				context.Fail(err)
 			}
 		}
+
+		asyncLock.Release()
 	})
 }
 

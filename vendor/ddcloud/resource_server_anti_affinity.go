@@ -2,10 +2,12 @@ package ddcloud
 
 import (
 	"fmt"
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"time"
+
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (
@@ -63,10 +65,11 @@ func resourceServerAntiAffinityRuleCreate(data *schema.ResourceData, provider in
 
 	log.Printf("Create server anti-affinity rule for servers '%s' and '%s'.", server1ID, server2ID)
 
-	apiClient := provider.(*providerState).Client()
+	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
 
 	// Capture server details
-
 	server1, err := apiClient.GetServer(server1ID)
 	if err != nil {
 		return err
@@ -90,8 +93,25 @@ func resourceServerAntiAffinityRuleCreate(data *schema.ResourceData, provider in
 
 	networkDomainID := server1.Network.NetworkDomainID
 
-	// TODO: Handle RESOURCE_BUSY response (retry?)
-	ruleID, err := apiClient.CreateServerAntiAffinityRule(server1ID, server2ID)
+	var (
+		ruleID      string
+		createError error
+	)
+	operationDescription := fmt.Sprintf("Create anti-affinity rule between servers '%s' and '%s'", server1ID, server2ID)
+	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Create server anti-affinity rule '%s'", networkDomainID)
+		defer asyncLock.Release()
+
+		ruleID, createError = apiClient.CreateServerAntiAffinityRule(server1ID, server2ID)
+		if compute.IsResourceBusyError(createError) {
+			context.Retry()
+		} else if createError != nil {
+			context.Fail(createError)
+		}
+
+		asyncLock.Release()
+	})
 	if err != nil {
 		return err
 	}
@@ -191,8 +211,25 @@ func resourceServerAntiAffinityRuleDelete(data *schema.ResourceData, provider in
 
 	log.Printf("Delete server anti-affinity rule '%s' in network domain '%s'.", ruleID, networkDomainID)
 
-	apiClient := provider.(*providerState).Client()
-	err := apiClient.DeleteServerAntiAffinityRule(ruleID, networkDomainID)
+	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	operationDescription := fmt.Sprintf("Delete anti-affinity rule '%s'", ruleID)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Delete server anti-affinity rule '%s'", networkDomainID)
+		defer asyncLock.Release()
+
+		deleteError := apiClient.DeleteServerAntiAffinityRule(ruleID, networkDomainID)
+		if compute.IsResourceBusyError(deleteError) {
+			context.Retry()
+		} else if deleteError != nil {
+			context.Fail(deleteError)
+		}
+
+		asyncLock.Release()
+	})
 	if err != nil {
 		return err
 	}

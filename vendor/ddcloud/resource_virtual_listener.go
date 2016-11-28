@@ -205,10 +205,6 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 			return
 		}
 
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-		defer asyncLock.Release() // Released at the end of the current attempt.
-
 		if len(listenerIPAddress) == 0 {
 			var freeIPs map[string]string
 			freeIPs, err = apiClient.GetAvailablePublicIPAddresses(networkDomainID)
@@ -218,6 +214,10 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 
 			if len(freeIPs) == 0 {
 				log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
+
+				// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+				defer asyncLock.Release() // Released at the end of the current attempt.
 
 				var blockID string
 				blockID, err = apiClient.AddPublicIPBlock(networkDomainID)
@@ -230,6 +230,8 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 
 					return
 				}
+
+				asyncLock.Release()
 
 				var block *compute.PublicIPBlock
 				block, err = apiClient.GetPublicIPBlock(blockID)
@@ -251,6 +253,11 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 			}
 
 		}
+
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
 		virtualListenerID, err = apiClient.CreateVirtualListener(compute.NewVirtualListenerConfiguration{
 			Name:                   name,
 			Description:            description,
@@ -275,6 +282,8 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 				context.Fail(err)
 			}
 		}
+
+		asyncLock.Release()
 	})
 	if operationError != nil {
 		return operationError
@@ -432,5 +441,7 @@ func resourceVirtualListenerDelete(data *schema.ResourceData, provider interface
 				context.Fail(err)
 			}
 		}
+
+		asyncLock.Release()
 	})
 }
