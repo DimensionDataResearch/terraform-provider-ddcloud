@@ -216,9 +216,6 @@ type providerState struct {
 	// Global lock for initiating asynchronous operations.
 	asyncOperationLock *sync.Mutex
 
-	// Lock per server (prevent parallel provisioning operations for a given ddcloud_server resource).
-	serverLocks map[string]*sync.Mutex
-
 	// Provider-global retry executor for asynchronous operations.
 	retry retry.Do
 }
@@ -229,7 +226,6 @@ func newProvider(client *compute.Client, settings *ProviderSettings) *providerSt
 		settings:           settings,
 		stateLock:          &sync.Mutex{},
 		asyncOperationLock: &sync.Mutex{},
-		serverLocks:        make(map[string]*sync.Mutex),
 		retry:              retry.NewDo(settings.RetryDelay),
 	}
 
@@ -252,6 +248,8 @@ func (state *providerState) Retry() retry.Do {
 }
 
 // AcquireAsyncOperationLock acquires (locks) the global lock used to synchronise initiation of global operations.
+//
+// CloudControl exhibits weird behaviour if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 func (state *providerState) AcquireAsyncOperationLock(ownerNameOrFormat string, formatArgs ...interface{}) *asyncOperationLock {
 	asyncLock := &asyncOperationLock{
 		ownerName:   fmt.Sprintf(ownerNameOrFormat, formatArgs...),
@@ -281,42 +279,4 @@ func (asyncLock *asyncOperationLock) Release() {
 		asyncLock.lock.Unlock()
 		log.Printf("%s acquired global asynchronous operation lock.", asyncLock.ownerName)
 	})
-}
-
-// GetServerLock retrieves the global lock for the specified server.
-func (state *providerState) GetServerLock(id string, ownerNameOrFormat string, formatArgs ...interface{}) *providerServerLock {
-	state.stateLock.Lock()
-	defer state.stateLock.Unlock()
-
-	lock, ok := state.serverLocks[id]
-	if !ok {
-		lock = &sync.Mutex{}
-		state.serverLocks[id] = lock
-	}
-
-	return &providerServerLock{
-		serverID:  id,
-		ownerName: fmt.Sprintf(ownerNameOrFormat, formatArgs...),
-		lock:      lock,
-	}
-}
-
-type providerServerLock struct {
-	serverID  string
-	ownerName string
-	lock      *sync.Mutex
-}
-
-// Acquire the server lock.
-func (serverLock *providerServerLock) Lock() {
-	log.Printf("%s acquiring lock for server '%s'...", serverLock.ownerName, serverLock.serverID)
-	serverLock.lock.Lock()
-	log.Printf("%s acquired lock for server '%s'.", serverLock.ownerName, serverLock.serverID)
-}
-
-// Release the server lock.
-func (serverLock *providerServerLock) Unlock() {
-	log.Printf("%s releasing lock for server '%s'...", serverLock.ownerName, serverLock.serverID)
-	serverLock.lock.Unlock()
-	log.Printf("%s released lock for server '%s'.", serverLock.ownerName, serverLock.serverID)
 }

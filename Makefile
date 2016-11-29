@@ -5,13 +5,19 @@ BIN_DIRECTORY   = _bin
 EXECUTABLE_NAME = terraform-provider-ddcloud
 DIST_ZIP_PREFIX = $(EXECUTABLE_NAME)-v$(VERSION)
 
+REPO_BASE     = github.com/DimensionDataResearch
+REPO_ROOT     = $(REPO_BASE)/dd-cloud-compute-terraform
+VENDOR_ROOT   = $(REPO_ROOT)/vendor
+PROVIDER_ROOT = $(VENDOR_ROOT)/ddcloud
+
 default: fmt build test
 
 fmt:
-	go fmt github.com/DimensionDataResearch/dd-cloud-compute-terraform/...
+	go fmt $(REPO_ROOT)/...
 
 clean:
 	rm -rf $(BIN_DIRECTORY) $(VERSION_INFO_FILE)
+	go clean $(REPO_ROOT)/...
 
 # Peform a development (current-platform-only) build.
 dev: version fmt
@@ -56,19 +62,19 @@ dist: build
 test: fmt testprovider testmodels testmaps testcompute
 
 testcompute:
-	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/github.com/DimensionDataResearch/go-dd-cloud-compute/...
+	go test -v $(VENDOR_ROOT)/$(REPO_BASE)/go-dd-cloud-compute/...
 
 testprovider: fmt
-	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/ddcloud -run=Test${TEST}
+	go test -v $(PROVIDER_ROOT) -run=Test${TEST}
 
 testmodels: fmt
-	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/models -run=Test${TEST}
+	go test -v $(REPO_ROOT)/models -run=Test${TEST}
 
 testmaps: fmt
-	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/maps -run=Test${TEST}
+	go test -v $(REPO_ROOT)/maps -run=Test${TEST}
 
 testall: 
-	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/...
+	go test -v $(REPO_ROOT)/...
 
 # Run acceptance tests (since they're long-running, enable retry).
 testacc: fmt
@@ -77,7 +83,7 @@ testacc: fmt
 	MCP_EXTENDED_LOGGING=1 \
 	MCP_MAX_RETRY=6 MCP_RETRY_DELAY=10 \
 		go test -v \
-		github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/ddcloud \
+		$(PROVIDER_ROOT) \
 		-timeout 120m \
 		-run=TestAcc${TEST}
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -337,6 +338,8 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		return fmt.Errorf("Must specify either os_image_id, os_image_name, customer_image_id, or customer_image_name.")
 	}
 
+	// TODO: Apply server disk speeds from configuration to initial deployment configuration.
+
 	// Memory and CPU
 	memoryGB := propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB, false)
 	if memoryGB != nil {
@@ -523,10 +526,6 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		return nil
 	}
 
-	serverLock := providerState.GetServerLock(serverID, "resourceServerUpdate(id = '%s')", serverID)
-	serverLock.Lock()
-	defer serverLock.Unlock()
-
 	data.Partial(true)
 
 	propertyHelper := propertyHelper(data)
@@ -650,66 +649,51 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 // Delete a server resource.
 func resourceServerDelete(data *schema.ResourceData, provider interface{}) error {
-	var id, name, networkDomainID string
-
-	id = data.Id()
-	name = data.Get(resourceKeyServerName).(string)
-	networkDomainID = data.Get(resourceKeyServerNetworkDomainID).(string)
+	id := data.Id()
+	name := data.Get(resourceKeyServerName).(string)
+	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
 
 	log.Printf("Delete server '%s' ('%s') in network domain '%s'.", id, name, networkDomainID)
 
 	providerState := provider.(*providerState)
-
+	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
+
 	server, err := apiClient.GetServer(id)
 	if err != nil {
 		return err
 	}
-
 	if server == nil {
 		log.Printf("Server '%s' not found; will treat the server as having already been deleted.", id)
 
 		return nil
 	}
 
-	serverLock := providerState.GetServerLock(id, "resourceServerDelete(id = '%s')", id)
-	serverLock.Lock()
-	defer serverLock.Unlock()
-
 	if server.Started {
 		log.Printf("Server '%s' is currently running. The server will be powered off.", id)
-
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
-		defer asyncLock.Release()
-
-		err = apiClient.PowerOffServer(id)
-		if err != nil {
-			return err
-		}
-
-		// Operation initiated; we no longer need this lock.
-		asyncLock.Release()
-
-		_, err = apiClient.WaitForChange(compute.ResourceTypeServer, id, "Power off server", serverShutdownTimeout)
+		err = serverPowerOff(providerState, id)
 		if err != nil {
 			return err
 		}
 	}
 
-	log.Printf("Server '%s' is being deleted...", id)
+	operationDescription := fmt.Sprintf("Delete server '%s'", id)
+	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
 
-	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-	asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
-	defer asyncLock.Release()
-
-	err = apiClient.DeleteServer(id)
+		deleteError := apiClient.DeleteServer(id)
+		if compute.IsResourceBusyError(deleteError) {
+			context.Retry()
+		} else if deleteError != nil {
+			context.Fail(deleteError)
+		}
+	})
 	if err != nil {
 		return err
 	}
 
-	// Operation initiated; we no longer need this lock.
-	asyncLock.Release()
+	log.Printf("Server '%s' is being deleted...", id)
 
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
 }
@@ -736,4 +720,109 @@ func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, pr
 	}
 
 	return
+}
+
+// Start a server.
+//
+// Respects providerSettings.AllowServerReboots.
+func serverStart(providerState *providerState, serverID string) error {
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	if !providerSettings.AllowServerReboots {
+		return fmt.Errorf("Cannot start server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
+	}
+
+	operationDescription := fmt.Sprintf("Start server '%s'", serverID)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
+		startError := apiClient.StartServer(serverID)
+		if compute.IsResourceBusyError(startError) {
+			context.Retry()
+		} else if startError != nil {
+			context.Fail(startError)
+		}
+
+		asyncLock.Release()
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Start server", serverShutdownTimeout)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Gracefully stop a server.
+//
+// Respects providerSettings.AllowServerReboots.
+func serverShutdown(providerState *providerState, serverID string) error {
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	if !providerSettings.AllowServerReboots {
+		return fmt.Errorf("Cannot shut down server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
+	}
+
+	operationDescription := fmt.Sprintf("Shut down server '%s'", serverID)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
+		shutdownError := apiClient.ShutdownServer(serverID)
+		if compute.IsResourceBusyError(shutdownError) {
+			context.Retry()
+		} else if shutdownError != nil {
+			context.Fail(shutdownError)
+		}
+
+		asyncLock.Release()
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Shut down server", serverShutdownTimeout)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Forcefully stop a server.
+//
+// Does not respect providerSettings.AllowServerReboots.
+func serverPowerOff(providerState *providerState, serverID string) error {
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	operationDescription := fmt.Sprintf("Power off server '%s'", serverID)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
+		shutdownError := apiClient.ShutdownServer(serverID)
+		if compute.IsResourceBusyError(shutdownError) {
+			context.Retry()
+		} else if shutdownError != nil {
+			context.Fail(shutdownError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = apiClient.WaitForChange(compute.ResourceTypeServer, serverID, "Power off server", serverShutdownTimeout)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
