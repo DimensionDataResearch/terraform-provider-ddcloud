@@ -1,21 +1,17 @@
-package ddcloud
+package models
 
 import (
 	"testing"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/assert"
-	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 )
 
 // Unit test - splitInitiallyConfiguredDisksByType with no configured disks.
 func TestSplitInitiallyConfiguredDisksEmpty(test *testing.T) {
-	configuredDisks := models.ServerDisks{}
-	actualDisks := models.ServerDisks{}
+	configuredDisks := ServerDisks{}
+	actualDisks := ServerDisks{}
 
-	imageDisks, additionalDisks := splitInitiallyConfiguredDisksByType(
-		configuredDisks,
-		actualDisks,
-	)
+	imageDisks, additionalDisks := configuredDisks.SplitByInitialType(actualDisks)
 
 	assert := assert.ForTest(test)
 	assert.EqualsInt("ImageDisks.Length", 0, len(imageDisks))
@@ -24,28 +20,25 @@ func TestSplitInitiallyConfiguredDisksEmpty(test *testing.T) {
 
 // Unit test - splitInitiallyConfiguredDisksByType with both image and additional disks.
 func TestSplitInitiallyConfiguredDisksBoth(test *testing.T) {
-	configuredDisks := models.ServerDisks{
-		models.ServerDisk{
+	configuredDisks := ServerDisks{
+		ServerDisk{
 			ID:         nil,
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		models.ServerDisk{
+		ServerDisk{
 			ID:         nil,
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := models.ServerDisks{
+	actualDisks := ServerDisks{
 		configuredDisks[0],
 	}
 
-	imageDisks, additionalDisks := splitInitiallyConfiguredDisksByType(
-		configuredDisks,
-		actualDisks,
-	)
+	imageDisks, additionalDisks := configuredDisks.SplitByInitialType(actualDisks)
 
 	assert := assert.ForTest(test)
 	assert.EqualsInt("ImageDisks.Length", 1, len(imageDisks))
@@ -57,13 +50,13 @@ func TestSplitInitiallyConfiguredDisksBoth(test *testing.T) {
 
 // Unit test - splitInitiallyConfiguredDisksByType with only image disks.
 func TestSplitInitiallyConfiguredDisksOnlyImageDisks(test *testing.T) {
-	configuredDisks := models.ServerDisks{
-		models.ServerDisk{
+	configuredDisks := ServerDisks{
+		ServerDisk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		models.ServerDisk{
+		ServerDisk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
@@ -73,10 +66,7 @@ func TestSplitInitiallyConfiguredDisksOnlyImageDisks(test *testing.T) {
 	// actualDisks = configuredDisks
 	actualDisks := configuredDisks[:]
 
-	imageDisks, additionalDisks := splitInitiallyConfiguredDisksByType(
-		configuredDisks,
-		actualDisks,
-	)
+	imageDisks, additionalDisks := configuredDisks.SplitByInitialType(actualDisks)
 
 	assert := assert.ForTest(test)
 	assert.EqualsInt("ImageDisks.Length", 2, len(imageDisks))
@@ -85,24 +75,21 @@ func TestSplitInitiallyConfiguredDisksOnlyImageDisks(test *testing.T) {
 
 // Unit test - splitInitiallyConfiguredDisksByType with only additional disks.
 func TestSplitInitiallyConfiguredDisksOnlyAdditionalDisks(test *testing.T) {
-	configuredDisks := models.ServerDisks{
-		models.ServerDisk{
+	configuredDisks := ServerDisks{
+		ServerDisk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		models.ServerDisk{
+		ServerDisk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := models.ServerDisks{}
+	actualDisks := ServerDisks{}
 
-	imageDisks, additionalDisks := splitInitiallyConfiguredDisksByType(
-		configuredDisks,
-		actualDisks,
-	)
+	imageDisks, additionalDisks := configuredDisks.SplitByInitialType(actualDisks)
 
 	assert := assert.ForTest(test)
 	assert.EqualsInt("ImageDisks.Length", 0, len(imageDisks))
@@ -111,13 +98,10 @@ func TestSplitInitiallyConfiguredDisksOnlyAdditionalDisks(test *testing.T) {
 
 // Unit test - splitConfiguredDisksByAction with no configured disks.
 func TestSplitConfiguredDisksByActionEmpty(test *testing.T) {
-	configuredDisks := models.ServerDisks{}
-	actualDisks := models.ServerDisks{}
+	configuredDisks := ServerDisks{}
+	actualDisks := ServerDisks{}
 
-	addDisks, changeDisks, removeDisks := splitConfiguredDisksByAction(
-		configuredDisks,
-		actualDisks,
-	)
+	addDisks, changeDisks, removeDisks := configuredDisks.SplitByAction(actualDisks)
 
 	assert := assert.ForTest(test)
 	assert.EqualsInt("AddDisks.Length", 0, len(addDisks))
@@ -127,24 +111,21 @@ func TestSplitConfiguredDisksByActionEmpty(test *testing.T) {
 
 // Unit test - splitConfiguredDisksByAction with 2 new disks.
 func TestSplitConfiguredDisksByActionNew2(test *testing.T) {
-	configuredDisks := models.ServerDisks{
-		models.ServerDisk{
+	configuredDisks := ServerDisks{
+		ServerDisk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		models.ServerDisk{
+		ServerDisk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := models.ServerDisks{}
+	actualDisks := ServerDisks{}
 
-	addDisks, changeDisks, removeDisks := splitConfiguredDisksByAction(
-		configuredDisks,
-		actualDisks,
-	)
+	addDisks, changeDisks, removeDisks := configuredDisks.SplitByAction(actualDisks)
 
 	assert := assert.ForTest(test)
 	assert.EqualsInt("AddDisks.Length", 2, len(addDisks))
@@ -154,50 +135,47 @@ func TestSplitConfiguredDisksByActionNew2(test *testing.T) {
 
 // Unit test - splitConfiguredDisksByAction with 2 new disks.
 func TestSplitConfiguredDisksByActionNew1Changed2(test *testing.T) {
-	configuredDisks := models.ServerDisks{
-		models.ServerDisk{
+	configuredDisks := ServerDisks{
+		ServerDisk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		models.ServerDisk{
+		ServerDisk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
-		models.ServerDisk{
+		ServerDisk{
 			SCSIUnitID: 2,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
-		models.ServerDisk{
+		ServerDisk{
 			SCSIUnitID: 3,
 			SizeGB:     10,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := models.ServerDisks{
-		models.ServerDisk{
+	actualDisks := ServerDisks{
+		ServerDisk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		models.ServerDisk{
+		ServerDisk{
 			SCSIUnitID: 1,
 			SizeGB:     50,
 			Speed:      "STANDARD",
 		},
-		models.ServerDisk{
+		ServerDisk{
 			SCSIUnitID: 2,
 			SizeGB:     20,
 			Speed:      "HIGHPERFORMANCE",
 		},
 	}
 
-	addDisks, changeDisks, removeDisks := splitConfiguredDisksByAction(
-		configuredDisks,
-		actualDisks,
-	)
+	addDisks, changeDisks, removeDisks := configuredDisks.SplitByAction(actualDisks)
 
 	assert := assert.ForTest(test)
 	assert.EqualsInt("AddDisks.Length", 1, len(addDisks))

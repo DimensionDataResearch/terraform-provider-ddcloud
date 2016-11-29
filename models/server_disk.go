@@ -22,41 +22,6 @@ const (
 	ServerDiskActionDelete
 )
 
-// ServerDisks represents an array of ServerDisk structures.
-type ServerDisks []ServerDisk
-
-// ToVirtualMachineDisks converts the ServerDisks to an array of compute.VirtualMachineDisk.
-func (disks ServerDisks) ToVirtualMachineDisks() []compute.VirtualMachineDisk {
-	virtualMachineDisks := make([]compute.VirtualMachineDisk, len(disks))
-	for index, disk := range disks {
-		virtualMachineDisks[index] = disk.ToVirtualMachineDisk()
-	}
-
-	return virtualMachineDisks
-}
-
-// ToMaps converts the ServerDisks to an array of maps.
-func (disks ServerDisks) ToMaps() []map[string]interface{} {
-	diskPropertyList := make([]map[string]interface{}, len(disks))
-	for index, disk := range disks {
-		diskPropertyList[index] = disk.ToMap()
-	}
-
-	return diskPropertyList
-}
-
-// ByUnitID creates a map of ServerDisk keyed by SCSI unit Id.
-func (disks ServerDisks) ByUnitID() map[int]ServerDisk {
-	disksByUnitID := make(map[int]ServerDisk)
-	for _, disk := range disks {
-		disksByUnitID[disk.SCSIUnitID] = disk
-	}
-
-	return disksByUnitID
-}
-
-// TODO: Consider implementing ServerDisks.CalculateActions([]compute.VirtualMachineDisk)
-
 // ServerDisk represents the Terraform configuration for a ddcloud_server virtual_disk.
 type ServerDisk struct {
 	ID         *string
