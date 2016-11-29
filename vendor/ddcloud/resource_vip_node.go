@@ -2,9 +2,10 @@ package ddcloud
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
-	"log"
 )
 
 const (
@@ -13,7 +14,8 @@ const (
 	resourceKeyVIPNodeIPv4Address         = "ipv4_address"
 	resourceKeyVIPNodeIPv6Address         = "ipv6_address"
 	resourceKeyVIPNodeStatus              = "status"
-	resourceKeyVIPNodeHealthMonitorID     = "health_monitor"
+	resourceKeyVIPNodeHealthMonitorName   = "health_monitor"
+	resourceKeyVIPNodeHealthMonitorID     = "health_monitor_id"
 	resourceKeyVIPNodeConnectionLimit     = "connection_limit"
 	resourceKeyVIPNodeConnectionRateLimit = "connection_rate_limit"
 	resourceKeyVIPNodeNetworkDomainID     = "networkdomain"
@@ -65,10 +67,16 @@ func resourceVIPNode() *schema.Resource {
 				Description:  "The VIP node status",
 				ValidateFunc: vipStatusValidator("VIP node"),
 			},
-			resourceKeyVIPNodeHealthMonitorID: &schema.Schema{
+			resourceKeyVIPNodeHealthMonitorName: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "",
+				Default:     "CCDEFAULT.Icmp",
+				Description: "The Name of the VIP node's associated health monitor (if any)",
+			},
+			resourceKeyVIPNodeHealthMonitorID: &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Optional:    true,
 				Description: "The Id of the VIP node's associated health monitor (if any)",
 			},
 			resourceKeyVIPNodeConnectionLimit: &schema.Schema{
@@ -121,18 +129,32 @@ func resourceVIPNodeCreate(data *schema.ResourceData, provider interface{}) erro
 	networkDomainID := data.Get(resourceKeyVIPNodeNetworkDomainID).(string)
 	name := data.Get(resourceKeyVIPNodeName).(string)
 	description := data.Get(resourceKeyVIPNodeDescription).(string)
-
-	log.Printf("Create VIP node '%s' ('%s') in network domain '%s'.", name, description, networkDomainID)
-
+	healthMonitorName := data.Get(resourceKeyVIPNodeHealthMonitorName).(string)
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
+	log.Printf("Create VIP node '%s' ('%s') in network domain '%s'.", name, description, networkDomainID)
+	healthMonitorID := ""
+	if len(healthMonitorName) > 0 {
+		log.Printf("Find Healt Monitor ID by Name '%s' in network domain '%s'.", healthMonitorName, networkDomainID)
+		page := compute.DefaultPaging()
+		page.PageSize = 50
+		healthMonitors, err := apiClient.ListDefaultHealthMonitors(networkDomainID, page)
+		if err != nil {
+			return err
+		}
+		for _, healthMonitor := range healthMonitors.Items {
+			if healthMonitor.Name == healthMonitorName {
+				healthMonitorID = healthMonitor.ID
+			}
+		}
+	}
 	vipNodeID, err := apiClient.CreateVIPNode(compute.NewVIPNodeConfiguration{
 		Name:                name,
 		Description:         description,
 		Status:              data.Get(resourceKeyVIPNodeStatus).(string),
 		IPv4Address:         data.Get(resourceKeyVIPNodeIPv4Address).(string),
 		IPv6Address:         data.Get(resourceKeyVIPNodeIPv6Address).(string),
-		HealthMonitorID:     data.Get(resourceKeyVIPNodeHealthMonitorID).(string),
+		HealthMonitorID:     healthMonitorID,
 		ConnectionLimit:     data.Get(resourceKeyVIPNodeConnectionLimit).(int),
 		ConnectionRateLimit: data.Get(resourceKeyVIPNodeConnectionRateLimit).(int),
 		NetworkDomainID:     networkDomainID,
@@ -156,7 +178,7 @@ func resourceVIPNodeCreate(data *schema.ResourceData, provider interface{}) erro
 
 	data.Set(resourceKeyVIPNodeDescription, vipNode.Description)
 	data.Set(resourceKeyVIPNodeStatus, vipNode.Status)
-	data.Set(resourceKeyVIPNodeHealthMonitorID, vipNode.HealthMonitorID)
+	data.Set(resourceKeyVIPNodeHealthMonitorID, healthMonitorID)
 	data.Set(resourceKeyVIPNodeConnectionLimit, vipNode.ConnectionLimit)
 	data.Set(resourceKeyVIPNodeConnectionRateLimit, vipNode.ConnectionRateLimit)
 
@@ -209,9 +231,10 @@ func resourceVIPNodeRead(data *schema.ResourceData, provider interface{}) error 
 func resourceVIPNodeUpdate(data *schema.ResourceData, provider interface{}) error {
 	id := data.Id()
 	log.Printf("Update VIP node '%s'...", id)
-
+	networkDomainID := data.Get(resourceKeyVIPNodeNetworkDomainID).(string)
 	configuration := &compute.EditVIPNodeConfiguration{}
-
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
 	propertyHelper := propertyHelper(data)
 	if data.HasChange(resourceKeyVIPNodeDescription) {
 		configuration.Description = propertyHelper.GetOptionalString(resourceKeyVIPNodeDescription, true)
@@ -221,20 +244,32 @@ func resourceVIPNodeUpdate(data *schema.ResourceData, provider interface{}) erro
 		configuration.Status = propertyHelper.GetOptionalString(resourceKeyVIPNodeStatus, false)
 	}
 
-	if data.HasChange(resourceKeyVIPNodeHealthMonitorID) {
-		configuration.HealthMonitorID = propertyHelper.GetOptionalString(resourceKeyVIPNodeHealthMonitorID, true)
+	if data.HasChange(resourceKeyVIPNodeHealthMonitorName) {
+		healthMonitorName := propertyHelper.GetOptionalString(resourceKeyVIPNodeHealthMonitorName, false)
+		healthMonitorID := ""
+		if len(*healthMonitorName) > 0 {
+			page := compute.DefaultPaging()
+			page.PageSize = 50
+			healthMonitors, err := apiClient.ListDefaultHealthMonitors(networkDomainID, page)
+			if err != nil {
+				return err
+			}
+			for _, healthMonitor := range healthMonitors.Items {
+				if healthMonitor.Name == *healthMonitorName {
+					healthMonitorID = healthMonitor.ID
+				}
+			}
+		}
+		configuration.HealthMonitorID = propertyHelper.GetOptionalString(healthMonitorID, true)
 	}
 
 	if data.HasChange(resourceKeyVIPNodeConnectionLimit) {
 		configuration.ConnectionLimit = propertyHelper.GetOptionalInt(resourceKeyVIPNodeConnectionLimit, false)
 	}
 
-	if data.HasChange(resourceKeyVIPNodeHealthMonitorID) {
+	if data.HasChange(resourceKeyVIPNodeConnectionRateLimit) {
 		configuration.ConnectionRateLimit = propertyHelper.GetOptionalInt(resourceKeyVIPNodeConnectionRateLimit, false)
 	}
-
-	providerState := provider.(*providerState)
-	apiClient := providerState.Client()
 
 	return apiClient.EditVIPNode(id, *configuration)
 }
