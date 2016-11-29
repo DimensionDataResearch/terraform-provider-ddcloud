@@ -69,7 +69,7 @@ Ready to contribute? Here's how to set up `terraform-provider-ddcloud` for local
 
 Before you submit a pull request, check that it meets these guidelines:
 
-1. Your pull request should target the [development/v1.0](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/tree/development/v1.0) branch.
+1. Your pull request should target the [v1.2](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/tree/development/v1.2) branch.
 2. The pull request should include tests (either unit or acceptance, as appropriate).
 3. If the pull request adds functionality, the docs should be updated.
 
