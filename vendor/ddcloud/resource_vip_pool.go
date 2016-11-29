@@ -52,6 +52,7 @@ func resourceVIPPool() *schema.Resource {
 				Default:  nil,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
+					MaxItems: 2,
 				},
 				Set: schema.HashString,
 			},
@@ -109,21 +110,18 @@ func resourceVIPPoolCreate(data *schema.ResourceData, provider interface{}) erro
 	healthMonitorNames := propertyHelper.GetStringSetItems(resourceKeyVIPPoolHealthMonitorNames)
 	healthMonitorIDs := make([]string, len(healthMonitorNames))
 	if healthMonitorNames != nil {
-		// healthMonitorIDs = []string
-		page := compute.DefaultPaging()
-		page.PageSize = 50
-		healthMonitors, err := apiClient.ListDefaultHealthMonitors(networkDomainID, page)
-		if err != nil {
-			return err
-		}
-		for index, healthMonitorName := range healthMonitorNames {
-			for _, healthMonitor := range healthMonitors.Items {
-				if healthMonitorName == healthMonitor.Name {
-					healthMonitorIDs[index] = healthMonitor.ID
-				}
-			}
-		}
+	  log.Printf("Count of health monitor names '%d'", len(healthMonitorNames))
+	  healthMonitorIDsByName, err := getHealthMonitorIDsByName(networkDomainID, apiClient)
+	  if err != nil {
+	    return err
+	  }
+	  for index, healthMonitorName := range healthMonitorNames {
+	  	log.Printf("health monitor name '%s'", healthMonitorName)
+	    healthMonitorIDs[index] = healthMonitorIDsByName[healthMonitorName]
+	  }
+	  log.Printf("Count of health monitor ids associated with the pool '%d'", len(healthMonitorIDs))
 	}
+
 	vipPoolID, err := apiClient.CreateVIPPool(compute.NewVIPPoolConfiguration{
 		Name:              name,
 		Description:       description,
@@ -217,19 +215,13 @@ func resourceVIPPoolUpdate(data *schema.ResourceData, provider interface{}) erro
 		healthMonitorNames := propertyHelper.GetStringSetItems(resourceKeyVIPPoolHealthMonitorNames)
 		healthMonitorIDs := make([]string, len(healthMonitorNames))
 		if healthMonitorNames != nil {
-			page := compute.DefaultPaging()
-			page.PageSize = 50
-			healthMonitors, err := apiClient.ListDefaultHealthMonitors(networkDomainID, page)
-			if err != nil {
-				return err
-			}
-			for index, healthMonitorName := range healthMonitorNames {
-				for _, healthMonitor := range healthMonitors.Items {
-					if healthMonitorName == healthMonitor.Name {
-						healthMonitorIDs[index] = healthMonitor.ID
-					}
-				}
-			}
+		  healthMonitorIDsByName, err := getHealthMonitorIDsByName(networkDomainID, apiClient)
+		  if err != nil {
+		    return err
+		  }
+		  for index, healthMonitorName := range healthMonitorNames {
+		    healthMonitorIDs[index] = healthMonitorIDsByName[healthMonitorName]
+		  }
 		}
 		configuration.HealthMonitorIDs = &healthMonitorIDs
 	}
@@ -256,4 +248,27 @@ func resourceVIPPoolDelete(data *schema.ResourceData, provider interface{}) erro
 	apiClient := providerState.Client()
 
 	return apiClient.DeleteVIPPool(id)
+}
+
+func getHealthMonitorIDsByName(networkDomainID string, apiClient *compute.Client) (map[string]string, error) {
+  healthMonitorIdsByName := make(map[string]string)
+
+  page := compute.DefaultPaging()
+  for {
+    healthMonitors, err := apiClient.ListDefaultHealthMonitors(networkDomainID, page)
+    if err != nil {
+      return nil, err
+    }
+    if healthMonitors.IsEmpty() {
+      break
+    }
+
+    for _, healthMonitor := range healthMonitors.Items {
+      healthMonitorIdsByName[healthMonitor.Name] = healthMonitor.ID
+    }
+
+    page.Next()
+  }
+
+  return healthMonitorIdsByName, nil
 }
