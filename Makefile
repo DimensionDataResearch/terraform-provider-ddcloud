@@ -60,7 +60,7 @@ test: testall
 	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/...
 
 testprovider: fmt
-	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/ddcloud
+	go test -v github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/ddcloud -run=Test${TEST}
 
 # Run acceptance tests (since they're long-running, enable retry).
 testacc: fmt

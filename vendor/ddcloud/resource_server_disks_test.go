@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/assert"
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 )
 
 // Unit test - splitInitiallyConfiguredDisksByType with no configured disks.
 func TestSplitInitiallyConfiguredDisksEmpty(test *testing.T) {
-	configuredDisks := []compute.VirtualMachineDisk{}
-	actualDisks := []compute.VirtualMachineDisk{}
+	configuredDisks := models.ServerDisks{}
+	actualDisks := models.ServerDisks{}
 
 	imageDisks, additionalDisks := splitInitiallyConfiguredDisksByType(
 		configuredDisks,
@@ -24,21 +24,21 @@ func TestSplitInitiallyConfiguredDisksEmpty(test *testing.T) {
 
 // Unit test - splitInitiallyConfiguredDisksByType with both image and additional disks.
 func TestSplitInitiallyConfiguredDisksBoth(test *testing.T) {
-	configuredDisks := []compute.VirtualMachineDisk{
-		compute.VirtualMachineDisk{
+	configuredDisks := models.ServerDisks{
+		models.ServerDisk{
 			ID:         nil,
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		compute.VirtualMachineDisk{
+		models.ServerDisk{
 			ID:         nil,
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := []compute.VirtualMachineDisk{
+	actualDisks := models.ServerDisks{
 		configuredDisks[0],
 	}
 
@@ -57,13 +57,13 @@ func TestSplitInitiallyConfiguredDisksBoth(test *testing.T) {
 
 // Unit test - splitInitiallyConfiguredDisksByType with only image disks.
 func TestSplitInitiallyConfiguredDisksOnlyImageDisks(test *testing.T) {
-	configuredDisks := []compute.VirtualMachineDisk{
-		compute.VirtualMachineDisk{
+	configuredDisks := models.ServerDisks{
+		models.ServerDisk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		compute.VirtualMachineDisk{
+		models.ServerDisk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
@@ -85,19 +85,19 @@ func TestSplitInitiallyConfiguredDisksOnlyImageDisks(test *testing.T) {
 
 // Unit test - splitInitiallyConfiguredDisksByType with only additional disks.
 func TestSplitInitiallyConfiguredDisksOnlyAdditionalDisks(test *testing.T) {
-	configuredDisks := []compute.VirtualMachineDisk{
-		compute.VirtualMachineDisk{
+	configuredDisks := models.ServerDisks{
+		models.ServerDisk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		compute.VirtualMachineDisk{
+		models.ServerDisk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := []compute.VirtualMachineDisk{}
+	actualDisks := models.ServerDisks{}
 
 	imageDisks, additionalDisks := splitInitiallyConfiguredDisksByType(
 		configuredDisks,
@@ -111,8 +111,8 @@ func TestSplitInitiallyConfiguredDisksOnlyAdditionalDisks(test *testing.T) {
 
 // Unit test - splitConfiguredDisksByAction with no configured disks.
 func TestSplitConfiguredDisksByActionEmpty(test *testing.T) {
-	configuredDisks := []compute.VirtualMachineDisk{}
-	actualDisks := []compute.VirtualMachineDisk{}
+	configuredDisks := models.ServerDisks{}
+	actualDisks := models.ServerDisks{}
 
 	addDisks, changeDisks, removeDisks := splitConfiguredDisksByAction(
 		configuredDisks,
@@ -127,19 +127,19 @@ func TestSplitConfiguredDisksByActionEmpty(test *testing.T) {
 
 // Unit test - splitConfiguredDisksByAction with 2 new disks.
 func TestSplitConfiguredDisksByActionNew2(test *testing.T) {
-	configuredDisks := []compute.VirtualMachineDisk{
-		compute.VirtualMachineDisk{
+	configuredDisks := models.ServerDisks{
+		models.ServerDisk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		compute.VirtualMachineDisk{
+		models.ServerDisk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := []compute.VirtualMachineDisk{}
+	actualDisks := models.ServerDisks{}
 
 	addDisks, changeDisks, removeDisks := splitConfiguredDisksByAction(
 		configuredDisks,
@@ -154,40 +154,40 @@ func TestSplitConfiguredDisksByActionNew2(test *testing.T) {
 
 // Unit test - splitConfiguredDisksByAction with 2 new disks.
 func TestSplitConfiguredDisksByActionNew1Changed2(test *testing.T) {
-	configuredDisks := []compute.VirtualMachineDisk{
-		compute.VirtualMachineDisk{
+	configuredDisks := models.ServerDisks{
+		models.ServerDisk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		compute.VirtualMachineDisk{
+		models.ServerDisk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
-		compute.VirtualMachineDisk{
+		models.ServerDisk{
 			SCSIUnitID: 2,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
-		compute.VirtualMachineDisk{
+		models.ServerDisk{
 			SCSIUnitID: 3,
 			SizeGB:     10,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := []compute.VirtualMachineDisk{
-		compute.VirtualMachineDisk{
+	actualDisks := models.ServerDisks{
+		models.ServerDisk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		compute.VirtualMachineDisk{
+		models.ServerDisk{
 			SCSIUnitID: 1,
 			SizeGB:     50,
 			Speed:      "STANDARD",
 		},
-		compute.VirtualMachineDisk{
+		models.ServerDisk{
 			SCSIUnitID: 2,
 			SizeGB:     20,
 			Speed:      "HIGHPERFORMANCE",

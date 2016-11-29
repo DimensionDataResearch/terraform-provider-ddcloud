@@ -1,27 +1,83 @@
 package models
 
-import "github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+import (
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/maps"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+)
+
+// ServerDiskAction represents an action to be taken for a ServerDisk.
+type ServerDiskAction int
+
+const (
+	// ServerDiskActionNone indicates that no action is to be taken.
+	ServerDiskActionNone ServerDiskAction = iota
+
+	// ServerDiskActionCreate indicates that the ServerDisk is to be created.
+	ServerDiskActionCreate
+
+	// ServerDiskActionUpdate indicates that the ServerDisk is to be updated.
+	ServerDiskActionUpdate
+
+	// ServerDiskActionDelete indicates that the ServerDisk is to be deleted.
+	ServerDiskActionDelete
+)
+
+// ServerDisks represents an array of ServerDisk structures.
+type ServerDisks []ServerDisk
+
+// ToVirtualMachineDisks converts the ServerDisks to an array of compute.VirtualMachineDisk.
+func (disks ServerDisks) ToVirtualMachineDisks() []compute.VirtualMachineDisk {
+	virtualMachineDisks := make([]compute.VirtualMachineDisk, len(disks))
+	for index, disk := range disks {
+		virtualMachineDisks[index] = disk.ToVirtualMachineDisk()
+	}
+
+	return virtualMachineDisks
+}
+
+// ToMaps converts the ServerDisks to an array of maps.
+func (disks ServerDisks) ToMaps() []map[string]interface{} {
+	diskPropertyList := make([]map[string]interface{}, len(disks))
+	for index, disk := range disks {
+		diskPropertyList[index] = disk.ToMap()
+	}
+
+	return diskPropertyList
+}
+
+// ByUnitID creates a map of ServerDisk keyed by SCSI unit Id.
+func (disks ServerDisks) ByUnitID() map[int]ServerDisk {
+	disksByUnitID := make(map[int]ServerDisk)
+	for _, disk := range disks {
+		disksByUnitID[disk.SCSIUnitID] = disk
+	}
+
+	return disksByUnitID
+}
+
+// TODO: Consider implementing ServerDisks.CalculateActions([]compute.VirtualMachineDisk)
 
 // ServerDisk represents the Terraform configuration for a ddcloud_server virtual_disk.
 type ServerDisk struct {
-	ID         string
+	ID         *string
 	SCSIUnitID int
 	SizeGB     int
 	Speed      string
+	Action     ServerDiskAction
 }
 
 // ReadMap populates the ServerDisk with values from the specified map.
-func (disk *ServerDisk) ReadMap(data map[string]interface{}) {
-	reader := reader(data)
+func (disk *ServerDisk) ReadMap(diskProperties map[string]interface{}) {
+	reader := maps.NewReader(diskProperties)
 
-	disk.ID = reader.String("id")
-	disk.SCSIUnitID = reader.Int("scsi_unit_id")
-	disk.SizeGB = reader.Int("size_gb")
-	disk.Speed = reader.String("speed")
+	disk.ID = reader.GetStringPtr("id")
+	disk.SCSIUnitID = reader.GetInt("scsi_unit_id")
+	disk.SizeGB = reader.GetInt("size_gb")
+	disk.Speed = reader.GetString("speed")
 }
 
-// CreateMap creates a new map using the values from the ServerDisk.
-func (disk *ServerDisk) CreateMap() map[string]interface{} {
+// ToMap creates a new map using the values from the ServerDisk.
+func (disk *ServerDisk) ToMap() map[string]interface{} {
 	data := make(map[string]interface{})
 	disk.UpdateMap(data)
 
@@ -29,57 +85,84 @@ func (disk *ServerDisk) CreateMap() map[string]interface{} {
 }
 
 // UpdateMap updates a map using values from the ServerDisk.
-func (disk *ServerDisk) UpdateMap(data map[string]interface{}) {
-	data["id"] = disk.ID
-	data["scsi_unit_id"] = disk.SCSIUnitID
-	data["size_gb"] = disk.SizeGB
-	data["speed"] = disk.Speed
+func (disk *ServerDisk) UpdateMap(diskProperties map[string]interface{}) {
+	writer := maps.NewWriter(diskProperties)
+
+	writer.SetStringPtr("id", disk.ID)
+	writer.SetInt("scsi_unit_id", disk.SCSIUnitID)
+	writer.SetInt("size_gb", disk.SizeGB)
+	writer.SetString("speed", disk.Speed)
 }
 
 // ReadVirtualMachineDisk populates the ServerDisk with values from the specified VirtualMachineDisk.
 func (disk *ServerDisk) ReadVirtualMachineDisk(virtualMachineDisk compute.VirtualMachineDisk) {
-	if virtualMachineDisk.ID != nil {
-		disk.ID = *virtualMachineDisk.ID
-	} else {
-		disk.ID = ""
-	}
+	disk.ID = virtualMachineDisk.ID
 	disk.SCSIUnitID = virtualMachineDisk.SCSIUnitID
 	disk.SizeGB = virtualMachineDisk.SizeGB
 	disk.Speed = virtualMachineDisk.Speed
 }
 
-// CreateVirtualMachineDisk updates a map using values from the ServerDisk.
-func (disk *ServerDisk) CreateVirtualMachineDisk() *compute.VirtualMachineDisk {
-	virtualMachineDisk := &compute.VirtualMachineDisk{}
-	disk.UpdateVirtualMachineDisk(virtualMachineDisk)
+// ToVirtualMachineDisk updates a map using values from the ServerDisk.
+func (disk *ServerDisk) ToVirtualMachineDisk() compute.VirtualMachineDisk {
+	virtualMachineDisk := compute.VirtualMachineDisk{}
+	disk.UpdateVirtualMachineDisk(&virtualMachineDisk)
 
 	return virtualMachineDisk
 }
 
 // UpdateVirtualMachineDisk updates a CloudControl VirtualMachineDisk using values from the ServerDisk.
 func (disk *ServerDisk) UpdateVirtualMachineDisk(virtualMachineDisk *compute.VirtualMachineDisk) {
-	if disk.ID != "" {
-		virtualMachineDisk.ID = &disk.ID
-	} else {
-		virtualMachineDisk.ID = nil
-	}
+	virtualMachineDisk.ID = disk.ID
 	virtualMachineDisk.SCSIUnitID = disk.SCSIUnitID
 	virtualMachineDisk.SizeGB = disk.SizeGB
 	virtualMachineDisk.Speed = disk.Speed
 }
 
-// ServerDiskFromMap creates a ServerDisk from the values in the specified map.
-func ServerDiskFromMap(data map[string]interface{}) *ServerDisk {
-	disk := &ServerDisk{}
-	disk.ReadMap(data)
+// NewServerDiskFromMap creates a ServerDisk from the values in the specified map.
+func NewServerDiskFromMap(diskProperties map[string]interface{}) ServerDisk {
+	disk := ServerDisk{}
+	disk.ReadMap(diskProperties)
 
 	return disk
 }
 
-// ServerDiskFromVirtualMachineDisk creates a ServerDisk from the values in the specified CloudControl VirtualMachineDisk.
-func ServerDiskFromVirtualMachineDisk(virtualMachinedisk compute.VirtualMachineDisk) *ServerDisk {
-	disk := &ServerDisk{}
-	disk.ReadVirtualMachineDisk(virtualMachinedisk)
+// NewServerDiskFromVirtualMachineDisk creates a ServerDisk from the values in the specified CloudControl VirtualMachineDisk.
+func NewServerDiskFromVirtualMachineDisk(virtualMachineDisk compute.VirtualMachineDisk) ServerDisk {
+	disk := ServerDisk{}
+	disk.ReadVirtualMachineDisk(virtualMachineDisk)
 
 	return disk
+}
+
+// NewServerDisksFromStateData creates ServerDisks from an array of Terraform state data.
+//
+// The values in the diskPropertyList are expected to be map[string]interface{}.
+func NewServerDisksFromStateData(diskPropertyList []interface{}) ServerDisks {
+	disks := make(ServerDisks, len(diskPropertyList))
+	for index, data := range diskPropertyList {
+		diskProperties := data.(map[string]interface{})
+		disks[index] = NewServerDiskFromMap(diskProperties)
+	}
+
+	return disks
+}
+
+// NewServerDisksFromMaps creates ServerDisks from an array of Terraform value maps.
+func NewServerDisksFromMaps(diskPropertyList []map[string]interface{}) ServerDisks {
+	disks := make(ServerDisks, len(diskPropertyList))
+	for index, data := range diskPropertyList {
+		disks[index] = NewServerDiskFromMap(data)
+	}
+
+	return disks
+}
+
+// NewServerDisksFromVirtualMachineDisks creates ServerDisks from an array of compute.VirtualMachineDisk.
+func NewServerDisksFromVirtualMachineDisks(virtualMachineDisks []compute.VirtualMachineDisk) ServerDisks {
+	disks := make(ServerDisks, len(virtualMachineDisks))
+	for index, virtualMachineDisk := range virtualMachineDisks {
+		disks[index] = NewServerDiskFromVirtualMachineDisk(virtualMachineDisk)
+	}
+
+	return disks
 }

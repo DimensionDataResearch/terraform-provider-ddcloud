@@ -1,11 +1,13 @@
 package ddcloud
 
 import (
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"strconv"
 	"strings"
+
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 // resourcePropertyHelper provides commonly-used functionality for working with Terraform's schema.ResourceData.
@@ -55,6 +57,21 @@ func (helper resourcePropertyHelper) GetOptionalBool(key string) *bool {
 	default:
 		return nil
 	}
+}
+
+func (helper resourcePropertyHelper) GetStringSet(key string) (stringSet *schema.Set) {
+	value, ok := helper.data.GetOk(key)
+	if !ok || value == nil {
+		return
+	}
+
+	stringSet = value.(*schema.Set)
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetStringSet(key string, stringSet *schema.Set) error {
+	return helper.data.Set(key, stringSet)
 }
 
 func (helper resourcePropertyHelper) GetStringSetItems(key string) (items []string) {
@@ -294,54 +311,25 @@ func (helper resourcePropertyHelper) SetPortListPorts(ports []compute.PortListEn
 	helper.data.Set(resourceKeyPortListPort, portProperties)
 }
 
-func (helper resourcePropertyHelper) GetServerDisks() (disks []compute.VirtualMachineDisk) {
+func (helper resourcePropertyHelper) GetServerDisks() (disks models.ServerDisks) {
 	value, ok := helper.data.GetOk(resourceKeyServerDisk)
 	if !ok {
 		return
 	}
 	serverDisks := value.(*schema.Set).List()
 
-	disks = make([]compute.VirtualMachineDisk, len(serverDisks))
-	for index, item := range serverDisks {
-		diskProperties := item.(map[string]interface{})
-		disk := &compute.VirtualMachineDisk{}
-
-		value, ok = diskProperties[resourceKeyServerDiskID]
-		if ok {
-			disk.ID = stringToPtr(value.(string))
-		}
-
-		value, ok = diskProperties[resourceKeyServerDiskUnitID]
-		if ok {
-			disk.SCSIUnitID = value.(int)
-
-		}
-		value, ok = diskProperties[resourceKeyServerDiskSizeGB]
-		if ok {
-			disk.SizeGB = value.(int)
-		}
-
-		value, ok = diskProperties[resourceKeyServerDiskSpeed]
-		if ok {
-			disk.Speed = value.(string)
-		}
-
-		disks[index] = *disk
-	}
+	disks = models.NewServerDisksFromStateData(serverDisks)
 
 	return
 }
 
-func (helper resourcePropertyHelper) SetServerDisks(disks []compute.VirtualMachineDisk) {
+func (helper resourcePropertyHelper) SetServerDisks(disks models.ServerDisks) {
 	diskProperties := &schema.Set{F: hashDisk}
 
 	for _, disk := range disks {
-		diskProperties.Add(map[string]interface{}{
-			resourceKeyServerDiskID:     *disk.ID,
-			resourceKeyServerDiskSizeGB: disk.SizeGB,
-			resourceKeyServerDiskUnitID: disk.SCSIUnitID,
-			resourceKeyServerDiskSpeed:  disk.Speed,
-		})
+		diskProperties.Add(
+			disk.ToMap(),
+		)
 	}
 	helper.data.Set(resourceKeyServerDisk, diskProperties)
 }

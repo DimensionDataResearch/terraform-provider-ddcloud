@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -494,7 +495,9 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	}
 
 	propertyHelper := propertyHelper(data)
-	propertyHelper.SetServerDisks(server.Disks)
+	propertyHelper.SetServerDisks(
+		models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+	)
 
 	return nil
 }

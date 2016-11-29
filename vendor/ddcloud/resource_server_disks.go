@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -70,11 +71,7 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 
 	if len(configuredDisks) == 0 {
 		// Since this is the first time, populate image disks.
-		var serverDisks []compute.VirtualMachineDisk
-		for _, disk := range configuredDisks {
-			serverDisks = append(serverDisks, disk)
-		}
-
+		serverDisks := models.NewServerDisksFromVirtualMachineDisks(imageDisks)
 		propertyHelper.SetServerDisks(serverDisks)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
@@ -95,7 +92,7 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 	// First, handle disks that were part of the original server image.
 	log.Printf("Configure image disks for server '%s'...", serverID)
 
-	configuredDisksByUnitID := getDisksByUnitID(configuredDisks)
+	configuredDisksByUnitID := configuredDisks.ByUnitID()
 	for _, actualImageDisk := range imageDisks {
 		configuredImageDisk, ok := configuredDisksByUnitID[actualImageDisk.SCSIUnitID]
 		if !ok {
@@ -160,7 +157,9 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 			}
 
 			server = resource.(*compute.Server)
-			propertyHelper.SetServerDisks(server.Disks)
+			propertyHelper.SetServerDisks(
+				models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+			)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
 			log.Printf(
@@ -213,7 +212,9 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 			}
 
 			server = resource.(*compute.Server)
-			propertyHelper.SetServerDisks(server.Disks)
+			propertyHelper.SetServerDisks(
+				models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+			)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
 			log.Printf(
@@ -276,7 +277,9 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 		}
 
 		server := resource.(*compute.Server)
-		propertyHelper.SetServerDisks(server.Disks)
+		propertyHelper.SetServerDisks(
+			models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+		)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
 		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
@@ -318,7 +321,9 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 
 	if len(configuredDisks) == 0 {
 		// No explicitly-configured disks.
-		propertyHelper.SetServerDisks(server.Disks)
+		propertyHelper.SetServerDisks(
+			models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+		)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
 		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
@@ -405,7 +410,9 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 
 			server := resource.(*compute.Server)
 
-			propertyHelper.SetServerDisks(server.Disks)
+			propertyHelper.SetServerDisks(
+				models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+			)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
 			log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
@@ -453,7 +460,9 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 			}
 
 			server := resource.(*compute.Server)
-			propertyHelper.SetServerDisks(server.Disks)
+			propertyHelper.SetServerDisks(
+				models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+			)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
 			log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
@@ -539,8 +548,8 @@ func hashDisk(item interface{}) int {
 // actualDisks represents the disks in the server, as returned by CloudControl.
 //
 // This function only works right after the server has been deployed (i.e. no post-deployment disk changes (such as AddDiskToServer) have been made).
-func splitInitiallyConfiguredDisksByType(configuredDisks []compute.VirtualMachineDisk, actualDisks []compute.VirtualMachineDisk) (imageDisks []compute.VirtualMachineDisk, additionalDisks []compute.VirtualMachineDisk) {
-	actualDisksByUnitID := getDisksByUnitID(actualDisks)
+func splitInitiallyConfiguredDisksByType(configuredDisks models.ServerDisks, actualDisks models.ServerDisks) (imageDisks models.ServerDisks, additionalDisks models.ServerDisks) {
+	actualDisksByUnitID := actualDisks.ByUnitID()
 	for _, configuredDisk := range configuredDisks {
 		_, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
 		if ok {
@@ -559,8 +568,8 @@ func splitInitiallyConfiguredDisksByType(configuredDisks []compute.VirtualMachin
 //
 // configuredDisks represents the disks currently specified in configuration.
 // actualDisks represents the disks in the server, as returned by CloudControl.
-func splitConfiguredDisksByAction(configuredDisks []compute.VirtualMachineDisk, actualDisks []compute.VirtualMachineDisk) (addDisks []compute.VirtualMachineDisk, changeDisks []compute.VirtualMachineDisk, removeDisks []compute.VirtualMachineDisk) {
-	actualDisksByUnitID := getDisksByUnitID(actualDisks)
+func splitConfiguredDisksByAction(configuredDisks models.ServerDisks, actualDisks models.ServerDisks) (addDisks models.ServerDisks, changeDisks models.ServerDisks, removeDisks models.ServerDisks) {
+	actualDisksByUnitID := actualDisks.ByUnitID()
 	for _, configuredDisk := range configuredDisks {
 		actualDisk, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
 
@@ -583,7 +592,7 @@ func splitConfiguredDisksByAction(configuredDisks []compute.VirtualMachineDisk, 
 	// By process of elimination, any remaining actual disks do not appear in the configuration and should be removed.
 	for unconfiguredDiskUnitID := range actualDisksByUnitID {
 		unconfiguredDisk := actualDisksByUnitID[unconfiguredDiskUnitID]
-		removeDisks = append(removeDisks, *unconfiguredDisk)
+		removeDisks = append(removeDisks, unconfiguredDisk)
 	}
 
 	return
