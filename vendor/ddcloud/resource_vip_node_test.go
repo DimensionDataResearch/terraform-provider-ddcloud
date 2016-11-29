@@ -2,10 +2,11 @@ package ddcloud
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"testing"
 )
 
 /*
@@ -32,7 +33,7 @@ func testAccDDCloudVIPNodeBasic(resourceName string, nodeName string, status str
 			description 			= "Adam's Terraform test VIP node (do not delete)."
 			ipv4_address			= "192.168.17.10"
 			status					= "%s"
-
+      health_monitor  = "CCDEFAULT.Icmp"
 			networkdomain 			= "${ddcloud_networkdomain.acc_test_domain.id}"
 		}
 	`, resourceName, nodeName, status)
@@ -61,6 +62,9 @@ func TestAccVIPNodeBasicCreate(t *testing.T) {
 						Name:        "af_terraform_node",
 						IPv4Address: "192.168.17.10",
 						Status:      compute.VIPNodeStatusEnabled,
+						HealthMonitor: compute.VIPNodeHealthMonitor{
+							Name: "CCDEFAULT.Icmp",
+						},
 					}),
 				),
 			},
@@ -91,6 +95,9 @@ func TestAccVIPNodeBasicUpdateStatus(t *testing.T) {
 				Name:        "af_terraform_node",
 				IPv4Address: "192.168.17.10",
 				Status:      compute.VIPNodeStatusEnabled,
+				HealthMonitor: compute.VIPNodeHealthMonitor{
+					Name: "CCDEFAULT.Icmp",
+				},
 			}),
 		),
 
@@ -106,6 +113,9 @@ func TestAccVIPNodeBasicUpdateStatus(t *testing.T) {
 				Name:        "af_terraform_node",
 				IPv4Address: "192.168.17.10",
 				Status:      compute.VIPNodeStatusDisabled,
+				HealthMonitor: compute.VIPNodeHealthMonitor{
+					Name: "CCDEFAULT.Icmp",
+				},
 			}),
 		),
 	})
@@ -177,6 +187,9 @@ func testCheckDDCloudVIPNodeMatches(name string, expected compute.VIPNode) resou
 
 		if vipNode.IPv6Address != expected.IPv6Address {
 			return fmt.Errorf("Bad: VIP node '%s' has IPv6 address '%s' (expected '%s')", vipNodeID, vipNode.IPv6Address, expected.IPv6Address)
+		}
+		if vipNode.HealthMonitor.Name != expected.HealthMonitor.Name {
+			return fmt.Errorf("Bad: VIP node '%s' has health monitor '%s' (expected '%s')", vipNodeID, vipNode.HealthMonitor.Name, expected.HealthMonitor.Name)
 		}
 
 		if vipNode.Status != expected.Status {

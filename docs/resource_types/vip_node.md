@@ -28,7 +28,7 @@ The following arguments are supported:
 * `networkdomain` - (Required) The Id of the network domain in which the VIP node is created.
 * `ipv4_address` - (Required) The VIP node's IPv4 address. Exactly one of `ipv4_address` or `ipv6_address` must be specified.
 * `ipv6_address` - (Required) The VIP node's IPv6 address. Exactly one of `ipv4_address` or `ipv6_address` must be specified.
-* `health_monitor` - (Optional) The Id of the VIP node's associated health monitor (if any).
+* `health_monitor` - (Optional) The name of the VIP node's associated health monitor (By Default 'CCDEFAULT.Icmp' health monitor will be associated).
 * `connection_limit` - (Optional) The number of active connections that the node supports.
 * `connection_rate_limit` - (Optional) The number of new connections per second that the node supports.
 * `status` - (Required) The VIP node status. Must be one of `ENABLED`, `DISABLED`, or `FORCED_OFFLINE`.
