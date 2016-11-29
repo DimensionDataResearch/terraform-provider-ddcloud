@@ -2,19 +2,21 @@ package ddcloud
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
-	"log"
 )
 
 const (
-	resourceKeyVIPPoolName              = "name"
-	resourceKeyVIPPoolDescription       = "description"
-	resourceKeyVIPPoolLoadBalanceMethod = "load_balance_method"
-	resourceKeyVIPPoolHealthMonitorIDs  = "health_monitors"
-	resourceKeyVIPPoolServiceDownAction = "service_down_action"
-	resourceKeyVIPPoolSlowRampTime      = "slow_ramp_time"
-	resourceKeyVIPPoolNetworkDomainID   = "networkdomain"
+	resourceKeyVIPPoolName               = "name"
+	resourceKeyVIPPoolDescription        = "description"
+	resourceKeyVIPPoolLoadBalanceMethod  = "load_balance_method"
+	resourceKeyVIPPoolHealthMonitorNames = "health_monitors"
+	resourceKeyVIPPoolHealthMonitorIDs   = "health_monitors_id"
+	resourceKeyVIPPoolServiceDownAction  = "service_down_action"
+	resourceKeyVIPPoolSlowRampTime       = "slow_ramp_time"
+	resourceKeyVIPPoolNetworkDomainID    = "networkdomain"
 )
 
 func resourceVIPPool() *schema.Resource {
@@ -44,10 +46,20 @@ func resourceVIPPool() *schema.Resource {
 				Default:     compute.LoadBalanceMethodRoundRobin,
 				Description: "The load-balancing method used by the VIP pool",
 			},
-			resourceKeyVIPPoolHealthMonitorIDs: &schema.Schema{
+			resourceKeyVIPPoolHealthMonitorNames: &schema.Schema{
 				Type:     schema.TypeSet,
 				Optional: true,
 				Default:  nil,
+				Elem: &schema.Schema{
+					Type: schema.TypeString,
+					MaxItems: 2,
+				},
+				Set: schema.HashString,
+			},
+			resourceKeyVIPPoolHealthMonitorIDs: &schema.Schema{
+				Type:     schema.TypeSet,
+				Optional: true,
+				Computed: true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -95,11 +107,26 @@ func resourceVIPPoolCreate(data *schema.ResourceData, provider interface{}) erro
 
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
+	healthMonitorNames := propertyHelper.GetStringSetItems(resourceKeyVIPPoolHealthMonitorNames)
+	healthMonitorIDs := make([]string, len(healthMonitorNames))
+	if healthMonitorNames != nil {
+	  log.Printf("Count of health monitor names '%d'", len(healthMonitorNames))
+	  healthMonitorIDsByName, err := getHealthMonitorIDsByName(networkDomainID, apiClient)
+	  if err != nil {
+	    return err
+	  }
+	  for index, healthMonitorName := range healthMonitorNames {
+	  	log.Printf("health monitor name '%s'", healthMonitorName)
+	    healthMonitorIDs[index] = healthMonitorIDsByName[healthMonitorName]
+	  }
+	  log.Printf("Count of health monitor ids associated with the pool '%d'", len(healthMonitorIDs))
+	}
+
 	vipPoolID, err := apiClient.CreateVIPPool(compute.NewVIPPoolConfiguration{
 		Name:              name,
 		Description:       description,
 		LoadBalanceMethod: data.Get(resourceKeyVIPPoolLoadBalanceMethod).(string),
-		HealthMonitorIDs:  propertyHelper.GetStringSetItems(resourceKeyVIPPoolHealthMonitorIDs),
+		HealthMonitorIDs:  healthMonitorIDs,
 		ServiceDownAction: data.Get(resourceKeyVIPPoolServiceDownAction).(string),
 		SlowRampTime:      data.Get(resourceKeyVIPPoolSlowRampTime).(int),
 		NetworkDomainID:   networkDomainID,
@@ -109,7 +136,7 @@ func resourceVIPPoolCreate(data *schema.ResourceData, provider interface{}) erro
 	}
 
 	data.SetId(vipPoolID)
-
+	propertyHelper.SetStringSetItems(resourceKeyVIPPoolHealthMonitorIDs, healthMonitorIDs)
 	log.Printf("Successfully created VIP pool '%s'.", vipPoolID)
 
 	return nil
@@ -163,7 +190,7 @@ func resourceVIPPoolRead(data *schema.ResourceData, provider interface{}) error 
 	for index, healthMonitor := range vipPool.HealthMonitors {
 		healthMonitorIDs[index] = healthMonitor.ID
 	}
-	propertyHelper.SetStringSetItems(resourceKeyVIPPoolName, healthMonitorIDs)
+	propertyHelper.SetStringSetItems(resourceKeyVIPPoolHealthMonitorIDs, healthMonitorIDs)
 
 	return nil
 }
@@ -171,9 +198,9 @@ func resourceVIPPoolRead(data *schema.ResourceData, provider interface{}) error 
 func resourceVIPPoolUpdate(data *schema.ResourceData, provider interface{}) error {
 	id := data.Id()
 	log.Printf("Update VIP pool '%s'...", id)
-
 	configuration := &compute.EditVIPPoolConfiguration{}
-
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
 	propertyHelper := propertyHelper(data)
 	if data.HasChange(resourceKeyVIPPoolDescription) {
 		configuration.Description = propertyHelper.GetOptionalString(resourceKeyVIPPoolDescription, true)
@@ -183,8 +210,19 @@ func resourceVIPPoolUpdate(data *schema.ResourceData, provider interface{}) erro
 		configuration.LoadBalanceMethod = propertyHelper.GetOptionalString(resourceKeyVIPPoolLoadBalanceMethod, false)
 	}
 
-	if data.HasChange(resourceKeyVIPPoolHealthMonitorIDs) {
-		healthMonitorIDs := propertyHelper.GetStringSetItems(resourceKeyVIPPoolHealthMonitorIDs)
+	if data.HasChange(resourceKeyVIPPoolHealthMonitorNames) {
+		networkDomainID := data.Get(resourceKeyVIPPoolNetworkDomainID).(string)
+		healthMonitorNames := propertyHelper.GetStringSetItems(resourceKeyVIPPoolHealthMonitorNames)
+		healthMonitorIDs := make([]string, len(healthMonitorNames))
+		if healthMonitorNames != nil {
+		  healthMonitorIDsByName, err := getHealthMonitorIDsByName(networkDomainID, apiClient)
+		  if err != nil {
+		    return err
+		  }
+		  for index, healthMonitorName := range healthMonitorNames {
+		    healthMonitorIDs[index] = healthMonitorIDsByName[healthMonitorName]
+		  }
+		}
 		configuration.HealthMonitorIDs = &healthMonitorIDs
 	}
 
@@ -195,9 +233,6 @@ func resourceVIPPoolUpdate(data *schema.ResourceData, provider interface{}) erro
 	if data.HasChange(resourceKeyVIPPoolSlowRampTime) {
 		configuration.SlowRampTime = propertyHelper.GetOptionalInt(resourceKeyVIPPoolSlowRampTime, false)
 	}
-
-	providerState := provider.(*providerState)
-	apiClient := providerState.Client()
 
 	return apiClient.EditVIPPool(id, *configuration)
 }
@@ -213,4 +248,27 @@ func resourceVIPPoolDelete(data *schema.ResourceData, provider interface{}) erro
 	apiClient := providerState.Client()
 
 	return apiClient.DeleteVIPPool(id)
+}
+
+func getHealthMonitorIDsByName(networkDomainID string, apiClient *compute.Client) (map[string]string, error) {
+  healthMonitorIdsByName := make(map[string]string)
+
+  page := compute.DefaultPaging()
+  for {
+    healthMonitors, err := apiClient.ListDefaultHealthMonitors(networkDomainID, page)
+    if err != nil {
+      return nil, err
+    }
+    if healthMonitors.IsEmpty() {
+      break
+    }
+
+    for _, healthMonitor := range healthMonitors.Items {
+      healthMonitorIdsByName[healthMonitor.Name] = healthMonitor.ID
+    }
+
+    page.Next()
+  }
+
+  return healthMonitorIdsByName, nil
 }

@@ -44,7 +44,13 @@ The following arguments are supported:
 	  All connections to the pool are considered.
 	* `PREDICTIVE_MEMBER` - requests will be directed to the pool node that is predicted to have the smallest number of active connections over time.  
 	  Only connections to the pool as a member of the current pool are considered.
-* `health_monitors` (Optional) The Ids of any health monitors used by the pool.
+* `health_monitors` (Optional) The names of any health monitors used by the pool.
+   Must be one or more of the following:
+	 * `CCDEFAULT.Http`
+	 * `CCDEFAULT.Https`
+	 * `CCDEFAULT.Tcp`
+	 * `CCDEFAULT.TcpHalfOpen`
+	 * `CCDEFAULT.Udp`
 * `service_down_action` (Optional) The action to take when the service on a node is unavailable. Must be one of:
 	* `NONE` - (Default) no action will be taken.
 	* `DROP` - the node will be dropped from service.

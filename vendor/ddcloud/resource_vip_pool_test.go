@@ -2,10 +2,11 @@ package ddcloud
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"testing"
 )
 
 /*
@@ -33,7 +34,7 @@ func testAccDDCloudVIPPoolBasic(poolName string, loadBalanceMethod string, servi
 			load_balance_method		= "%s"
 			service_down_action		= "%s",
 			slow_ramp_time			= %d,
-
+      health_monitors = ["CCDEFAULT.Udp","CCDEFAULT.Tcp"]
 			networkdomain 			= "${ddcloud_networkdomain.acc_test_domain.id}"
 		}
 	`, poolName, loadBalanceMethod, serviceDownAction, slowRampTime)
@@ -68,6 +69,14 @@ func TestAccVIPPoolBasicCreate(t *testing.T) {
 						LoadBalanceMethod: compute.LoadBalanceMethodRoundRobin,
 						ServiceDownAction: compute.ServiceDownActionDrop,
 						SlowRampTime:      5,
+						HealthMonitors: []compute.EntityReference{
+							compute.EntityReference{
+								Name: "CCDEFAULT.Tcp",
+							},
+							compute.EntityReference{
+								Name: "CCDEFAULT.Udp",
+							},
+						},
 					}),
 				),
 			},
@@ -100,6 +109,14 @@ func TestAccVIPPoolBasicUpdateInline(t *testing.T) {
 				LoadBalanceMethod: compute.LoadBalanceMethodRoundRobin,
 				ServiceDownAction: compute.ServiceDownActionDrop,
 				SlowRampTime:      5,
+				HealthMonitors: []compute.EntityReference{
+					compute.EntityReference{
+						Name: "CCDEFAULT.Tcp",
+					},
+					compute.EntityReference{
+						Name: "CCDEFAULT.Udp",
+					},
+				},
 			}),
 		),
 
@@ -117,6 +134,14 @@ func TestAccVIPPoolBasicUpdateInline(t *testing.T) {
 				LoadBalanceMethod: compute.LoadBalanceMethodLeastConnectionsNode,
 				ServiceDownAction: compute.ServiceDownActionNone,
 				SlowRampTime:      10,
+				HealthMonitors: []compute.EntityReference{
+					compute.EntityReference{
+						Name: "CCDEFAULT.Tcp",
+					},
+					compute.EntityReference{
+						Name: "CCDEFAULT.Udp",
+					},
+				},
 			}),
 		),
 	})
@@ -147,6 +172,14 @@ func TestAccVIPPoolBasicUpdateName(t *testing.T) {
 				LoadBalanceMethod: compute.LoadBalanceMethodRoundRobin,
 				ServiceDownAction: compute.ServiceDownActionDrop,
 				SlowRampTime:      5,
+				HealthMonitors: []compute.EntityReference{
+					compute.EntityReference{
+						Name: "CCDEFAULT.Tcp",
+					},
+					compute.EntityReference{
+						Name: "CCDEFAULT.Udp",
+					},
+				},
 			}),
 		),
 
@@ -164,6 +197,14 @@ func TestAccVIPPoolBasicUpdateName(t *testing.T) {
 				LoadBalanceMethod: compute.LoadBalanceMethodRoundRobin,
 				ServiceDownAction: compute.ServiceDownActionDrop,
 				SlowRampTime:      5,
+				HealthMonitors: []compute.EntityReference{
+					compute.EntityReference{
+						Name: "CCDEFAULT.Tcp",
+					},
+					compute.EntityReference{
+						Name: "CCDEFAULT.Udp",
+					},
+				},
 			}),
 		),
 	})
@@ -239,6 +280,10 @@ func testCheckDDCloudVIPPoolMatches(name string, expected compute.VIPPool) resou
 
 		if vipPool.SlowRampTime != expected.SlowRampTime {
 			return fmt.Errorf("Bad: VIP pool '%s' has slow-ramp time '%d' (expected '%d')", vipPoolID, vipPool.SlowRampTime, expected.SlowRampTime)
+		}
+
+		if len(vipPool.HealthMonitors) != len(expected.HealthMonitors) {
+			return fmt.Errorf("Bad: VIP pool '%s' has health mointors count '%d' (expected '%d')", vipPoolID, len(vipPool.HealthMonitors), len(expected.HealthMonitors))
 		}
 
 		// TODO: Verify other properties.
