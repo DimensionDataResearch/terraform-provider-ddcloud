@@ -9,6 +9,11 @@ import (
 // ServerDisks represents an array of ServerDisk structures.
 type ServerDisks []ServerDisk
 
+// IsEmpty determines whether the ServerDisk array is empty.
+func (disks ServerDisks) IsEmpty() bool {
+	return len(disks) == 0
+}
+
 // ToVirtualMachineDisks converts the ServerDisks to an array of compute.VirtualMachineDisk.
 func (disks ServerDisks) ToVirtualMachineDisks() []compute.VirtualMachineDisk {
 	virtualMachineDisks := make([]compute.VirtualMachineDisk, len(disks))
@@ -37,6 +42,18 @@ func (disks ServerDisks) ByUnitID() map[int]ServerDisk {
 	}
 
 	return disksByUnitID
+}
+
+// CaptureIDs updates the ServerDisk Ids from the actual disks.
+func (disks ServerDisks) CaptureIDs(actualDisks ServerDisks) {
+	actualDisksByUnitID := actualDisks.ByUnitID()
+	for index := range disks {
+		disk := &disks[index]
+		actualDisk, ok := actualDisksByUnitID[disk.SCSIUnitID]
+		if ok {
+			disk.ID = actualDisk.ID
+		}
+	}
 }
 
 // SplitByInitialType splits the (initially-configured) disks by whether they represent image disks or additional disks.

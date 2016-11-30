@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
@@ -361,7 +362,7 @@ func TestAccServerAdditionalDisk1Create(t *testing.T) {
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(10, "STANDARD"),
-						compute.VirtualMachineDisk{
+						models.ServerDisk{
 							SCSIUnitID: 1,
 							SizeGB:     15,
 							Speed:      "STANDARD",
@@ -541,7 +542,7 @@ func testCheckDDCloudServerMatches(name string, networkDomainName string, expect
 // Acceptance test check for ddcloud_server:
 //
 // Check if the server's disk configuration matches the expected configuration.
-func testCheckDDCloudServerDiskMatches(name string, expected ...compute.VirtualMachineDisk) resource.TestCheckFunc {
+func testCheckDDCloudServerDiskMatches(name string, expected ...models.ServerDisk) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
 		serverResource, ok := state.RootModule().Resources[name]
 		if !ok {
@@ -560,7 +561,7 @@ func testCheckDDCloudServerDiskMatches(name string, expected ...compute.VirtualM
 		}
 
 		var validationMessages []string
-		expectedDisksByUnitID := getDisksByUnitID(expected)
+		expectedDisksByUnitID := models.ServerDisks(expected).ByUnitID()
 		for _, actualDisk := range server.Disks {
 			expectedDisk, ok := expectedDisksByUnitID[actualDisk.SCSIUnitID]
 			if !ok {
@@ -709,8 +710,8 @@ func testCheckDDCloudServerDestroy(state *terraform.State) error {
  */
 
 // The image disk definition for CentOS 7.
-func testImageDiskCentOS7(sizeGB int, speed string) compute.VirtualMachineDisk {
-	return compute.VirtualMachineDisk{
+func testImageDiskCentOS7(sizeGB int, speed string) models.ServerDisk {
+	return models.ServerDisk{
 		SCSIUnitID: 0,
 		SizeGB:     sizeGB,
 		Speed:      speed,

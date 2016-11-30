@@ -338,7 +338,16 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		return fmt.Errorf("Must specify either os_image_id, os_image_name, customer_image_id, or customer_image_name.")
 	}
 
-	// TODO: Apply server disk speeds from configuration to initial deployment configuration.
+	// Image disk speeds
+	configuredDisks := propertyHelper.GetServerDisks().ByUnitID()
+	for index := range deploymentConfiguration.Disks {
+		deploymentDisk := &deploymentConfiguration.Disks[index]
+
+		configuredDisk, ok := configuredDisks[deploymentDisk.SCSIUnitID]
+		if ok {
+			deploymentDisk.Speed = configuredDisk.Speed
+		}
+	}
 
 	// Memory and CPU
 	memoryGB := propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB, false)

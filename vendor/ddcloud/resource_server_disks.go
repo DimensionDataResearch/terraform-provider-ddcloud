@@ -60,9 +60,6 @@ func schemaServerDisk() *schema.Schema {
 // imageDisks refers to the newly-deployed server's collection of disks (i.e. image disks).
 func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
-	providerSettings := providerState.Settings()
-	apiClient := providerState.Client()
-
 	serverID := data.Id()
 
 	log.Printf("Configuring image disks for server '%s'...", serverID)
@@ -81,6 +78,8 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 		return nil
 	}
 
+	apiClient := providerState.Client()
+
 	var server *compute.Server
 	server, err := apiClient.GetServer(serverID)
 	if err != nil {
@@ -90,176 +89,117 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 		return fmt.Errorf("Cannot find server with Id '%s'", serverID)
 	}
 
+	// After initial server deployment, we only need to handle disks that were part of the original server image (and of those, only ones we need to modify after the initial deployment completed deployment).
+	log.Printf("Configure image disks for server '%s'...", serverID)
+	actualDisks := models.NewServerDisksFromVirtualMachineDisks(server.Disks)
+	addDisks, modifyDisks, _ := configuredDisks.SplitByAction(actualDisks) // Ignore removeDisks since not all disks have been created yet
+	if addDisks.IsEmpty() && modifyDisks.IsEmpty() {
+		log.Printf("No post-deploy changes required for disks of server '%s'.", serverID)
+
+		return nil
+	}
+	err = processModifyDisks(modifyDisks, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Configure additional disks for server '%s'...", serverID)
+	err = processAddDisks(addDisks, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// When updating a server resource, synchronise the server's image disk attributes with its resource data
+// Removes image disks from existingDisksByUnitID as they are processed, leaving only additional disks.
+func updateDisks(data *schema.ResourceData, providerState *providerState) error {
+	propertyHelper := propertyHelper(data)
+	serverID := data.Id()
+
 	log.Printf("Configure image disks for server '%s'...", serverID)
 
-	// After initial server deployment, we only need to handle disks that were part of the original server image (and of those, only ones we need to modify after the initial deployment completed deployment).
+	apiClient := providerState.Client()
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		data.SetId("")
+
+		return fmt.Errorf("Server '%s' has been deleted.", serverID)
+	}
 	actualDisks := models.NewServerDisksFromVirtualMachineDisks(server.Disks)
-	addDisks, modifyDisks, _ := configuredDisks.SplitByAction(actualDisks)
-	if len(addDisks)+len(modifyDisks) == 0 {
+
+	configuredDisks := propertyHelper.GetServerDisks()
+	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
+
+	if configuredDisks.IsEmpty() {
+		// No explicitly-configured disks.
+		propertyHelper.SetServerDisks(
+			models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+		)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
+
+		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
+
+		return nil
+	}
+
+	addDisks, modifyDisks, removeDisks := configuredDisks.SplitByAction(actualDisks)
+	if addDisks.IsEmpty() && modifyDisks.IsEmpty() && removeDisks.IsEmpty() {
 		log.Printf("No post-deploy changes required for disks of server '%s'.", serverID)
 
 		return nil
 	}
 
-	log.Printf("Configure additional disks for server '%s'...", serverID)
-
-	log.Printf("ModifyDisks(%d) - BEFORE", len(addDisks))
-	actualDisksByUnitID := actualDisks.ByUnitID()
-	for _, configuredImageDisk := range modifyDisks {
-		actualImageDisk := actualDisksByUnitID[configuredImageDisk.SCSIUnitID]
-		imageDiskID := *actualImageDisk.ID
-
-		// Can't shrink disk, only grow it.
-		if configuredImageDisk.SizeGB < actualImageDisk.SizeGB {
-			return fmt.Errorf(
-				"Cannot resize disk '%s' in server '%s' from %d to GB to %d (for now, disks can only be expanded).",
-				imageDiskID,
-				serverID,
-				actualImageDisk.SizeGB,
-				configuredImageDisk.SizeGB,
-			)
-		}
-
-		// Do we need to expand the disk?
-		if configuredImageDisk.SizeGB > actualImageDisk.SizeGB {
-			log.Printf(
-				"Expanding disk '%s' in server '%s' (from %d GB to %d GB)...",
-				imageDiskID,
-				serverID,
-				actualImageDisk.SizeGB,
-				configuredImageDisk.SizeGB,
-			)
-
-			operationDescription := fmt.Sprintf("Expand disk '%s' in server '%s'", imageDiskID, serverID)
-			err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
-				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-				defer asyncLock.Release()
-
-				response, resizeError := apiClient.ResizeServerDisk(serverID, imageDiskID, configuredImageDisk.SizeGB)
-				if compute.IsResourceBusyError(resizeError) {
-					context.Retry()
-				} else if resizeError != nil {
-					context.Fail(resizeError)
-				}
-				if response.Result != compute.ResultSuccess {
-					context.Fail(response.ToError(
-						"Unexpected result '%s' when resizing server disk '%s' for server '%s'.",
-						response.Result,
-						imageDiskID,
-						serverID,
-					))
-				}
-			})
-			if err != nil {
-				return err
-			}
-
-			resource, err := apiClient.WaitForChange(
-				compute.ResourceTypeServer,
-				serverID,
-				"Resize disk",
-				resourceUpdateTimeoutServer,
-			)
-			if err != nil {
-				return err
-			}
-
-			server = resource.(*compute.Server)
-			propertyHelper.SetServerDisks(
-				models.NewServerDisksFromVirtualMachineDisks(server.Disks),
-			)
-			propertyHelper.SetPartial(resourceKeyServerDisk)
-
-			log.Printf(
-				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
-				imageDiskID,
-				serverID,
-				actualImageDisk.SizeGB,
-				configuredImageDisk.SizeGB,
-			)
-		}
-
-		// Do we need to change the disk speed?
-		//
-		// AF: Actually, we can specify this as part of the initial deployment rather than having to change it here. FIXME!
-		if configuredImageDisk.Speed != actualImageDisk.Speed {
-			log.Printf(
-				"Changing speed of disk '%s' in server '%s' (from '%s' to '%s')...",
-				imageDiskID,
-				serverID,
-				actualImageDisk.Speed,
-				configuredImageDisk.Speed,
-			)
-
-			operationDescription := fmt.Sprintf("Change speed of disk '%s' in server '%s'", imageDiskID, serverID)
-			err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
-				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-				defer asyncLock.Release()
-
-				response, resizeError := apiClient.ChangeServerDiskSpeed(serverID, imageDiskID, configuredImageDisk.Speed)
-				if compute.IsResourceBusyError(resizeError) {
-					context.Retry()
-				} else if resizeError != nil {
-					context.Fail(resizeError)
-				}
-				if response.Result != compute.ResultSuccess {
-					context.Fail(response.ToError(
-						"Unexpected result '%s' when resizing server disk '%s' for server '%s'.",
-						response.Result,
-						imageDiskID,
-						serverID,
-					))
-				}
-			})
-			if err != nil {
-				return err
-			}
-
-			resource, err := apiClient.WaitForChange(
-				compute.ResourceTypeServer,
-				serverID,
-				"Resize disk",
-				resourceUpdateTimeoutServer,
-			)
-			if err != nil {
-				return err
-			}
-
-			server = resource.(*compute.Server)
-			propertyHelper.SetServerDisks(
-				models.NewServerDisksFromVirtualMachineDisks(server.Disks),
-			)
-			propertyHelper.SetPartial(resourceKeyServerDisk)
-
-			log.Printf(
-				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
-				imageDiskID,
-				serverID,
-				actualImageDisk.SizeGB,
-				configuredImageDisk.SizeGB,
-			)
-		}
+	// First remove any disks that are no longer required.
+	err = processRemoveDisks(removeDisks, data, providerState)
+	if err != nil {
+		return err
 	}
-	log.Printf("ModifyDisks(%d) - AFTER", len(addDisks))
 
-	log.Printf("AddDisks(%d) - BEFORE", len(addDisks))
-	for _, configuredAdditionalDisk := range addDisks {
-		var additionalDiskID string
+	// Then modify existing disks
+	err = processModifyDisks(modifyDisks, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	// Finally, add new disks
+	err = processAddDisks(addDisks, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Process the collection of disks that need to be added to the server.
+func processAddDisks(addDisks models.ServerDisks, data *schema.ResourceData, providerState *providerState) error {
+	propertyHelper := propertyHelper(data)
+	serverID := data.Id()
+
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	for _, addDisk := range addDisks {
+		var addDiskID string
 
 		operationDescription := fmt.Sprintf("Add disk with SCSI unit ID %d to server '%s'",
-			configuredAdditionalDisk.SCSIUnitID,
+			addDisk.SCSIUnitID,
 			serverID,
 		)
-		err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
 			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 			defer asyncLock.Release()
 
 			var addDiskError error
-			additionalDiskID, addDiskError = apiClient.AddDiskToServer(
+			addDiskID, addDiskError = apiClient.AddDiskToServer(
 				serverID,
-				configuredAdditionalDisk.SCSIUnitID,
-				configuredAdditionalDisk.SizeGB,
-				configuredAdditionalDisk.Speed,
+				addDisk.SCSIUnitID,
+				addDisk.SizeGB,
+				addDisk.Speed,
 			)
 			if compute.IsResourceBusyError(addDiskError) {
 				context.Retry()
@@ -270,16 +210,15 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 		if err == nil {
 			return err
 		}
+		addDisk.ID = &addDiskID
 
 		log.Printf("Adding disk '%s' (%dGB, speed = '%s') with SCSI unit ID %d to server '%s'...",
-			additionalDiskID,
-			configuredAdditionalDisk.SizeGB,
-			configuredAdditionalDisk.Speed,
-			configuredAdditionalDisk.SCSIUnitID,
+			addDiskID,
+			addDisk.SizeGB,
+			addDisk.Speed,
+			addDisk.SCSIUnitID,
 			serverID,
 		)
-
-		configuredAdditionalDisk.ID = &additionalDiskID
 
 		var resource compute.Resource
 		resource, err = apiClient.WaitForChange(
@@ -301,27 +240,24 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
 
 		log.Printf("Added disk '%s' with SCSI unit ID %d to server '%s'.",
-			additionalDiskID,
-			configuredAdditionalDisk.SCSIUnitID,
+			addDiskID,
+			addDisk.SCSIUnitID,
 			serverID,
 		)
 	}
-	log.Printf("AddDisks(%d) - AFTER", len(addDisks))
 
 	return nil
 }
 
-// When updating a server resource, synchronise the server's image disk attributes with its resource data
-// Removes image disks from existingDisksByUnitID as they are processed, leaving only additional disks.
-func updateDisks(data *schema.ResourceData, providerState *providerState) error {
+// Process the collection of disks whose configuration needs to be modified.
+//
+// Disk Ids must already be populated.
+func processModifyDisks(modifyDisks models.ServerDisks, data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
+	serverID := data.Id()
 
 	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
-
-	serverID := data.Id()
-
-	log.Printf("Configure image disks for server '%s'...", serverID)
 
 	server, err := apiClient.GetServer(serverID)
 	if err != nil {
@@ -332,84 +268,53 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 
 		return fmt.Errorf("Server '%s' has been deleted.", serverID)
 	}
+	actualDisks := models.NewServerDisksFromVirtualMachineDisks(server.Disks)
+	actualDisksByUnitID := actualDisks.ByUnitID()
 
-	configuredDisks := propertyHelper.GetServerDisks()
-	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
+	for _, modifyDisk := range modifyDisks {
+		actualImageDisk := actualDisksByUnitID[modifyDisk.SCSIUnitID]
+		imageDiskID := *actualImageDisk.ID
 
-	if len(configuredDisks) == 0 {
-		// No explicitly-configured disks.
-		propertyHelper.SetServerDisks(
-			models.NewServerDisksFromVirtualMachineDisks(server.Disks),
-		)
-		propertyHelper.SetPartial(resourceKeyServerDisk)
-
-		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
-
-		return nil
-	}
-
-	actualDisksByUnitID := getDisksByUnitID(server.Disks)
-	for _, configuredDisk := range configuredDisks {
-		actualDisk, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
-
-		// We don't want to see this disk when we're looking for disks that don't appear in the configuration.
-		delete(actualDisksByUnitID, configuredDisk.SCSIUnitID)
-
-		if ok {
-
-			diskID := *actualDisk.ID
-
-			// Existing disk.
-			log.Printf("Examining existing disk '%s' with SCSI unit Id %d in server '%s'...", diskID, actualDisk.SCSIUnitID, serverID)
-
-			if configuredDisk.SizeGB == actualDisk.SizeGB && configuredDisk.Speed == actualDisk.Speed {
-				log.Printf("Disk '%s' with SCSI unit Id %d in server '%s' is up-to-date; nothing to do.", diskID, actualDisk.SCSIUnitID, serverID)
-
-				continue // Nothing to do.
-			}
-
-			// We don't support changing disk speed yet.
-
-			// Currently we can't shrink a disk, only grow it.
-			if configuredDisk.SizeGB < actualDisk.SizeGB {
-				log.Printf("Disk '%s' with SCSI unit Id %d in server '%s' is larger than the size specified in the server configuration; this is currently unsupported.", diskID, actualDisk.SCSIUnitID, serverID)
-
-				return fmt.Errorf(
-					"Cannot shrink disk '%s' for server '%s' from %d to GB to %d (for now, disks can only be expanded).",
-					diskID,
-					serverID,
-					actualDisk.SizeGB,
-					configuredDisk.SizeGB,
-				)
-			}
-
-			// We need to expand the disk.
-			log.Printf(
-				"Expanding disk '%s' for server '%s' (from %d GB to %d GB)...",
-				diskID,
+		// Can't shrink disk, only grow it.
+		if modifyDisk.SizeGB < actualImageDisk.SizeGB {
+			return fmt.Errorf(
+				"Cannot resize disk '%s' in server '%s' from %d to GB to %d (for now, disks can only be expanded).",
+				imageDiskID,
 				serverID,
-				actualDisk.SizeGB,
-				configuredDisk.SizeGB,
+				actualImageDisk.SizeGB,
+				modifyDisk.SizeGB,
+			)
+		}
+
+		// Do we need to expand the disk?
+		if modifyDisk.SizeGB > actualImageDisk.SizeGB {
+			log.Printf(
+				"Expanding disk '%s' in server '%s' (from %d GB to %d GB)...",
+				imageDiskID,
+				serverID,
+				actualImageDisk.SizeGB,
+				modifyDisk.SizeGB,
 			)
 
-			operationDescription := fmt.Sprintf("Expand disk '%s' in server '%s'", diskID, serverID)
+			operationDescription := fmt.Sprintf("Expand disk '%s' in server '%s'", imageDiskID, serverID)
 			err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
-				// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-				asyncLock := providerState.AcquireAsyncOperationLock("Expand disk '%s' in server '%s'", diskID, serverID)
-				defer asyncLock.Release() // Release when the current attempt completes.
+				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+				defer asyncLock.Release()
 
-				response, err := apiClient.ResizeServerDisk(serverID, diskID, configuredDisk.SizeGB)
-				if err != nil {
-					context.Fail(err)
-				} else if response.Result == compute.ResultResourceBusy {
+				response, resizeError := apiClient.ResizeServerDisk(serverID, imageDiskID, modifyDisk.SizeGB)
+				if compute.IsResourceBusyError(resizeError) {
 					context.Retry()
-				} else if response.Result != compute.ResultSuccess {
-					context.Fail(
-						response.ToError("Unexpected result '%s' when resizing server disk '%s' for server '%s'.", response.Result, diskID, serverID),
-					)
+				} else if resizeError != nil {
+					context.Fail(resizeError)
 				}
-
-				asyncLock.Release()
+				if response.Result != compute.ResultSuccess {
+					context.Fail(response.ToError(
+						"Unexpected result '%s' when resizing server disk '%s' for server '%s'.",
+						response.Result,
+						imageDiskID,
+						serverID,
+					))
+				}
 			})
 			if err != nil {
 				return err
@@ -426,105 +331,147 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 			}
 
 			server := resource.(*compute.Server)
-
 			propertyHelper.SetServerDisks(
 				models.NewServerDisksFromVirtualMachineDisks(server.Disks),
 			)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
-			log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
-
 			log.Printf(
 				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
-				diskID,
+				imageDiskID,
 				serverID,
-				actualDisk.SizeGB,
-				configuredDisk.SizeGB,
+				actualImageDisk.SizeGB,
+				modifyDisk.SizeGB,
 			)
-		} else {
-			// New disk.
-			log.Printf("Adding disk with SCSI unit ID %d to server '%s'...", configuredDisk.SCSIUnitID, serverID)
+		}
 
-			// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-			asyncLock := providerState.AcquireAsyncOperationLock("Add disk with SCSI unit Id %d to server '%s'", configuredDisk.SCSIUnitID, serverID)
-			defer asyncLock.Release()
-
-			var diskID string
-			diskID, err = apiClient.AddDiskToServer(
+		// Do we need to change the disk speed?
+		if modifyDisk.Speed != actualImageDisk.Speed {
+			log.Printf(
+				"Changing speed of disk '%s' in server '%s' (from '%s' to '%s')...",
+				imageDiskID,
 				serverID,
-				configuredDisk.SCSIUnitID,
-				configuredDisk.SizeGB,
-				configuredDisk.Speed,
+				actualImageDisk.Speed,
+				modifyDisk.Speed,
 			)
+
+			operationDescription := fmt.Sprintf("Change speed of disk '%s' in server '%s'", imageDiskID, serverID)
+			err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+				defer asyncLock.Release()
+
+				response, resizeError := apiClient.ChangeServerDiskSpeed(serverID, imageDiskID, modifyDisk.Speed)
+				if compute.IsResourceBusyError(resizeError) {
+					context.Retry()
+				} else if resizeError != nil {
+					context.Fail(resizeError)
+				}
+				if response.Result != compute.ResultSuccess {
+					context.Fail(response.ToError(
+						"Unexpected result '%s' when resizing server disk '%s' for server '%s'.",
+						response.Result,
+						imageDiskID,
+						serverID,
+					))
+				}
+			})
 			if err != nil {
 				return err
 			}
 
-			// Operation initiated; we no longer need this lock.
-			asyncLock.Release()
-
-			log.Printf("New disk '%s' has SCSI unit ID %d in server '%s'...", diskID, configuredDisk.SCSIUnitID, serverID)
-
-			var resource compute.Resource
-			resource, err = apiClient.WaitForChange(
+			resource, err := apiClient.WaitForChange(
 				compute.ResourceTypeServer,
 				serverID,
-				"Add disk",
+				"Resize disk",
 				resourceUpdateTimeoutServer,
 			)
 			if err != nil {
 				return err
 			}
 
-			server := resource.(*compute.Server)
+			server = resource.(*compute.Server)
 			propertyHelper.SetServerDisks(
 				models.NewServerDisksFromVirtualMachineDisks(server.Disks),
 			)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
-			log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
-
 			log.Printf(
-				"Added disk '%s' with SCSI unit ID %d to server '%s'.",
-				diskID,
-				configuredDisk.SCSIUnitID,
+				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
+				imageDiskID,
 				serverID,
+				actualImageDisk.SizeGB,
+				modifyDisk.SizeGB,
 			)
 		}
-	}
-
-	// By process of elimination, any remaining actual disks do not appear in the configuration and should be removed.
-	for unconfiguredDiskUnitID := range actualDisksByUnitID {
-		unconfiguredDisk := actualDisksByUnitID[unconfiguredDiskUnitID]
-
-		unconfiguredDiskID := *unconfiguredDisk.ID
-
-		log.Printf(
-			"Disk '%s' does not appear in the configuration for server '%s' and will be removed.",
-			unconfiguredDiskID,
-			serverID,
-		)
-
-		// TODO: Implement server disk removal.
 	}
 
 	return nil
 }
 
-func getDisksByUnitID(disks []compute.VirtualMachineDisk) map[int]*compute.VirtualMachineDisk {
-	disksByUnitID := make(map[int]*compute.VirtualMachineDisk)
-	for index := range disks {
-		disk := disks[index]
-		disksByUnitID[disk.SCSIUnitID] = &disk
+// Process the collection of disks that need to be removed.
+//
+// Disk Ids must already be populated.
+func processRemoveDisks(removeDisks models.ServerDisks, data *schema.ResourceData, providerState *providerState) error {
+	propertyHelper := propertyHelper(data)
+	serverID := data.Id()
+
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		data.SetId("")
+
+		return fmt.Errorf("Server '%s' has been deleted.", serverID)
 	}
 
-	return disksByUnitID
-}
+	for _, removeDisk := range removeDisks {
+		removeDiskID := *removeDisk.ID
 
-func mergeAdditionalDisks(disksByUnitID map[int]*compute.VirtualMachineDisk, additionalDisks []compute.VirtualMachineDisk) {
-	for _, disk := range additionalDisks {
-		disksByUnitID[disk.SCSIUnitID] = &disk
+		log.Printf("Remove disk '%s' (SCSI unit Id %d) from server '%s'...",
+			removeDiskID,
+			removeDisk.SCSIUnitID,
+			serverID,
+		)
+
+		operationDescription := fmt.Sprintf("Remove disk '%s' from server '%s'", removeDiskID, serverID)
+		err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+			defer asyncLock.Release()
+
+			// TODO: Implement apiClient.RemoveDiskFromServer.
+		})
+		if err != nil {
+			return err
+		}
+
+		resource, err := apiClient.WaitForChange(
+			compute.ResourceTypeServer,
+			serverID,
+			"Remove disk",
+			resourceUpdateTimeoutServer,
+		)
+		if err != nil {
+			return err
+		}
+
+		server := resource.(*compute.Server)
+		propertyHelper.SetServerDisks(
+			models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+		)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
+
+		log.Printf(
+			"Removed disk '%s' from server '%s'.",
+			removeDiskID,
+			serverID,
+		)
 	}
+
+	return nil
 }
 
 func hashDiskUnitID(item interface{}) int {
