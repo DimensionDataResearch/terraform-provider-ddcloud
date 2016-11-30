@@ -442,7 +442,12 @@ func processRemoveDisks(removeDisks models.ServerDisks, data *schema.ResourceDat
 			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 			defer asyncLock.Release()
 
-			// TODO: Implement apiClient.RemoveDiskFromServer.
+			removeError := apiClient.RemoveDiskFromServer(removeDiskID)
+			if compute.IsResourceBusyError(removeError) {
+				context.Retry()
+			} else if removeError != nil {
+				context.Fail(removeError)
+			}
 		})
 		if err != nil {
 			return err
