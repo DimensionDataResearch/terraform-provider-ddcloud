@@ -1,9 +1,9 @@
-VERSION = 1.2.0
+VERSION = 1.2-preview1
 VERSION_INFO_FILE = ./vendor/ddcloud/version-info.go
 
 BIN_DIRECTORY   = _bin
 EXECUTABLE_NAME = terraform-provider-ddcloud
-DIST_ZIP_PREFIX = $(EXECUTABLE_NAME)-v$(VERSION)
+DIST_ZIP_PREFIX = $(EXECUTABLE_NAME).v$(VERSION)
 
 REPO_BASE     = github.com/DimensionDataResearch
 REPO_ROOT     = $(REPO_BASE)/dd-cloud-compute-terraform
@@ -51,11 +51,11 @@ push-docker: build-docker
 # Produce archives for a GitHub release.
 dist: build
 	cd $(BIN_DIRECTORY)/windows-386 && \
-		zip -9 ../$(DIST_ZIP_PREFIX)-windows-386.zip $(EXECUTABLE_NAME).exe
+		zip -9 ../$(DIST_ZIP_PREFIX).windows-386.zip $(EXECUTABLE_NAME).exe
 	cd $(BIN_DIRECTORY)/windows-amd64 && \
-		zip -9 ../$(DIST_ZIP_PREFIX)-windows-amd64.zip $(EXECUTABLE_NAME).exe
+		zip -9 ../$(DIST_ZIP_PREFIX).windows-amd64.zip $(EXECUTABLE_NAME).exe
 	cd $(BIN_DIRECTORY)/linux-amd64 && \
-		zip -9 ../$(DIST_ZIP_PREFIX)-linux-amd64.zip $(EXECUTABLE_NAME)
+		zip -9 ../$(DIST_ZIP_PREFIX).linux-amd64.zip $(EXECUTABLE_NAME)
 	cd $(BIN_DIRECTORY)/darwin-amd64 && \
 		zip -9 ../$(DIST_ZIP_PREFIX)-darwin-amd64.zip $(EXECUTABLE_NAME)
 

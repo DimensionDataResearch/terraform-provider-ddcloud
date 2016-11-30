@@ -1,6 +1,23 @@
 # Changes
 
-## v1.2.0
+## v1.2-preview1
+
+This is a preview release.
+
+Enhancements:
+
+* Major improvements (robustness and maintainability) to add / modify server disks (#63).  
+This logic was getting waaaay too complicated and is now greatly simplified using lessons learned over the last couple of months.
+
+Bug fixes:
+
+* Removal of a `ddcloud_server` disk now actually removes the disk (#63).
+
+Breaking changes:
+
+* `ddcloud_server_nic` resource has been removed (#56).  
+Its functionality will be merged back into `ddcloud_server` before v1.2 is released.  
+This is mainly due to the size and scope of the changes required to do this. Now that we've figured out what's involved in simplifying the `disk` work for `ddcloud_server` is complete, the `network_adapter` work should be a lot easier.
 
 ## v1.1.9
 
