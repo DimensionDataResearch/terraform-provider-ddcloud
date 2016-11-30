@@ -45,19 +45,17 @@ func updateServerConfiguration(apiClient *compute.Client, server *compute.Server
 }
 
 func captureServerNetworkConfiguration(server *compute.Server, data *schema.ResourceData, isPartial bool) {
-	data.Set(resourceKeyServerPrimaryAdapterVLAN, *server.Network.PrimaryAdapter.VLANID)
-	if isPartial {
-		data.SetPartial(resourceKeyServerPrimaryAdapterVLAN)
-	}
+	propertyHelper := propertyHelper(data)
 
-	data.Set(resourceKeyServerPrimaryAdapterIPv4, *server.Network.PrimaryAdapter.PrivateIPv4Address)
-	if isPartial {
-		data.SetPartial(resourceKeyServerPrimaryAdapterIPv4)
-	}
+	networkAdapters := propertyHelper.GetNetworkAdapters()
+	log.Printf("ConfiguredAdapters1 = '%#v'", networkAdapters)
+	log.Printf("Network = '%#v'", server.Network)
+	networkAdapters.ReadVirtualMachineNetwork(server.Network)
+	log.Printf("ConfiguredAdapters2 = '%#v'", networkAdapters)
+	propertyHelper.SetNetworkAdapters(networkAdapters)
 
-	data.Set(resourceKeyServerPrimaryAdapterIPv6, *server.Network.PrimaryAdapter.PrivateIPv6Address)
 	if isPartial {
-		data.SetPartial(resourceKeyServerPrimaryAdapterIPv6)
+		data.SetPartial(resourceKeyServerNetworkAdapter)
 	}
 
 	data.Set(resourceKeyServerNetworkDomainID, server.Network.NetworkDomainID)

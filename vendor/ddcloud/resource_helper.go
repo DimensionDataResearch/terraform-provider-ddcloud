@@ -339,20 +339,19 @@ func (helper resourcePropertyHelper) GetNetworkAdapters() (networkAdapters model
 	if !ok {
 		return
 	}
-	serverNetworkAdapters := value.(*schema.Set).List()
 
-	networkAdapters = models.NewNetworkAdaptersFromStateData(serverNetworkAdapters)
+	networkAdapters = models.NewNetworkAdaptersFromStateData(
+		value.([]interface{}),
+	)
 
 	return
 }
 
 func (helper resourcePropertyHelper) SetNetworkAdapters(networkAdapters models.NetworkAdapters) {
-	networkAdapterProperties := &schema.Set{F: hashServerNetworkAdapter}
+	networkAdapterProperties := make([]interface{}, len(networkAdapters))
 
-	for _, networkAdapter := range networkAdapters {
-		networkAdapterProperties.Add(
-			networkAdapter.ToMap(),
-		)
+	for index, networkAdapter := range networkAdapters.ToMaps() {
+		networkAdapterProperties[index] = networkAdapter
 	}
 	helper.data.Set(resourceKeyServerNetworkAdapter, networkAdapterProperties)
 }

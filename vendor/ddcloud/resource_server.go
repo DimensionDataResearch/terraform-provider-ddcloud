@@ -113,7 +113,7 @@ func resourceServer() *schema.Resource {
 				Optional:    true,
 				Computed:    true,
 				Default:     nil,
-				Deprecated:  "This property is being replaced by the 'network_adapter.vlan' property (see the provider documentation for details)",
+				Removed:     "This property has been replaced by the 'network_adapter.vlan' property (see the provider documentation for details)",
 				Description: "The IPv4 address for the server's primary network adapter",
 			},
 			resourceKeyServerPrimaryAdapterType: &schema.Schema{
@@ -121,7 +121,7 @@ func resourceServer() *schema.Resource {
 				Optional:     true,
 				ForceNew:     true,
 				Default:      nil,
-				Deprecated:   "This property is being replaced by the 'network_adapter.type' property (see the provider documentation for details)",
+				Removed:      "This property has been replaced by the 'network_adapter.type' property (see the provider documentation for details)",
 				Description:  "The type of the server's primary network adapter (E1000 or VMXNET3)",
 				ValidateFunc: validateNetworkAdapterAdapterType,
 			},
@@ -379,18 +379,18 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	// Network
-	primaryVLANID := propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterVLAN, false)
-	primaryIPv4Address := propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterIPv4, false)
-	primaryAdapterType := propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterType, false)
-
 	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
 		NetworkDomainID: networkDomainID,
-		PrimaryAdapter: compute.VirtualMachineNetworkAdapter{
-			VLANID:             primaryVLANID,
-			PrivateIPv4Address: primaryIPv4Address,
-			AdapterType:        primaryAdapterType,
-		},
 	}
+
+	// Populate adapter indexes.
+	networkAdapters := propertyHelper.GetNetworkAdapters()
+	networkAdapters.InitializeIndexes()
+	propertyHelper.SetNetworkAdapters(networkAdapters)
+
+	// Initial configuration for network adapters.
+	networkAdapters.UpdateVirtualMachineNetwork(&deploymentConfiguration.Network)
+
 	deploymentConfiguration.PrimaryDNS = primaryDNS
 	deploymentConfiguration.SecondaryDNS = secondaryDNS
 
@@ -421,6 +421,9 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	// Capture additional properties that may only be available after deployment.
 	data.Partial(true)
 	server := resource.(*compute.Server)
+
+	networkAdapters.CaptureIDs(server.Network)
+	propertyHelper.SetNetworkAdapters(networkAdapters)
 	captureServerNetworkConfiguration(server, data, true)
 
 	var publicIPv4Address string
@@ -456,6 +459,8 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 // Read a server resource.
 func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
+	propertyHelper := propertyHelper(data)
+
 	id := data.Id()
 	name := data.Get(resourceKeyServerName).(string)
 	description := data.Get(resourceKeyServerDescription).(string)
@@ -506,7 +511,6 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 		return err
 	}
 
-	propertyHelper := propertyHelper(data)
 	propertyHelper.SetDisks(
 		models.NewDisksFromVirtualMachineDisks(server.Disks),
 	)

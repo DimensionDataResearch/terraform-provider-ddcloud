@@ -22,9 +22,8 @@ const (
 
 func schemaServerNetworkAdapter() *schema.Schema {
 	return &schema.Schema{
-		Type:     schema.TypeSet,
-		Optional: true,
-		Computed: true,
+		Type:     schema.TypeList,
+		Required: true,
 		MinItems: 1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
@@ -35,9 +34,9 @@ func schemaServerNetworkAdapter() *schema.Schema {
 				},
 				resourceKeyServerNetworkAdapterIndex: &schema.Schema{
 					Type:        schema.TypeInt,
-					Optional:    true,
-					Default:     0,
-					Description: "A unique identifier for the network adapter (0 is the primary adapter)",
+					Computed:    true,
+					Default:     nil,
+					Description: "The index of the network adapter in CloudControl (0 is the primary adapter)",
 				},
 				resourceKeyServerNetworkAdapterVLANID: &schema.Schema{
 					Type:        schema.TypeString,
@@ -72,22 +71,97 @@ func schemaServerNetworkAdapter() *schema.Schema {
 				},
 			},
 		},
-		Set: hashServerNetworkAdapter,
-		ConflictsWith: []string{
-			resourceKeyServerPrimaryAdapterVLAN,
-			resourceKeyServerPrimaryAdapterIPv4,
-			resourceKeyServerPrimaryAdapterType,
-		},
 	}
 }
 
-// TODO: Define MapStructure-compatible structures to represent configured network adapters.
-// TODO: Give these structures methods for reading / writing VirtualMachineNetworkAdapter.
+// AF: This is unnecessary - we do this in the initial deployment configuration.
+func createNetworkAdapters(server *compute.Server, data *schema.ResourceData, providerState *providerState) error {
+	propertyHelper := propertyHelper(data)
+	serverID := data.Id()
+
+	configuredNetworkAdapters := propertyHelper.GetNetworkAdapters()
+	actualNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
+
+	addNetworkAdapters, _, _ := configuredNetworkAdapters.SplitByAction(actualNetworkAdapters)
+	if addNetworkAdapters.IsEmpty() {
+		log.Printf("No post-deploy changes required for network adapters of server '%s'.", serverID)
+
+		return nil
+	}
+
+	return nil
+}
 
 func addServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
-	// TODO: Implement (remember to use providerState.AcquireAsyncOperationLock)
+	log.Printf("Add network adapter with index %d to server '%s'",
+		networkAdapter.Index,
+		serverID,
+	)
 
-	return fmt.Errorf("addServerNetworkAdapter is not yet implemented")
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	operationDescription := fmt.Sprintf("Add network adapter to server '%s'", serverID)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
+		var addAdapterError error
+		if networkAdapter.HasExplicitType() {
+			networkAdapter.ID, addAdapterError = apiClient.AddNicWithTypeToServer(
+				networkAdapter.ID,
+				networkAdapter.PrivateIPv4Address,
+				networkAdapter.VLANID,
+				networkAdapter.AdapterType,
+			)
+		} else {
+			networkAdapter.ID, addAdapterError = apiClient.AddNicToServer(
+				networkAdapter.ID,
+				networkAdapter.PrivateIPv4Address,
+				networkAdapter.VLANID,
+			)
+		}
+		if compute.IsResourceBusyError(addAdapterError) {
+			context.Retry()
+		} else if addAdapterError != nil {
+			context.Fail(addAdapterError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Adding network adapter '%s' to server '%s'...", networkAdapter.ID, serverID)
+
+	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
+	resource, err := apiClient.WaitForChange(
+		compute.ResourceTypeNetworkAdapter,
+		compositeNetworkAdapterID,
+		"Add network adapter",
+		resourceUpdateTimeoutServer,
+	)
+	if err != nil {
+		return err
+	}
+
+	server := resource.(*compute.Server)
+	for index, serverNetworkAdapter := range server.Network.AdditionalNetworkAdapters {
+		if *serverNetworkAdapter.ID == networkAdapter.ID {
+			networkAdapter.Index = index
+
+			break
+		}
+	}
+	if networkAdapter.Index == 0 {
+		return fmt.Errorf("Unable to find network adapter '%s' in server '%s'",
+			networkAdapter.ID,
+			serverID,
+		)
+	}
+
+	log.Printf("Added network adapter '%s' to server '%s' at index %d.", networkAdapter.ID, serverID, networkAdapter.Index)
+
+	return nil
 }
 
 func updateServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {

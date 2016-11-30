@@ -12,7 +12,7 @@ import (
 
 const (
 	resourceKeyServerDisk       = "disk"
-	resourceKeyServerDiskID     = "disk_id"
+	resourceKeyServerDiskID     = "id"
 	resourceKeyServerDiskUnitID = "scsi_unit_id"
 	resourceKeyServerDiskSizeGB = "size_gb"
 	resourceKeyServerDiskSpeed  = "speed"

@@ -15,12 +15,17 @@ type NetworkAdapter struct {
 	AdapterType        string
 }
 
+// HasExplicitType determines whether the NetworkAdapter explicitly declares an adapter type.
+func (networkAdapter *NetworkAdapter) HasExplicitType() bool {
+	return networkAdapter.AdapterType != ""
+}
+
 // ReadMap populates the NetworkAdapter with values from the specified map.
 func (networkAdapter *NetworkAdapter) ReadMap(networkAdapterProperties map[string]interface{}) {
 	reader := maps.NewReader(networkAdapterProperties)
 
 	networkAdapter.ID = reader.GetString("id")
-	networkAdapter.Index = reader.GetInt("index")
+	networkAdapter.Index = reader.GetIntOr("index", -1)
 	networkAdapter.VLANID = reader.GetString("vlan")
 	networkAdapter.PrivateIPv4Address = reader.GetString("ipv4")
 	networkAdapter.PrivateIPv6Address = reader.GetString("ipv6")
@@ -45,6 +50,16 @@ func (networkAdapter *NetworkAdapter) UpdateMap(networkAdapterProperties map[str
 	writer.SetString("ipv4", networkAdapter.PrivateIPv4Address)
 	writer.SetString("ipv6", networkAdapter.PrivateIPv6Address)
 	writer.SetString("type", networkAdapter.AdapterType)
+}
+
+// ReadNetworkAdapter populates the NetworkAdapter with values from the specified NetworkAdapter.
+func (networkAdapter *NetworkAdapter) ReadNetworkAdapter(targetNetworkAdapter NetworkAdapter) {
+	networkAdapter.ID = targetNetworkAdapter.ID
+	networkAdapter.VLANID = targetNetworkAdapter.VLANID
+	networkAdapter.PrivateIPv4Address = targetNetworkAdapter.PrivateIPv4Address
+	networkAdapter.PrivateIPv6Address = targetNetworkAdapter.PrivateIPv6Address
+
+	// We read only properties that can change so AdapterType is out for now.
 }
 
 // ReadVirtualMachineNetworkAdapter populates the NetworkAdapter with values from the specified VirtualMachineNetworkAdapter.

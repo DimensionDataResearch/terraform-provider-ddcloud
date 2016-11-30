@@ -48,14 +48,21 @@ func (reader *mapAdapter) GetStringPtr(key string) *string {
 //
 // If the value does not exist, or is not an int, returns 0.
 func (reader *mapAdapter) GetInt(key string) int {
+	return reader.GetIntOr(key, 0)
+}
+
+// GetInt retrieves an integer from the underlying data, or a default value if not present.
+//
+// If the value does not exist, or is not an int, returns defaultValue.
+func (reader *mapAdapter) GetIntOr(key string, defaultValue int) int {
 	value, ok := reader.data[key]
 	if !ok {
-		return 0
+		return defaultValue
 	}
 
 	intValue, ok := value.(int)
 	if !ok {
-		return 0
+		return defaultValue
 	}
 
 	return intValue
