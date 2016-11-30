@@ -92,7 +92,7 @@ func resourceServer() *schema.Resource {
 				Default:     nil,
 				Description: "The speed (quality-of-service) for CPUs allocated to the server",
 			},
-			resourceKeyServerDisk: schemaServerDisk(),
+			resourceKeyDisk: schemaDisk(),
 			resourceKeyServerNetworkDomainID: &schema.Schema{
 				Type:        schema.TypeString,
 				ForceNew:    true,
@@ -339,7 +339,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	// Image disk speeds
-	configuredDisks := propertyHelper.GetServerDisks().ByUnitID()
+	configuredDisks := propertyHelper.GetDisks().ByUnitID()
 	for index := range deploymentConfiguration.Disks {
 		deploymentDisk := &deploymentConfiguration.Disks[index]
 
@@ -507,8 +507,8 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	}
 
 	propertyHelper := propertyHelper(data)
-	propertyHelper.SetServerDisks(
-		models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+	propertyHelper.SetDisks(
+		models.NewDisksFromVirtualMachineDisks(server.Disks),
 	)
 
 	return nil
@@ -644,7 +644,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		data.SetPartial(resourceKeyServerTag)
 	}
 
-	if data.HasChange(resourceKeyServerDisk) {
+	if data.HasChange(resourceKeyDisk) {
 		err = updateDisks(data, providerState)
 		if err != nil {
 			return err

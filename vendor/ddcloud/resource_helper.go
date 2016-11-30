@@ -311,19 +311,19 @@ func (helper resourcePropertyHelper) SetPortListPorts(ports []compute.PortListEn
 	helper.data.Set(resourceKeyPortListPort, portProperties)
 }
 
-func (helper resourcePropertyHelper) GetServerDisks() (disks models.ServerDisks) {
-	value, ok := helper.data.GetOk(resourceKeyServerDisk)
+func (helper resourcePropertyHelper) GetDisks() (disks models.Disks) {
+	value, ok := helper.data.GetOk(resourceKeyDisk)
 	if !ok {
 		return
 	}
 	serverDisks := value.(*schema.Set).List()
 
-	disks = models.NewServerDisksFromStateData(serverDisks)
+	disks = models.NewDisksFromStateData(serverDisks)
 
 	return
 }
 
-func (helper resourcePropertyHelper) SetServerDisks(disks models.ServerDisks) {
+func (helper resourcePropertyHelper) SetDisks(disks models.Disks) {
 	diskProperties := &schema.Set{F: hashDisk}
 
 	for _, disk := range disks {
@@ -331,7 +331,7 @@ func (helper resourcePropertyHelper) SetServerDisks(disks models.ServerDisks) {
 			disk.ToMap(),
 		)
 	}
-	helper.data.Set(resourceKeyServerDisk, diskProperties)
+	helper.data.Set(resourceKeyDisk, diskProperties)
 }
 
 func (helper resourcePropertyHelper) GetVirtualListenerIRuleIDs(apiClient *compute.Client) (iRuleIDs []string, err error) {

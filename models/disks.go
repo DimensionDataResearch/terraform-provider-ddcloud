@@ -4,18 +4,18 @@ import (
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 )
 
-// TODO: Consider implementing ServerDisks.CalculateActions([]compute.VirtualMachineDisk)
+// TODO: Consider implementing Disks.CalculateActions([]compute.VirtualMachineDisk)
 
-// ServerDisks represents an array of ServerDisk structures.
-type ServerDisks []ServerDisk
+// Disks represents an array of Disk structures.
+type Disks []Disk
 
-// IsEmpty determines whether the ServerDisk array is empty.
-func (disks ServerDisks) IsEmpty() bool {
+// IsEmpty determines whether the Disk array is empty.
+func (disks Disks) IsEmpty() bool {
 	return len(disks) == 0
 }
 
-// ToVirtualMachineDisks converts the ServerDisks to an array of compute.VirtualMachineDisk.
-func (disks ServerDisks) ToVirtualMachineDisks() []compute.VirtualMachineDisk {
+// ToVirtualMachineDisks converts the Disks to an array of compute.VirtualMachineDisk.
+func (disks Disks) ToVirtualMachineDisks() []compute.VirtualMachineDisk {
 	virtualMachineDisks := make([]compute.VirtualMachineDisk, len(disks))
 	for index, disk := range disks {
 		virtualMachineDisks[index] = disk.ToVirtualMachineDisk()
@@ -24,8 +24,8 @@ func (disks ServerDisks) ToVirtualMachineDisks() []compute.VirtualMachineDisk {
 	return virtualMachineDisks
 }
 
-// ToMaps converts the ServerDisks to an array of maps.
-func (disks ServerDisks) ToMaps() []map[string]interface{} {
+// ToMaps converts the Disks to an array of maps.
+func (disks Disks) ToMaps() []map[string]interface{} {
 	diskPropertyList := make([]map[string]interface{}, len(disks))
 	for index, disk := range disks {
 		diskPropertyList[index] = disk.ToMap()
@@ -34,9 +34,9 @@ func (disks ServerDisks) ToMaps() []map[string]interface{} {
 	return diskPropertyList
 }
 
-// ByUnitID creates a map of ServerDisk keyed by SCSI unit Id.
-func (disks ServerDisks) ByUnitID() map[int]ServerDisk {
-	disksByUnitID := make(map[int]ServerDisk)
+// ByUnitID creates a map of Disk keyed by SCSI unit Id.
+func (disks Disks) ByUnitID() map[int]Disk {
+	disksByUnitID := make(map[int]Disk)
 	for _, disk := range disks {
 		disksByUnitID[disk.SCSIUnitID] = disk
 	}
@@ -44,8 +44,8 @@ func (disks ServerDisks) ByUnitID() map[int]ServerDisk {
 	return disksByUnitID
 }
 
-// CaptureIDs updates the ServerDisk Ids from the actual disks.
-func (disks ServerDisks) CaptureIDs(actualDisks ServerDisks) {
+// CaptureIDs updates the Disk Ids from the actual disks.
+func (disks Disks) CaptureIDs(actualDisks Disks) {
 	actualDisksByUnitID := actualDisks.ByUnitID()
 	for index := range disks {
 		disk := &disks[index]
@@ -62,7 +62,7 @@ func (disks ServerDisks) CaptureIDs(actualDisks ServerDisks) {
 // actualDisks represents the disks in the server, as returned by CloudControl.
 //
 // This function only works right after the server has been deployed (i.e. no post-deployment disk changes (such as AddDiskToServer) have been made).
-func (disks ServerDisks) SplitByInitialType(actualDisks ServerDisks) (imageDisks ServerDisks, additionalDisks ServerDisks) {
+func (disks Disks) SplitByInitialType(actualDisks Disks) (imageDisks Disks, additionalDisks Disks) {
 	actualDisksByUnitID := actualDisks.ByUnitID()
 	for _, configuredDisk := range disks {
 		_, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
@@ -82,7 +82,7 @@ func (disks ServerDisks) SplitByInitialType(actualDisks ServerDisks) (imageDisks
 //
 // configuredDisks represents the disks currently specified in configuration.
 // actualDisks represents the disks in the server, as returned by CloudControl.
-func (disks ServerDisks) SplitByAction(actualDisks ServerDisks) (addDisks ServerDisks, changeDisks ServerDisks, removeDisks ServerDisks) {
+func (disks Disks) SplitByAction(actualDisks Disks) (addDisks Disks, changeDisks Disks, removeDisks Disks) {
 	actualDisksByUnitID := actualDisks.ByUnitID()
 	for _, configuredDisk := range disks {
 		actualDisk, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]

@@ -8,8 +8,8 @@ import (
 
 // Unit test - splitInitiallyConfiguredDisksByType with no configured disks.
 func TestSplitInitiallyConfiguredDisksEmpty(test *testing.T) {
-	configuredDisks := ServerDisks{}
-	actualDisks := ServerDisks{}
+	configuredDisks := Disks{}
+	actualDisks := Disks{}
 
 	imageDisks, additionalDisks := configuredDisks.SplitByInitialType(actualDisks)
 
@@ -20,21 +20,21 @@ func TestSplitInitiallyConfiguredDisksEmpty(test *testing.T) {
 
 // Unit test - splitInitiallyConfiguredDisksByType with both image and additional disks.
 func TestSplitInitiallyConfiguredDisksBoth(test *testing.T) {
-	configuredDisks := ServerDisks{
-		ServerDisk{
+	configuredDisks := Disks{
+		Disk{
 			ID:         nil,
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		ServerDisk{
+		Disk{
 			ID:         nil,
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := ServerDisks{
+	actualDisks := Disks{
 		configuredDisks[0],
 	}
 
@@ -50,13 +50,13 @@ func TestSplitInitiallyConfiguredDisksBoth(test *testing.T) {
 
 // Unit test - splitInitiallyConfiguredDisksByType with only image disks.
 func TestSplitInitiallyConfiguredDisksOnlyImageDisks(test *testing.T) {
-	configuredDisks := ServerDisks{
-		ServerDisk{
+	configuredDisks := Disks{
+		Disk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		ServerDisk{
+		Disk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
@@ -75,19 +75,19 @@ func TestSplitInitiallyConfiguredDisksOnlyImageDisks(test *testing.T) {
 
 // Unit test - splitInitiallyConfiguredDisksByType with only additional disks.
 func TestSplitInitiallyConfiguredDisksOnlyAdditionalDisks(test *testing.T) {
-	configuredDisks := ServerDisks{
-		ServerDisk{
+	configuredDisks := Disks{
+		Disk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		ServerDisk{
+		Disk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := ServerDisks{}
+	actualDisks := Disks{}
 
 	imageDisks, additionalDisks := configuredDisks.SplitByInitialType(actualDisks)
 
@@ -98,8 +98,8 @@ func TestSplitInitiallyConfiguredDisksOnlyAdditionalDisks(test *testing.T) {
 
 // Unit test - splitConfiguredDisksByAction with no configured disks.
 func TestSplitConfiguredDisksByActionEmpty(test *testing.T) {
-	configuredDisks := ServerDisks{}
-	actualDisks := ServerDisks{}
+	configuredDisks := Disks{}
+	actualDisks := Disks{}
 
 	addDisks, changeDisks, removeDisks := configuredDisks.SplitByAction(actualDisks)
 
@@ -111,19 +111,19 @@ func TestSplitConfiguredDisksByActionEmpty(test *testing.T) {
 
 // Unit test - splitConfiguredDisksByAction with 2 new disks.
 func TestSplitConfiguredDisksByActionNew2(test *testing.T) {
-	configuredDisks := ServerDisks{
-		ServerDisk{
+	configuredDisks := Disks{
+		Disk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		ServerDisk{
+		Disk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := ServerDisks{}
+	actualDisks := Disks{}
 
 	addDisks, changeDisks, removeDisks := configuredDisks.SplitByAction(actualDisks)
 
@@ -135,40 +135,40 @@ func TestSplitConfiguredDisksByActionNew2(test *testing.T) {
 
 // Unit test - splitConfiguredDisksByAction with 2 new disks.
 func TestSplitConfiguredDisksByActionNew1Changed2(test *testing.T) {
-	configuredDisks := ServerDisks{
-		ServerDisk{
+	configuredDisks := Disks{
+		Disk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		ServerDisk{
+		Disk{
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
-		ServerDisk{
+		Disk{
 			SCSIUnitID: 2,
 			SizeGB:     20,
 			Speed:      "STANDARD",
 		},
-		ServerDisk{
+		Disk{
 			SCSIUnitID: 3,
 			SizeGB:     10,
 			Speed:      "STANDARD",
 		},
 	}
-	actualDisks := ServerDisks{
-		ServerDisk{
+	actualDisks := Disks{
+		Disk{
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
-		ServerDisk{
+		Disk{
 			SCSIUnitID: 1,
 			SizeGB:     50,
 			Speed:      "STANDARD",
 		},
-		ServerDisk{
+		Disk{
 			SCSIUnitID: 2,
 			SizeGB:     20,
 			Speed:      "HIGHPERFORMANCE",

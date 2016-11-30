@@ -11,15 +11,15 @@ import (
 )
 
 const (
-	resourceKeyServerDisk       = "disk"
-	resourceKeyServerDiskID     = "disk_id"
-	resourceKeyServerDiskUnitID = "scsi_unit_id"
-	resourceKeyServerDiskSizeGB = "size_gb"
-	resourceKeyServerDiskSpeed  = "speed"
+	resourceKeyDisk       = "disk"
+	resourceKeyDiskID     = "disk_id"
+	resourceKeyDiskUnitID = "scsi_unit_id"
+	resourceKeyDiskSizeGB = "size_gb"
+	resourceKeyDiskSpeed  = "speed"
 	// TODO: Consider adding "disk_type" property ("image" or "additional")
 )
 
-func schemaServerDisk() *schema.Schema {
+func schemaDisk() *schema.Schema {
 	return &schema.Schema{
 		Type:        schema.TypeSet,
 		Optional:    true,
@@ -28,22 +28,22 @@ func schemaServerDisk() *schema.Schema {
 		Description: "The set of virtual disks attached to the server",
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
-				resourceKeyServerDiskID: &schema.Schema{
+				resourceKeyDiskID: &schema.Schema{
 					Type:        schema.TypeString,
 					Computed:    true,
 					Description: "The CloudControl identifier for the virtual disk (computed when the disk is first created)",
 				},
-				resourceKeyServerDiskUnitID: &schema.Schema{
+				resourceKeyDiskUnitID: &schema.Schema{
 					Type:        schema.TypeInt,
 					Required:    true,
 					Description: "The SCSI Logical Unit Number (LUN) for the disk",
 				},
-				resourceKeyServerDiskSizeGB: &schema.Schema{
+				resourceKeyDiskSizeGB: &schema.Schema{
 					Type:        schema.TypeInt,
 					Required:    true,
 					Description: "The size (in GB) of the disk",
 				},
-				resourceKeyServerDiskSpeed: &schema.Schema{
+				resourceKeyDiskSpeed: &schema.Schema{
 					Type:        schema.TypeString,
 					Optional:    true,
 					Default:     "STANDARD",
@@ -64,14 +64,14 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 
 	log.Printf("Configuring image disks for server '%s'...", serverID)
 
-	configuredDisks := propertyHelper.GetServerDisks()
+	configuredDisks := propertyHelper.GetDisks()
 	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
 
 	if len(configuredDisks) == 0 {
 		// Since this is the first time, populate image disks.
-		serverDisks := models.NewServerDisksFromVirtualMachineDisks(imageDisks)
-		propertyHelper.SetServerDisks(serverDisks)
-		propertyHelper.SetPartial(resourceKeyServerDisk)
+		serverDisks := models.NewDisksFromVirtualMachineDisks(imageDisks)
+		propertyHelper.SetDisks(serverDisks)
+		propertyHelper.SetPartial(resourceKeyDisk)
 
 		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(serverDisks), serverDisks)
 
@@ -91,7 +91,7 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 
 	// After initial server deployment, we only need to handle disks that were part of the original server image (and of those, only ones we need to modify after the initial deployment completed deployment).
 	log.Printf("Configure image disks for server '%s'...", serverID)
-	actualDisks := models.NewServerDisksFromVirtualMachineDisks(server.Disks)
+	actualDisks := models.NewDisksFromVirtualMachineDisks(server.Disks)
 	addDisks, modifyDisks, _ := configuredDisks.SplitByAction(actualDisks) // Ignore removeDisks since not all disks have been created yet
 	if addDisks.IsEmpty() && modifyDisks.IsEmpty() {
 		log.Printf("No post-deploy changes required for disks of server '%s'.", serverID)
@@ -130,17 +130,17 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 
 		return fmt.Errorf("Server '%s' has been deleted.", serverID)
 	}
-	actualDisks := models.NewServerDisksFromVirtualMachineDisks(server.Disks)
+	actualDisks := models.NewDisksFromVirtualMachineDisks(server.Disks)
 
-	configuredDisks := propertyHelper.GetServerDisks()
+	configuredDisks := propertyHelper.GetDisks()
 	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
 
 	if configuredDisks.IsEmpty() {
 		// No explicitly-configured disks.
-		propertyHelper.SetServerDisks(
-			models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+		propertyHelper.SetDisks(
+			models.NewDisksFromVirtualMachineDisks(server.Disks),
 		)
-		propertyHelper.SetPartial(resourceKeyServerDisk)
+		propertyHelper.SetPartial(resourceKeyDisk)
 
 		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
 
@@ -176,7 +176,7 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 }
 
 // Process the collection of disks that need to be added to the server.
-func processAddDisks(addDisks models.ServerDisks, data *schema.ResourceData, providerState *providerState) error {
+func processAddDisks(addDisks models.Disks, data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
@@ -232,10 +232,10 @@ func processAddDisks(addDisks models.ServerDisks, data *schema.ResourceData, pro
 		}
 
 		server := resource.(*compute.Server)
-		propertyHelper.SetServerDisks(
-			models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+		propertyHelper.SetDisks(
+			models.NewDisksFromVirtualMachineDisks(server.Disks),
 		)
-		propertyHelper.SetPartial(resourceKeyServerDisk)
+		propertyHelper.SetPartial(resourceKeyDisk)
 
 		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
 
@@ -252,7 +252,7 @@ func processAddDisks(addDisks models.ServerDisks, data *schema.ResourceData, pro
 // Process the collection of disks whose configuration needs to be modified.
 //
 // Disk Ids must already be populated.
-func processModifyDisks(modifyDisks models.ServerDisks, data *schema.ResourceData, providerState *providerState) error {
+func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
@@ -268,7 +268,7 @@ func processModifyDisks(modifyDisks models.ServerDisks, data *schema.ResourceDat
 
 		return fmt.Errorf("Server '%s' has been deleted.", serverID)
 	}
-	actualDisks := models.NewServerDisksFromVirtualMachineDisks(server.Disks)
+	actualDisks := models.NewDisksFromVirtualMachineDisks(server.Disks)
 	actualDisksByUnitID := actualDisks.ByUnitID()
 
 	for _, modifyDisk := range modifyDisks {
@@ -331,10 +331,10 @@ func processModifyDisks(modifyDisks models.ServerDisks, data *schema.ResourceDat
 			}
 
 			server := resource.(*compute.Server)
-			propertyHelper.SetServerDisks(
-				models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+			propertyHelper.SetDisks(
+				models.NewDisksFromVirtualMachineDisks(server.Disks),
 			)
-			propertyHelper.SetPartial(resourceKeyServerDisk)
+			propertyHelper.SetPartial(resourceKeyDisk)
 
 			log.Printf(
 				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
@@ -390,10 +390,10 @@ func processModifyDisks(modifyDisks models.ServerDisks, data *schema.ResourceDat
 			}
 
 			server = resource.(*compute.Server)
-			propertyHelper.SetServerDisks(
-				models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+			propertyHelper.SetDisks(
+				models.NewDisksFromVirtualMachineDisks(server.Disks),
 			)
-			propertyHelper.SetPartial(resourceKeyServerDisk)
+			propertyHelper.SetPartial(resourceKeyDisk)
 
 			log.Printf(
 				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
@@ -411,7 +411,7 @@ func processModifyDisks(modifyDisks models.ServerDisks, data *schema.ResourceDat
 // Process the collection of disks that need to be removed.
 //
 // Disk Ids must already be populated.
-func processRemoveDisks(removeDisks models.ServerDisks, data *schema.ResourceData, providerState *providerState) error {
+func processRemoveDisks(removeDisks models.Disks, data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
@@ -464,10 +464,10 @@ func processRemoveDisks(removeDisks models.ServerDisks, data *schema.ResourceDat
 		}
 
 		server := resource.(*compute.Server)
-		propertyHelper.SetServerDisks(
-			models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+		propertyHelper.SetDisks(
+			models.NewDisksFromVirtualMachineDisks(server.Disks),
 		)
-		propertyHelper.SetPartial(resourceKeyServerDisk)
+		propertyHelper.SetPartial(resourceKeyDisk)
 
 		log.Printf(
 			"Removed disk '%s' from server '%s'.",
@@ -487,7 +487,7 @@ func hashDiskUnitID(item interface{}) int {
 
 	diskData := item.(map[string]interface{})
 
-	return diskData[resourceKeyServerDiskUnitID].(int)
+	return diskData[resourceKeyDiskUnitID].(int)
 }
 
 func hashDisk(item interface{}) int {
@@ -505,8 +505,8 @@ func hashDisk(item interface{}) int {
 
 	return schema.HashString(fmt.Sprintf(
 		"%d/%d/%s",
-		diskData[resourceKeyServerDiskUnitID].(int),
-		diskData[resourceKeyServerDiskSizeGB].(int),
-		diskData[resourceKeyServerDiskSpeed].(string),
+		diskData[resourceKeyDiskUnitID].(int),
+		diskData[resourceKeyDiskSizeGB].(int),
+		diskData[resourceKeyDiskSpeed].(string),
 	))
 }
