@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -82,39 +84,46 @@ func schemaServerNetworkAdapter() *schema.Schema {
 // TODO: Define MapStructure-compatible structures to represent configured network adapters.
 // TODO: Give these structures methods for reading / writing VirtualMachineNetworkAdapter.
 
-func addNetworkAdapterToServer(apiClient *compute.Client, serverID string, ipv4Address *string, vlanID *string, adapterType *string) error {
+func addServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
 	// TODO: Implement (remember to use providerState.AcquireAsyncOperationLock)
 
-	return fmt.Errorf("addNetworkAdapterToServer is not yet implemented")
+	return fmt.Errorf("addServerNetworkAdapter is not yet implemented")
 }
 
-func removeNetworkAdapterFromServer(apiClient *compute.Client, serverID string, networkAdapterID string) error {
-	// TODO: Implement (remember to use providerState.AcquireAsyncOperationLock)
+func updateServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
+	log.Printf("Update IP address(es) for network adapter '%s'.", networkAdapter.ID)
 
-	return fmt.Errorf("addNetworkAdapterToServer is not yet implemented")
-}
-
-// updateNICIPAddress notifies the compute infrastructure that a NIC's IP address has changed.
-func updateNICIPAddress(providerState *providerState, serverID string, nicID string, primaryIPv4 *string) error {
-	log.Printf("Update IP address(es) for nic '%s'...", nicID)
-
-	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-	asyncLock := providerState.AcquireAsyncOperationLock("Update IP address(es) for nic '%s'", nicID)
-	defer asyncLock.Release()
-
+	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
-	err := apiClient.NotifyServerIPAddressChange(nicID, primaryIPv4, nil)
+
+	operationDescription := fmt.Sprintf("Update IP address info for network adapter '%s'", networkAdapter.ID)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
+		changeAddressError := apiClient.NotifyServerIPAddressChange(networkAdapter.ID, &networkAdapter.PrivateIPv4Address, nil)
+		if compute.IsResourceBusyError(changeAddressError) {
+			context.Retry()
+		} else if changeAddressError != nil {
+			context.Fail(changeAddressError)
+		}
+	})
 	if err != nil {
 		return err
 	}
 
-	// Operation initiated; we no longer need this lock.
-	asyncLock.Release()
+	log.Printf("Updating IP address(es) for network adapter '%s'...", networkAdapter.ID)
 
-	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, nicID)
+	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
 	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
 
+	log.Printf("Updated IP address(es) for network adapter '%s'.", networkAdapter.ID)
+
 	return err
+}
+
+func removeServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
+	return fmt.Errorf("removeServerNetworkAdapter is not yet implemented")
 }
 
 // Validate that the specified value represents a valid network adapter type.

@@ -7,7 +7,7 @@ import (
 
 // NetworkAdapter represents the Terraform configuration for a ddcloud_server network_adapter.
 type NetworkAdapter struct {
-	ID                 *string
+	ID                 string
 	Index              int
 	VLANID             string
 	PrivateIPv4Address string
@@ -19,7 +19,7 @@ type NetworkAdapter struct {
 func (networkAdapter *NetworkAdapter) ReadMap(networkAdapterProperties map[string]interface{}) {
 	reader := maps.NewReader(networkAdapterProperties)
 
-	networkAdapter.ID = reader.GetStringPtr("id")
+	networkAdapter.ID = reader.GetString("id")
 	networkAdapter.Index = reader.GetInt("index")
 	networkAdapter.VLANID = reader.GetString("vlan")
 	networkAdapter.PrivateIPv4Address = reader.GetString("ipv4")
@@ -39,7 +39,7 @@ func (networkAdapter *NetworkAdapter) ToMap() map[string]interface{} {
 func (networkAdapter *NetworkAdapter) UpdateMap(networkAdapterProperties map[string]interface{}) {
 	writer := maps.NewWriter(networkAdapterProperties)
 
-	writer.SetStringPtr("id", networkAdapter.ID)
+	writer.SetString("id", networkAdapter.ID)
 	writer.SetInt("index", networkAdapter.Index)
 	writer.SetString("vlan", networkAdapter.VLANID)
 	writer.SetString("ipv4", networkAdapter.PrivateIPv4Address)
@@ -49,8 +49,7 @@ func (networkAdapter *NetworkAdapter) UpdateMap(networkAdapterProperties map[str
 
 // ReadVirtualMachineNetworkAdapter populates the NetworkAdapter with values from the specified VirtualMachineNetworkAdapter.
 func (networkAdapter *NetworkAdapter) ReadVirtualMachineNetworkAdapter(virtualMachineNetworkAdapter compute.VirtualMachineNetworkAdapter) {
-	networkAdapter.ID = virtualMachineNetworkAdapter.ID
-
+	networkAdapter.ID = ptrToString(virtualMachineNetworkAdapter.ID)
 	networkAdapter.VLANID = ptrToString(virtualMachineNetworkAdapter.VLANID)
 	networkAdapter.PrivateIPv4Address = ptrToString(virtualMachineNetworkAdapter.PrivateIPv4Address)
 	networkAdapter.PrivateIPv6Address = ptrToString(virtualMachineNetworkAdapter.PrivateIPv6Address)
@@ -67,8 +66,7 @@ func (networkAdapter *NetworkAdapter) ToVirtualMachineNetworkAdapter() compute.V
 
 // UpdateVirtualMachineNetworkAdapter updates a CloudControl VirtualMachineNetworkAdapter using values from the NetworkAdapter.
 func (networkAdapter *NetworkAdapter) UpdateVirtualMachineNetworkAdapter(virtualMachineNetworkAdapter *compute.VirtualMachineNetworkAdapter) {
-	virtualMachineNetworkAdapter.ID = networkAdapter.ID
-
+	virtualMachineNetworkAdapter.ID = stringToPtr(networkAdapter.ID)
 	virtualMachineNetworkAdapter.VLANID = stringToPtr(networkAdapter.VLANID)
 	virtualMachineNetworkAdapter.PrivateIPv4Address = stringToPtr(networkAdapter.PrivateIPv4Address)
 	virtualMachineNetworkAdapter.PrivateIPv6Address = stringToPtr(networkAdapter.PrivateIPv6Address)

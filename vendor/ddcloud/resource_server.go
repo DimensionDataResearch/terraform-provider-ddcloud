@@ -92,7 +92,7 @@ func resourceServer() *schema.Resource {
 				Default:     nil,
 				Description: "The speed (quality-of-service) for CPUs allocated to the server",
 			},
-			resourceKeyDisk: schemaDisk(),
+			resourceKeyServerDisk: schemaDisk(),
 			resourceKeyServerNetworkDomainID: &schema.Schema{
 				Type:        schema.TypeString,
 				ForceNew:    true,
@@ -644,7 +644,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		data.SetPartial(resourceKeyServerTag)
 	}
 
-	if data.HasChange(resourceKeyDisk) {
+	if data.HasChange(resourceKeyServerDisk) {
 		err = updateDisks(data, providerState)
 		if err != nil {
 			return err

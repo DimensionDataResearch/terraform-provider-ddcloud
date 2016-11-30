@@ -11,12 +11,11 @@ import (
 )
 
 const (
-	resourceKeyDisk       = "disk"
-	resourceKeyDiskID     = "disk_id"
-	resourceKeyDiskUnitID = "scsi_unit_id"
-	resourceKeyDiskSizeGB = "size_gb"
-	resourceKeyDiskSpeed  = "speed"
-	// TODO: Consider adding "disk_type" property ("image" or "additional")
+	resourceKeyServerDisk       = "disk"
+	resourceKeyServerDiskID     = "disk_id"
+	resourceKeyServerDiskUnitID = "scsi_unit_id"
+	resourceKeyServerDiskSizeGB = "size_gb"
+	resourceKeyServerDiskSpeed  = "speed"
 )
 
 func schemaDisk() *schema.Schema {
@@ -28,22 +27,22 @@ func schemaDisk() *schema.Schema {
 		Description: "The set of virtual disks attached to the server",
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
-				resourceKeyDiskID: &schema.Schema{
+				resourceKeyServerDiskID: &schema.Schema{
 					Type:        schema.TypeString,
 					Computed:    true,
 					Description: "The CloudControl identifier for the virtual disk (computed when the disk is first created)",
 				},
-				resourceKeyDiskUnitID: &schema.Schema{
+				resourceKeyServerDiskUnitID: &schema.Schema{
 					Type:        schema.TypeInt,
 					Required:    true,
 					Description: "The SCSI Logical Unit Number (LUN) for the disk",
 				},
-				resourceKeyDiskSizeGB: &schema.Schema{
+				resourceKeyServerDiskSizeGB: &schema.Schema{
 					Type:        schema.TypeInt,
 					Required:    true,
 					Description: "The size (in GB) of the disk",
 				},
-				resourceKeyDiskSpeed: &schema.Schema{
+				resourceKeyServerDiskSpeed: &schema.Schema{
 					Type:        schema.TypeString,
 					Optional:    true,
 					Default:     "STANDARD",
@@ -71,7 +70,7 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 		// Since this is the first time, populate image disks.
 		serverDisks := models.NewDisksFromVirtualMachineDisks(imageDisks)
 		propertyHelper.SetDisks(serverDisks)
-		propertyHelper.SetPartial(resourceKeyDisk)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
 
 		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(serverDisks), serverDisks)
 
@@ -140,7 +139,7 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 		propertyHelper.SetDisks(
 			models.NewDisksFromVirtualMachineDisks(server.Disks),
 		)
-		propertyHelper.SetPartial(resourceKeyDisk)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
 
 		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
 
@@ -235,7 +234,7 @@ func processAddDisks(addDisks models.Disks, data *schema.ResourceData, providerS
 		propertyHelper.SetDisks(
 			models.NewDisksFromVirtualMachineDisks(server.Disks),
 		)
-		propertyHelper.SetPartial(resourceKeyDisk)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
 
 		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
 
@@ -334,7 +333,7 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 			propertyHelper.SetDisks(
 				models.NewDisksFromVirtualMachineDisks(server.Disks),
 			)
-			propertyHelper.SetPartial(resourceKeyDisk)
+			propertyHelper.SetPartial(resourceKeyServerDisk)
 
 			log.Printf(
 				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
@@ -393,7 +392,7 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 			propertyHelper.SetDisks(
 				models.NewDisksFromVirtualMachineDisks(server.Disks),
 			)
-			propertyHelper.SetPartial(resourceKeyDisk)
+			propertyHelper.SetPartial(resourceKeyServerDisk)
 
 			log.Printf(
 				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
@@ -467,7 +466,7 @@ func processRemoveDisks(removeDisks models.Disks, data *schema.ResourceData, pro
 		propertyHelper.SetDisks(
 			models.NewDisksFromVirtualMachineDisks(server.Disks),
 		)
-		propertyHelper.SetPartial(resourceKeyDisk)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
 
 		log.Printf(
 			"Removed disk '%s' from server '%s'.",
@@ -487,7 +486,7 @@ func hashDiskUnitID(item interface{}) int {
 
 	diskData := item.(map[string]interface{})
 
-	return diskData[resourceKeyDiskUnitID].(int)
+	return diskData[resourceKeyServerDiskUnitID].(int)
 }
 
 func hashDisk(item interface{}) int {
@@ -505,8 +504,8 @@ func hashDisk(item interface{}) int {
 
 	return schema.HashString(fmt.Sprintf(
 		"%d/%d/%s",
-		diskData[resourceKeyDiskUnitID].(int),
-		diskData[resourceKeyDiskSizeGB].(int),
-		diskData[resourceKeyDiskSpeed].(string),
+		diskData[resourceKeyServerDiskUnitID].(int),
+		diskData[resourceKeyServerDiskSizeGB].(int),
+		diskData[resourceKeyServerDiskSpeed].(string),
 	))
 }

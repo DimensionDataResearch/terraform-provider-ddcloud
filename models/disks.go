@@ -1,8 +1,6 @@
 package models
 
-import (
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-)
+import "github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 
 // TODO: Consider implementing Disks.CalculateActions([]compute.VirtualMachineDisk)
 

@@ -312,7 +312,7 @@ func (helper resourcePropertyHelper) SetPortListPorts(ports []compute.PortListEn
 }
 
 func (helper resourcePropertyHelper) GetDisks() (disks models.Disks) {
-	value, ok := helper.data.GetOk(resourceKeyDisk)
+	value, ok := helper.data.GetOk(resourceKeyServerDisk)
 	if !ok {
 		return
 	}
@@ -331,7 +331,30 @@ func (helper resourcePropertyHelper) SetDisks(disks models.Disks) {
 			disk.ToMap(),
 		)
 	}
-	helper.data.Set(resourceKeyDisk, diskProperties)
+	helper.data.Set(resourceKeyServerDisk, diskProperties)
+}
+
+func (helper resourcePropertyHelper) GetNetworkAdapters() (networkAdapters models.NetworkAdapters) {
+	value, ok := helper.data.GetOk(resourceKeyServerNetworkAdapter)
+	if !ok {
+		return
+	}
+	serverNetworkAdapters := value.(*schema.Set).List()
+
+	networkAdapters = models.NewNetworkAdaptersFromStateData(serverNetworkAdapters)
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetNetworkAdapters(networkAdapters models.NetworkAdapters) {
+	networkAdapterProperties := &schema.Set{F: hashServerNetworkAdapter}
+
+	for _, networkAdapter := range networkAdapters {
+		networkAdapterProperties.Add(
+			networkAdapter.ToMap(),
+		)
+	}
+	helper.data.Set(resourceKeyServerNetworkAdapter, networkAdapterProperties)
 }
 
 func (helper resourcePropertyHelper) GetVirtualListenerIRuleIDs(apiClient *compute.Client) (iRuleIDs []string, err error) {
