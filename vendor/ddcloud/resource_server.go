@@ -3,6 +3,7 @@ package ddcloud
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
@@ -63,9 +64,10 @@ func resourceServer() *schema.Resource {
 			},
 			resourceKeyServerAdminPassword: &schema.Schema{
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
-				Description: "The initial administrative password for the deployed server",
+				Default:     "",
+				Description: "The initial administrative password (if applicable) for the deployed server",
 			},
 			resourceKeyServerMemoryGB: &schema.Schema{
 				Type:        schema.TypeInt,
@@ -257,6 +259,10 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		image.GetName(),
 		image.GetID(),
 	)
+	err = validateAdminPassword(deploymentConfiguration.AdministratorPassword, image)
+	if err != nil {
+		return err
+	}
 	image.ApplyTo(&deploymentConfiguration)
 
 	// Image disk speeds
@@ -658,6 +664,46 @@ func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, pr
 	}
 
 	return
+}
+
+func validateAdminPassword(adminPassword string, image compute.Image) error {
+	if adminPassword != "" {
+		return nil // Admin password is optional, and one has been supplied.
+	}
+
+	switch image.GetType() {
+	case compute.ImageTypeOS:
+		// Admin password is always mandatory for OS images.
+		if adminPassword == "" {
+			return fmt.Errorf("Must specify an initial admin password when deploying an OS image")
+		}
+	case compute.ImageTypeCustomer:
+		// Admin password is only mandatory for some types of Windows images
+		imageOS := image.GetOS()
+		if imageOS.Family != "WINDOWS" {
+			return nil
+		}
+
+		// Mandatory for Windows Server 2008.
+		if strings.HasPrefix(imageOS.ID, "WIN2008") {
+			return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2008")
+		}
+
+		// Mandatory for Windows Server 2012 R2.
+		if strings.HasPrefix(imageOS.ID, "WIN2012R2") {
+			return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2012 R2")
+		}
+
+		// Mandatory for Windows Server 2012.
+		if strings.HasPrefix(imageOS.ID, "WIN2012") {
+			return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2012")
+		}
+
+	default:
+		return fmt.Errorf("Unknown image type (%d)", image.GetType())
+	}
+
+	return nil
 }
 
 // Start a server.
