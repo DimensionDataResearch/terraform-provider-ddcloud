@@ -1,4 +1,4 @@
-VERSION = 1.2-preview1
+VERSION = 1.2-preview2
 VERSION_INFO_FILE = ./vendor/ddcloud/version-info.go
 
 BIN_DIRECTORY   = _bin

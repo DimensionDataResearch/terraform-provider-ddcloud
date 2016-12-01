@@ -1,8 +1,21 @@
 # Changes
 
+## v1.2-preview2
+
+This is a preview release intended to gather feedback on changes to `ddcloud_server.disk` and `ddcloud_server._network_adapter` behaviour.
+
+Bug fixes:
+
+* Fix some major bugs due to `ddcloud_server.disk` changes (#63).
+
+Enhancements:
+
+* Network adapters are added to server as part of initial deployment rather than having to wait until after deployment to add them (#56).
+* Disk speed is now applied to disks that are part of the initial deployment.
+
 ## v1.2-preview1
 
-This is a preview release.
+This is a preview release intended to gather feedback on changes to `ddcloud_server.disk` behaviour.
 
 Enhancements:
 
