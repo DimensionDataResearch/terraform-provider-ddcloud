@@ -3,17 +3,12 @@ package ddcloud
 import (
 	"fmt"
 	"log"
-	"sort"
-	"strings"
 	"time"
-
-	"strconv"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/hashicorp/terraform/terraform"
 )
 
 const (
@@ -25,22 +20,20 @@ const (
 	resourceKeyServerCPUCount           = "cpu_count"
 	resourceKeyServerCPUCoreCount       = "cores_per_cpu"
 	resourceKeyServerCPUSpeed           = "cpu_speed"
-	resourceKeyServerImage              = "image"
-	resourceKeyServerImageID            = "id"
-	resourceKeyServerImageName          = "name"
-	resourceKeyServerImageType          = "type"
-	resourceKeyServerOSImageID          = "os_image_id"
-	resourceKeyServerOSImageName        = "os_image_name"
-	resourceKeyServerCustomerImageID    = "customer_image_id"
-	resourceKeyServerCustomerImageName  = "customer_image_name"
 	resourceKeyServerPrimaryAdapterVLAN = "primary_adapter_vlan"
 	resourceKeyServerPrimaryAdapterIPv4 = "primary_adapter_ipv4"
 	resourceKeyServerPrimaryAdapterIPv6 = "primary_adapter_ipv6"
-	resourceKeyServerPrimaryAdapterType = "primary_adapter_type"
 	resourceKeyServerPublicIPv4         = "public_ipv4"
 	resourceKeyServerPrimaryDNS         = "dns_primary"
 	resourceKeyServerSecondaryDNS       = "dns_secondary"
 	resourceKeyServerAutoStart          = "auto_start"
+
+	// Obsolete propertirs
+	resourceKeyServerOSImageID          = "os_image_id"
+	resourceKeyServerOSImageName        = "os_image_name"
+	resourceKeyServerCustomerImageID    = "customer_image_id"
+	resourceKeyServerCustomerImageName  = "customer_image_name"
+	resourceKeyServerPrimaryAdapterType = "primary_adapter_type"
 
 	resourceCreateTimeoutServer = 30 * time.Minute
 	resourceUpdateTimeoutServer = 10 * time.Minute
@@ -50,7 +43,7 @@ const (
 
 func resourceServer() *schema.Resource {
 	return &schema.Resource{
-		SchemaVersion: 1,
+		SchemaVersion: 2,
 		Create:        resourceServerCreate,
 		Read:          resourceServerRead,
 		Update:        resourceServerUpdate,
@@ -109,6 +102,7 @@ func resourceServer() *schema.Resource {
 				Required:    true,
 				Description: "The Id of the network domain in which the server is deployed",
 			},
+			resourceKeyServerNetworkAdapter: schemaServerNetworkAdapter(),
 			resourceKeyServerPrimaryAdapterVLAN: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -121,14 +115,6 @@ func resourceServer() *schema.Resource {
 				Default:     nil,
 				Description: "The IPv4 address for the server's primary network adapter",
 			},
-			resourceKeyServerPrimaryAdapterType: &schema.Schema{
-				Type:        schema.TypeString,
-				Computed:    true,
-				Default:     nil,
-				Description: "The type of the server's primary network adapter (E1000 or VMXNET3)",
-				Removed:     "This property has been removed because it is not exposed via the CloudControl API and will not be available until the provider uses the new (v2.4) API",
-			},
-			resourceKeyServerNetworkAdapter: schemaServerNetworkAdapter(),
 			resourceKeyServerPublicIPv4: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -154,49 +140,22 @@ func resourceServer() *schema.Resource {
 				Default:     "",
 				Description: "The IP address of the server's secondary DNS server",
 			},
-			resourceKeyServerImage: &schema.Schema{
-				Type:     schema.TypeMap,
-				Required: true,
-				Elem: &schema.Resource{
-					Schema: map[string]*schema.Schema{
-						resourceKeyServerImageID: &schema.Schema{
-							Type:        schema.TypeString,
-							Optional:    true,
-							Computed:    true,
-							Default:     nil,
-							Description: "The Id of the image from which the server is created",
-						},
-						resourceKeyServerImageName: &schema.Schema{
-							Type:        schema.TypeString,
-							Optional:    true,
-							Computed:    true,
-							Default:     nil,
-							Description: "The Id of the image from which the server is created",
-						},
-						resourceKeyServerImageType: &schema.Schema{
-							Type:        schema.TypeString,
-							Optional:    true,
-							Default:     "",
-							Description: "The type of image from which the server is created (default is auto-detect)",
-							ValidateFunc: func(value interface{}, key string) (warnings []string, errors []error) {
-								imageType := value.(string)
+			resourceKeyServerImage: schemaServerImage(),
+			resourceKeyServerAutoStart: &schema.Schema{
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "Should the server be started automatically once it has been deployed",
+			},
+			resourceKeyServerTag: schemaServerTag(),
 
-								switch imageType {
-								case "os":
-								case "customer":
-								case "":
-									return
-								default:
-									errors = append(errors,
-										fmt.Errorf("Invalid image type '%s'", imageType),
-									)
-								}
-
-								return
-							},
-						},
-					},
-				},
+			// Obsolete properties
+			resourceKeyServerPrimaryAdapterType: &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Default:     nil,
+				Description: "The type of the server's primary network adapter (E1000 or VMXNET3)",
+				Removed:     "This property has been removed because it is not exposed via the CloudControl API and will not be available until the provider uses the new (v2.4) API",
 			},
 			resourceKeyServerOSImageID: &schema.Schema{
 				Type:        schema.TypeString,
@@ -232,13 +191,6 @@ func resourceServer() *schema.Resource {
 				Description: "The name of the customer (custom) image from which the server is created",
 				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageName),
 			},
-			resourceKeyServerAutoStart: &schema.Schema{
-				Type:        schema.TypeBool,
-				Optional:    true,
-				Default:     false,
-				Description: "Should the server be started automatically once it has been deployed",
-			},
-			resourceKeyServerTag: schemaServerTag(),
 		},
 		MigrateState: resourceServerMigrateState,
 	}
@@ -257,6 +209,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Create server '%s' in network domain '%s' (description = '%s').", name, networkDomainID, description)
 
 	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	networkDomain, err := apiClient.GetNetworkDomain(networkDomainID)
@@ -279,71 +232,23 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	propertyHelper := propertyHelper(data)
-
-	// Retrieve image details.
-	var image compute.Image
 	configuredImage := propertyHelper.GetImage()
-	switch configuredImage.Type {
-	case "os":
-		if configuredImage.ID != "" {
-			image, err = lookupOSImageByID(configuredImage.ID, apiClient)
-			if err != nil {
-				return err
-			}
-		} else if configuredImage.Name != "" {
-			image, err = lookupOSImageByName(configuredImage.Name, dataCenterID, apiClient)
-			if err != nil {
-				return err
-			}
-		}
-	case "customer":
-		if configuredImage.ID != "" {
-			image, err = lookupCustomerImageByID(configuredImage.ID, apiClient)
-			if err != nil {
-				return err
-			}
-		} else if configuredImage.Name != "" {
-			image, err = lookupCustomerImageByName(configuredImage.Name, dataCenterID, apiClient)
-			if err != nil {
-				return err
-			}
-		}
-	case "": // Auto
-		if configuredImage.ID != "" {
-			image, err = lookupOSImageByID(configuredImage.ID, apiClient)
-			if err != nil {
-				return err
-			}
-
-			// Fall back to customer image, if required.
-			if image == nil {
-				image, err = lookupCustomerImageByID(configuredImage.ID, apiClient)
-				if err != nil {
-					return err
-				}
-			}
-		} else if configuredImage.Name != "" {
-			image, err = lookupOSImageByName(configuredImage.Name, dataCenterID, apiClient)
-			if err != nil {
-				return err
-			}
-
-			// Fall back to customer image, if required.
-			if image == nil {
-				image, err = lookupCustomerImageByName(configuredImage.Name, dataCenterID, apiClient)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	default:
-		return fmt.Errorf("Invalid image type '%s'", configuredImage.Type)
+	err = configuredImage.Validate()
+	if err != nil {
+		return err
 	}
 
-	if image == nil {
-		return fmt.Errorf("Failed to find a matching server image.")
+	image, err := resolveServerImage(configuredImage, dataCenterID, apiClient)
+	if err != nil {
+		return err
 	}
 
+	log.Printf("Server will be deployed from %s image '%s' (Id = '%s') in datacenter '%s",
+		compute.ImageTypeName(image.GetType()),
+		image.GetName(),
+		image.GetID(),
+		dataCenterID,
+	)
 	configuredImage.ReadImage(image)
 	propertyHelper.SetImage(configuredImage)
 
@@ -413,22 +318,26 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server deployment configuration: %+v", deploymentConfiguration)
 	log.Printf("Server CPU deployment configuration: %+v", deploymentConfiguration.CPU)
 
-	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-	asyncLock := providerState.AcquireAsyncOperationLock("Create server '%s'", name)
-	defer asyncLock.Release()
+	var serverID string
+	operationDescription := fmt.Sprintf("Deploy server '%s'", name)
+	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
 
-	serverID, err := apiClient.DeployServer(deploymentConfiguration)
+		var deployError error
+		serverID, deployError = apiClient.DeployServer(deploymentConfiguration)
+		if compute.IsResourceBusyError(deployError) {
+			context.Retry()
+		} else if deployError != nil {
+			context.Fail(deployError)
+		}
+	})
 	if err != nil {
 		return err
 	}
-
-	// Operation initiated; we no longer need this lock.
-	asyncLock.Release()
-
 	data.SetId(serverID)
 
 	log.Printf("Server '%s' is being provisioned...", name)
-
 	resource, err := apiClient.WaitForDeploy(compute.ResourceTypeServer, serverID, resourceCreateTimeoutServer)
 	if err != nil {
 		return err
@@ -727,78 +636,6 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
 }
 
-// Migrate state for ddcloud_server.
-func resourceServerMigrateState(schemaVersion int, instanceState *terraform.InstanceState, provider interface{}) (migratedState *terraform.InstanceState, err error) {
-	if instanceState.Empty() {
-		log.Println("Empty Server state; nothing to migrate.")
-		migratedState = instanceState
-
-		return
-	}
-
-	switch schemaVersion {
-	case 0:
-		log.Println("Found Server state v0; migrating to v1")
-		migratedState, err = migrateServerStateV0toV1(instanceState)
-	default:
-		err = fmt.Errorf("Unexpected schema version: %d", schemaVersion)
-	}
-
-	return
-}
-
-// Migrate state for ddcloud_server (v0 to v1).
-//
-// Note that we should really be sorting disks by SCSI unit Id, but that's a little complicated for now.
-func migrateServerStateV0toV1(instanceState *terraform.InstanceState) (migratedState *terraform.InstanceState, err error) {
-	migratedState = instanceState
-
-	// Convert disks from Set ("disk.HASH.property") to List ("disk.INDEX.property")
-	//
-	// Where INDEX is the 0-based index of the disk in the set.
-	var keys []string
-	for key := range migratedState.Attributes {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	nextIndex := 0
-	diskIndexesByHash := make(map[string]int)
-	for _, key := range keys {
-		if !strings.HasPrefix(key, "disk.") {
-			continue
-		}
-
-		// Should be "disk.HASH.property".
-		keyParts := strings.Split(key, ".")
-		if len(keyParts) != 3 {
-			continue
-		}
-		hash := keyParts[1]
-
-		diskIndex, ok := diskIndexesByHash[hash]
-		if !ok {
-			nextIndex++
-			diskIndex = nextIndex
-			diskIndexesByHash[hash] = diskIndex
-		}
-
-		value := migratedState.Attributes[key]
-		delete(migratedState.Attributes, key)
-
-		// Convert to "disk.N.property"
-		keyParts[1] = strconv.Itoa(diskIndex)
-		key = strings.Join(keyParts, ".")
-		migratedState.Attributes[key] = value
-	}
-
-	log.Printf("Server attributes after migration from v0 to v1: %#v",
-		migratedState.Attributes,
-	)
-
-	return
-}
-
 func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, privateIPv4Address string) (publicIPv4Address string, err error) {
 	page := compute.DefaultPaging()
 	for {
@@ -926,28 +763,4 @@ func serverPowerOff(providerState *providerState, serverID string) error {
 	}
 
 	return nil
-}
-
-func lookupOSImageByID(imageID string, apiClient *compute.Client) (compute.Image, error) {
-	log.Printf("Looking up OS image '%s' by Id...", imageID)
-
-	return apiClient.GetOSImage(imageID)
-}
-
-func lookupOSImageByName(imageName string, dataCenterID string, apiClient *compute.Client) (compute.Image, error) {
-	log.Printf("Looking up OS image '%s' by name in datacenter '%s'...", imageName, dataCenterID)
-
-	return apiClient.FindOSImage(imageName, dataCenterID)
-}
-
-func lookupCustomerImageByID(imageID string, apiClient *compute.Client) (compute.Image, error) {
-	log.Printf("Looking up customer image '%s' by Id...", imageID)
-
-	return apiClient.GetCustomerImage(imageID)
-}
-
-func lookupCustomerImageByName(imageName string, dataCenterID string, apiClient *compute.Client) (compute.Image, error) {
-	log.Printf("Looking up customer image '%s' by name in datacenter '%s'...", imageName, dataCenterID)
-
-	return apiClient.FindOSImage(imageName, dataCenterID)
 }

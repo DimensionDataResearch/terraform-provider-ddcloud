@@ -317,8 +317,13 @@ func (helper resourcePropertyHelper) GetImage() *models.Image {
 		return nil
 	}
 
-	imageProperties := value.(map[string]interface{})
+	// Unfortunate limitation of Terraform's schema model - this has to be a list with a single item rather than simply a nested object.
+	singleItemList := value.([]interface{})
+	if len(singleItemList) < 1 {
+		return nil
+	}
 
+	imageProperties := singleItemList[0].(map[string]interface{})
 	image := models.NewImageFromMap(imageProperties)
 
 	return &image
@@ -326,9 +331,12 @@ func (helper resourcePropertyHelper) GetImage() *models.Image {
 
 func (helper resourcePropertyHelper) SetImage(image *models.Image) {
 	if image != nil {
-		helper.data.Set(resourceKeyServerImage,
+		// Unfortunate limitation of Terraform's schema model - this has to be a list with a single item rather than simply a nested object.
+		singleItemList := []interface{}{
 			image.ToMap(),
-		)
+		}
+
+		helper.data.Set(resourceKeyServerImage, singleItemList)
 	} else {
 		helper.data.Set(resourceKeyServerImage, nil)
 	}

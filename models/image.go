@@ -1,6 +1,8 @@
 package models
 
 import (
+	"fmt"
+
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/maps"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 )
@@ -10,6 +12,15 @@ type Image struct {
 	ID   string
 	Name string
 	Type string
+}
+
+// Validate the Image state.
+func (image *Image) Validate() error {
+	if image.ID == "" && image.Name == "" {
+		return fmt.Errorf("Must specify either image Id or image name")
+	}
+
+	return nil
 }
 
 // ReadMap populates the Image with values from the specified map.
