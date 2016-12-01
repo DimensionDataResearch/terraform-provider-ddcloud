@@ -3,12 +3,17 @@ package ddcloud
 import (
 	"fmt"
 	"log"
+	"sort"
+	"strings"
 	"time"
+
+	"strconv"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform/terraform"
 )
 
 const (
@@ -41,10 +46,11 @@ const (
 
 func resourceServer() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceServerCreate,
-		Read:   resourceServerRead,
-		Update: resourceServerUpdate,
-		Delete: resourceServerDelete,
+		SchemaVersion: 1,
+		Create:        resourceServerCreate,
+		Read:          resourceServerRead,
+		Update:        resourceServerUpdate,
+		Delete:        resourceServerDelete,
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyServerName: &schema.Schema{
@@ -184,6 +190,7 @@ func resourceServer() *schema.Resource {
 			},
 			resourceKeyServerTag: schemaServerTag(),
 		},
+		MigrateState: resourceServerMigrateState,
 	}
 }
 
@@ -702,6 +709,78 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server '%s' is being deleted...", id)
 
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
+}
+
+// Migrate state for ddcloud_server.
+func resourceServerMigrateState(schemaVersion int, instanceState *terraform.InstanceState, provider interface{}) (migratedState *terraform.InstanceState, err error) {
+	if instanceState.Empty() {
+		log.Println("Empty Server state; nothing to migrate.")
+		migratedState = instanceState
+
+		return
+	}
+
+	switch schemaVersion {
+	case 0:
+		log.Println("Found Server state v0; migrating to v1")
+		migratedState, err = migrateServerStateV0toV1(instanceState)
+	default:
+		err = fmt.Errorf("Unexpected schema version: %d", schemaVersion)
+	}
+
+	return
+}
+
+// Migrate state for ddcloud_server (v0 to v1).
+//
+// Note that we should really be sorting disks by SCSI unit Id, but that's a little complicated for now.
+func migrateServerStateV0toV1(instanceState *terraform.InstanceState) (migratedState *terraform.InstanceState, err error) {
+	migratedState = instanceState
+
+	// Convert disks from Set ("disk.HASH.property") to List ("disk.INDEX.property")
+	//
+	// Where INDEX is the 0-based index of the disk in the set.
+	var keys []string
+	for key := range migratedState.Attributes {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	nextIndex := 0
+	diskIndexesByHash := make(map[string]int)
+	for _, key := range keys {
+		if !strings.HasPrefix(key, "disk.") {
+			continue
+		}
+
+		// Should be "disk.HASH.property".
+		keyParts := strings.Split(key, ".")
+		if len(keyParts) != 3 {
+			continue
+		}
+		hash := keyParts[1]
+
+		diskIndex, ok := diskIndexesByHash[hash]
+		if !ok {
+			nextIndex++
+			diskIndex = nextIndex
+			diskIndexesByHash[hash] = diskIndex
+		}
+
+		value := migratedState.Attributes[key]
+		delete(migratedState.Attributes, key)
+
+		// Convert to "disk.N.property"
+		keyParts[1] = strconv.Itoa(diskIndex)
+		key = strings.Join(keyParts, ".")
+		migratedState.Attributes[key] = value
+	}
+
+	log.Printf("Server attributes after migration from v0 to v1: %#v",
+		migratedState.Attributes,
+	)
+
+	return
 }
 
 func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, privateIPv4Address string) (publicIPv4Address string, err error) {
