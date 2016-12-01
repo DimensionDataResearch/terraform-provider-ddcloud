@@ -45,19 +45,32 @@ func updateServerConfiguration(apiClient *compute.Client, server *compute.Server
 }
 
 func captureServerNetworkConfiguration(server *compute.Server, data *schema.ResourceData, isPartial bool) {
-	data.Set(resourceKeyServerPrimaryAdapterVLAN, *server.Network.PrimaryAdapter.VLANID)
+	propertyHelper := propertyHelper(data)
+
+	networkAdapters := propertyHelper.GetNetworkAdapters()
+	networkAdapters.ReadVirtualMachineNetwork(server.Network)
+	propertyHelper.SetNetworkAdapters(networkAdapters)
+	if isPartial {
+		data.SetPartial(resourceKeyServerNetworkAdapter)
+	}
+
+	// Publish primary network adapter type.
+	primaryNetworkAdapter := networkAdapters.GetPrimary()
+	if primaryNetworkAdapter != nil {
+		data.Set(resourceKeyServerPrimaryAdapterVLAN, primaryNetworkAdapter.VLANID)
+		data.Set(resourceKeyServerPrimaryAdapterIPv4, primaryNetworkAdapter.PrivateIPv4Address)
+		data.Set(resourceKeyServerPrimaryAdapterIPv6, primaryNetworkAdapter.PrivateIPv6Address)
+		data.Set(resourceKeyServerPrimaryAdapterType, primaryNetworkAdapter.AdapterType)
+	} else {
+		data.Set(resourceKeyServerPrimaryAdapterVLAN, nil)
+		data.Set(resourceKeyServerPrimaryAdapterIPv4, nil)
+		data.Set(resourceKeyServerPrimaryAdapterIPv6, nil)
+	}
 	if isPartial {
 		data.SetPartial(resourceKeyServerPrimaryAdapterVLAN)
-	}
-
-	data.Set(resourceKeyServerPrimaryAdapterIPv4, *server.Network.PrimaryAdapter.PrivateIPv4Address)
-	if isPartial {
 		data.SetPartial(resourceKeyServerPrimaryAdapterIPv4)
-	}
-
-	data.Set(resourceKeyServerPrimaryAdapterIPv6, *server.Network.PrimaryAdapter.PrivateIPv6Address)
-	if isPartial {
 		data.SetPartial(resourceKeyServerPrimaryAdapterIPv6)
+		data.SetPartial(resourceKeyServerPrimaryAdapterType)
 	}
 
 	data.Set(resourceKeyServerNetworkDomainID, server.Network.NetworkDomainID)

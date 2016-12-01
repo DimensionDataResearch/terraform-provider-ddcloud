@@ -46,21 +46,25 @@ var _ Do = &doWithRetry{}
 // GetRetryPeriod retrieves the Do's currently-configured retry period.
 //
 // This determines how often the Do will retry operations.
-func (Do *doWithRetry) GetRetryPeriod() time.Duration {
-	Do.stateLock.Lock()
-	defer Do.stateLock.Unlock()
+func (do *doWithRetry) GetRetryPeriod() time.Duration {
+	log.Printf("Do.GetRetryPeriod - stateLock.Lock()")
+	do.stateLock.Lock()
+	defer log.Printf("Do.GetRetryPeriod - stateLock.Unlock()")
+	defer do.stateLock.Unlock()
 
-	return Do.retryPeriod
+	return do.retryPeriod
 }
 
 // SetRetryPeriod configures the Do's retry period.
 //
 // This determines how long the Do will wait between retries operations.
-func (Do *doWithRetry) SetRetryPeriod(retryPeriod time.Duration) {
-	Do.stateLock.Lock()
-	defer Do.stateLock.Unlock()
+func (do *doWithRetry) SetRetryPeriod(retryPeriod time.Duration) {
+	log.Printf("Do.SetRetryPeriod - stateLock.Lock()")
+	do.stateLock.Lock()
+	defer log.Printf("Do.SetRetryPeriod - stateLock.Unlock()")
+	defer do.stateLock.Unlock()
 
-	Do.retryPeriod = retryPeriod
+	do.retryPeriod = retryPeriod
 }
 
 // DoAction performs the specified action until it succeeds or times out.
@@ -70,11 +74,19 @@ func (Do *doWithRetry) SetRetryPeriod(retryPeriod time.Duration) {
 // action is the action function to invoke
 //
 // Returns the error (if any) passed to Context.Fail or caused by the operation timing out.
-func (Do *doWithRetry) Action(description string, timeout time.Duration, action ActionFunc) error {
+func (do *doWithRetry) Action(description string, timeout time.Duration, action ActionFunc) error {
+	log.Printf("Do.Action - stateLock.Lock()")
+
 	// Capture current configuration
-	Do.stateLock.Lock()
-	retryPeriod := Do.retryPeriod
-	Do.stateLock.Unlock()
+	do.stateLock.Lock()
+	retryPeriod := do.retryPeriod
+	do.stateLock.Unlock()
+
+	log.Printf("Do.Action - stateLock.Unlock()")
+
+	// Perform the initial attempt immediately.
+	initialAttemptTicker := make(chan bool, 1)
+	initialAttemptTicker <- true
 
 	waitTimeout := time.NewTimer(timeout)
 	defer waitTimeout.Stop()
@@ -84,7 +96,7 @@ func (Do *doWithRetry) Action(description string, timeout time.Duration, action 
 
 	log.Printf("%s - will attempt operation once every %d seconds until successful (timeout after %d seconds)...",
 		description,
-		Do.retryPeriod/time.Second,
+		retryPeriod/time.Second,
 		timeout/time.Second,
 	)
 
@@ -103,6 +115,33 @@ func (Do *doWithRetry) Action(description string, timeout time.Duration, action 
 				Timeout:              timeout,
 				Attempts:             context.IterationCount,
 			}
+
+		case <-initialAttemptTicker:
+			close(initialAttemptTicker)
+
+			context.NextIteration()
+
+			log.Printf("%s - performing initial attempt...", description)
+
+			action(context)
+			if context.Error != nil {
+				log.Printf("%s - initial attempt failed: %s.",
+					description,
+					context.Error,
+				)
+
+				return context.Error
+			}
+
+			if context.ShouldRetry {
+				log.Printf("%s - initial attempt marked for retry (will try again)...", description)
+
+				continue
+			}
+
+			log.Printf("%s - operation sucessful on initial attempt.", description)
+
+			return nil
 
 		case <-retryTicker.C:
 			context.NextIteration()
@@ -132,7 +171,7 @@ func (Do *doWithRetry) Action(description string, timeout time.Duration, action 
 				continue
 			}
 
-			log.Printf("%s - operation sucessful after %d attempt(s).",
+			log.Printf("%s - operation sucessful after %d attempts.",
 				description,
 				context.IterationCount,
 			)

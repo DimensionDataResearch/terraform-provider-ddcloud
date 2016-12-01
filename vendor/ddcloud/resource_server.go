@@ -3,12 +3,17 @@ package ddcloud
 import (
 	"fmt"
 	"log"
+	"sort"
+	"strings"
 	"time"
+
+	"strconv"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/hashicorp/terraform/terraform"
 )
 
 const (
@@ -41,10 +46,11 @@ const (
 
 func resourceServer() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceServerCreate,
-		Read:   resourceServerRead,
-		Update: resourceServerUpdate,
-		Delete: resourceServerDelete,
+		SchemaVersion: 1,
+		Create:        resourceServerCreate,
+		Read:          resourceServerRead,
+		Update:        resourceServerUpdate,
+		Delete:        resourceServerDelete,
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyServerName: &schema.Schema{
@@ -92,7 +98,7 @@ func resourceServer() *schema.Resource {
 				Default:     nil,
 				Description: "The speed (quality-of-service) for CPUs allocated to the server",
 			},
-			resourceKeyServerDisk: schemaServerDisk(),
+			resourceKeyServerDisk: schemaDisk(),
 			resourceKeyServerNetworkDomainID: &schema.Schema{
 				Type:        schema.TypeString,
 				ForceNew:    true,
@@ -101,29 +107,22 @@ func resourceServer() *schema.Resource {
 			},
 			resourceKeyServerPrimaryAdapterVLAN: &schema.Schema{
 				Type:        schema.TypeString,
-				ForceNew:    true,
-				Optional:    true,
 				Computed:    true,
 				Default:     nil,
-				Deprecated:  "This property is being replaced by the 'network_adapter.vlan' property (see the provider documentation for details)",
 				Description: "The Id of the VLAN to which the server's primary network adapter will be attached (the first available IPv4 address will be allocated)",
 			},
 			resourceKeyServerPrimaryAdapterIPv4: &schema.Schema{
 				Type:        schema.TypeString,
-				Optional:    true,
 				Computed:    true,
 				Default:     nil,
-				Deprecated:  "This property is being replaced by the 'network_adapter.vlan' property (see the provider documentation for details)",
 				Description: "The IPv4 address for the server's primary network adapter",
 			},
 			resourceKeyServerPrimaryAdapterType: &schema.Schema{
-				Type:         schema.TypeString,
-				Optional:     true,
-				ForceNew:     true,
-				Default:      nil,
-				Deprecated:   "This property is being replaced by the 'network_adapter.type' property (see the provider documentation for details)",
-				Description:  "The type of the server's primary network adapter (E1000 or VMXNET3)",
-				ValidateFunc: validateNetworkAdapterAdapterType,
+				Type:        schema.TypeString,
+				Computed:    true,
+				Default:     nil,
+				Description: "The type of the server's primary network adapter (E1000 or VMXNET3)",
+				Removed:     "This property has been removed because it is not exposed via the CloudControl API and will not be available until the provider uses the new (v2.4) API",
 			},
 			resourceKeyServerNetworkAdapter: schemaServerNetworkAdapter(),
 			resourceKeyServerPublicIPv4: &schema.Schema{
@@ -191,6 +190,7 @@ func resourceServer() *schema.Resource {
 			},
 			resourceKeyServerTag: schemaServerTag(),
 		},
+		MigrateState: resourceServerMigrateState,
 	}
 }
 
@@ -339,7 +339,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	// Image disk speeds
-	configuredDisks := propertyHelper.GetServerDisks().ByUnitID()
+	configuredDisks := propertyHelper.GetDisks().ByUnitID()
 	for index := range deploymentConfiguration.Disks {
 		deploymentDisk := &deploymentConfiguration.Disks[index]
 
@@ -379,18 +379,18 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	// Network
-	primaryVLANID := propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterVLAN, false)
-	primaryIPv4Address := propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterIPv4, false)
-	primaryAdapterType := propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterType, false)
-
 	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
 		NetworkDomainID: networkDomainID,
-		PrimaryAdapter: compute.VirtualMachineNetworkAdapter{
-			VLANID:             primaryVLANID,
-			PrivateIPv4Address: primaryIPv4Address,
-			AdapterType:        primaryAdapterType,
-		},
 	}
+
+	// Populate adapter indexes.
+	networkAdapters := propertyHelper.GetNetworkAdapters()
+	networkAdapters.InitializeIndexes()
+	propertyHelper.SetNetworkAdapters(networkAdapters)
+
+	// Initial configuration for network adapters.
+	networkAdapters.UpdateVirtualMachineNetwork(&deploymentConfiguration.Network)
+
 	deploymentConfiguration.PrimaryDNS = primaryDNS
 	deploymentConfiguration.SecondaryDNS = secondaryDNS
 
@@ -398,7 +398,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server CPU deployment configuration: %+v", deploymentConfiguration.CPU)
 
 	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-	asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
+	asyncLock := providerState.AcquireAsyncOperationLock("Create server '%s'", name)
 	defer asyncLock.Release()
 
 	serverID, err := apiClient.DeployServer(deploymentConfiguration)
@@ -421,6 +421,9 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	// Capture additional properties that may only be available after deployment.
 	data.Partial(true)
 	server := resource.(*compute.Server)
+
+	networkAdapters.CaptureIDs(server.Network)
+	propertyHelper.SetNetworkAdapters(networkAdapters)
 	captureServerNetworkConfiguration(server, data, true)
 
 	var publicIPv4Address string
@@ -456,6 +459,8 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 // Read a server resource.
 func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
+	propertyHelper := propertyHelper(data)
+
 	id := data.Id()
 	name := data.Get(resourceKeyServerName).(string)
 	description := data.Get(resourceKeyServerDescription).(string)
@@ -506,9 +511,8 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 		return err
 	}
 
-	propertyHelper := propertyHelper(data)
-	propertyHelper.SetServerDisks(
-		models.NewServerDisksFromVirtualMachineDisks(server.Disks),
+	propertyHelper.SetDisks(
+		models.NewDisksFromVirtualMachineDisks(server.Disks),
 	)
 
 	return nil
@@ -705,6 +709,78 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server '%s' is being deleted...", id)
 
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
+}
+
+// Migrate state for ddcloud_server.
+func resourceServerMigrateState(schemaVersion int, instanceState *terraform.InstanceState, provider interface{}) (migratedState *terraform.InstanceState, err error) {
+	if instanceState.Empty() {
+		log.Println("Empty Server state; nothing to migrate.")
+		migratedState = instanceState
+
+		return
+	}
+
+	switch schemaVersion {
+	case 0:
+		log.Println("Found Server state v0; migrating to v1")
+		migratedState, err = migrateServerStateV0toV1(instanceState)
+	default:
+		err = fmt.Errorf("Unexpected schema version: %d", schemaVersion)
+	}
+
+	return
+}
+
+// Migrate state for ddcloud_server (v0 to v1).
+//
+// Note that we should really be sorting disks by SCSI unit Id, but that's a little complicated for now.
+func migrateServerStateV0toV1(instanceState *terraform.InstanceState) (migratedState *terraform.InstanceState, err error) {
+	migratedState = instanceState
+
+	// Convert disks from Set ("disk.HASH.property") to List ("disk.INDEX.property")
+	//
+	// Where INDEX is the 0-based index of the disk in the set.
+	var keys []string
+	for key := range migratedState.Attributes {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	nextIndex := 0
+	diskIndexesByHash := make(map[string]int)
+	for _, key := range keys {
+		if !strings.HasPrefix(key, "disk.") {
+			continue
+		}
+
+		// Should be "disk.HASH.property".
+		keyParts := strings.Split(key, ".")
+		if len(keyParts) != 3 {
+			continue
+		}
+		hash := keyParts[1]
+
+		diskIndex, ok := diskIndexesByHash[hash]
+		if !ok {
+			nextIndex++
+			diskIndex = nextIndex
+			diskIndexesByHash[hash] = diskIndex
+		}
+
+		value := migratedState.Attributes[key]
+		delete(migratedState.Attributes, key)
+
+		// Convert to "disk.N.property"
+		keyParts[1] = strconv.Itoa(diskIndex)
+		key = strings.Join(keyParts, ".")
+		migratedState.Attributes[key] = value
+	}
+
+	log.Printf("Server attributes after migration from v0 to v1: %#v",
+		migratedState.Attributes,
+	)
+
+	return
 }
 
 func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, privateIPv4Address string) (publicIPv4Address string, err error) {

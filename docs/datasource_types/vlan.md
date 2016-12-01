@@ -17,7 +17,9 @@ data "ddcloud_vlan" "my-vlan" {
 resource "ddcloud_server" "my-server" {
 	// Other properties
 
-	primary_adapter_vlan = "${data.ddcloud_vlan.my-vlan.id}"
+    network_adapter {
+        vlan             = "${data.ddcloud_vlan.my-vlan.id}"
+    }
 }
 ```
 

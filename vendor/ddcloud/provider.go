@@ -275,8 +275,8 @@ type asyncOperationLock struct {
 // Safe to call multiple times - subsequent calls to Release have no effect (call providerState.AcquireAsyncOperationLock to reacquire the lock).
 func (asyncLock *asyncOperationLock) Release() {
 	asyncLock.releaseOnce.Do(func() {
-		log.Printf("%s acquiring global asynchronous operation lock...", asyncLock.ownerName)
+		log.Printf("%s releasing global asynchronous operation lock...", asyncLock.ownerName)
 		asyncLock.lock.Unlock()
-		log.Printf("%s acquired global asynchronous operation lock.", asyncLock.ownerName)
+		log.Printf("%s released global asynchronous operation lock.", asyncLock.ownerName)
 	})
 }

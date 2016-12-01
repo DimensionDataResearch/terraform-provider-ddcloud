@@ -19,6 +19,11 @@ type Reader interface {
 	// If the value does not exist, or is not an int, returns 0.
 	GetInt(key string) int
 
+	// GetInt retrieves an integer from the underlying data, or a default value if not present.
+	//
+	// If the value does not exist, or is not an int, returns defaultValue.
+	GetIntOr(key string, defaultValue int) int
+
 	// GetIntPtr retrieves an integer pointer from the underlying data.
 	//
 	// If the value does not exist, or is not an int, returns nil.

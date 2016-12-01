@@ -46,8 +46,11 @@ func testAccDDCloudServerBasic(name string, description string, primaryIPv4Addre
 			memory_gb			 = 8
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "%s"
+			
+			network_adapter {
+				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4             = "%s"
+			}
 
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
@@ -97,8 +100,11 @@ func testAccDDCloudServerImageDisk1(sizeGB int, speed string) string {
 			memory_gb			 = 8
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "192.168.17.6"
+			
+			network_adapter {
+				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4             = "192.168.17.6"
+			}
 
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
@@ -148,9 +154,12 @@ func testAccDDCloudServerAdditionalDisk1(scsiUnitID int, sizeGB int, speed strin
 			memory_gb			 = 8
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "192.168.17.6"
 
+			network_adapter {
+				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4             = "192.168.17.6"
+			}
+			
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
 
@@ -217,8 +226,11 @@ func testAccDDCloudServerTag(tags map[string]string) string {
 			memory_gb			 = 8
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "192.168.17.6"
+			
+			network_adapter {
+				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4             = "192.168.17.6"
+			}
 
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
@@ -274,7 +286,7 @@ func TestAccServerBasicCreate(t *testing.T) {
 							},
 						},
 					),
-					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(10, "STANDARD"),
 					),
 				),
@@ -299,7 +311,7 @@ func TestAccServerImageDisk1ResizeCreate(t *testing.T) {
 				Config: testAccDDCloudServerImageDisk1(15, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(15, "STANDARD"),
 					),
 				),
@@ -324,7 +336,7 @@ func TestAccServerImageDisk1ResizeUpdate(t *testing.T) {
 				Config: testAccDDCloudServerImageDisk1(10, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(10, "STANDARD"),
 					),
 				),
@@ -333,7 +345,7 @@ func TestAccServerImageDisk1ResizeUpdate(t *testing.T) {
 				Config: testAccDDCloudServerImageDisk1(15, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(15, "STANDARD"),
 					),
 				),
@@ -360,9 +372,9 @@ func TestAccServerAdditionalDisk1Create(t *testing.T) {
 				Config: testAccDDCloudServerAdditionalDisk1(1, 15, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(10, "STANDARD"),
-						models.ServerDisk{
+						models.Disk{
 							SCSIUnitID: 1,
 							SizeGB:     15,
 							Speed:      "STANDARD",
@@ -542,7 +554,7 @@ func testCheckDDCloudServerMatches(name string, networkDomainName string, expect
 // Acceptance test check for ddcloud_server:
 //
 // Check if the server's disk configuration matches the expected configuration.
-func testCheckDDCloudServerDiskMatches(name string, expected ...models.ServerDisk) resource.TestCheckFunc {
+func testCheckDDCloudDiskMatches(name string, expected ...models.Disk) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
 		serverResource, ok := state.RootModule().Resources[name]
 		if !ok {
@@ -561,7 +573,7 @@ func testCheckDDCloudServerDiskMatches(name string, expected ...models.ServerDis
 		}
 
 		var validationMessages []string
-		expectedDisksByUnitID := models.ServerDisks(expected).ByUnitID()
+		expectedDisksByUnitID := models.Disks(expected).ByUnitID()
 		for _, actualDisk := range server.Disks {
 			expectedDisk, ok := expectedDisksByUnitID[actualDisk.SCSIUnitID]
 			if !ok {
@@ -710,8 +722,8 @@ func testCheckDDCloudServerDestroy(state *terraform.State) error {
  */
 
 // The image disk definition for CentOS 7.
-func testImageDiskCentOS7(sizeGB int, speed string) models.ServerDisk {
-	return models.ServerDisk{
+func testImageDiskCentOS7(sizeGB int, speed string) models.Disk {
+	return models.Disk{
 		SCSIUnitID: 0,
 		SizeGB:     sizeGB,
 		Speed:      speed,

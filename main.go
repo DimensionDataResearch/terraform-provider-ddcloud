@@ -3,9 +3,10 @@ package main
 import (
 	"ddcloud"
 	"fmt"
-	"github.com/hashicorp/terraform/plugin"
 	"os"
 	"path"
+
+	"github.com/hashicorp/terraform/plugin"
 )
 
 // The main program entry-point.

@@ -311,27 +311,46 @@ func (helper resourcePropertyHelper) SetPortListPorts(ports []compute.PortListEn
 	helper.data.Set(resourceKeyPortListPort, portProperties)
 }
 
-func (helper resourcePropertyHelper) GetServerDisks() (disks models.ServerDisks) {
+func (helper resourcePropertyHelper) GetDisks() (disks models.Disks) {
 	value, ok := helper.data.GetOk(resourceKeyServerDisk)
 	if !ok {
 		return
 	}
-	serverDisks := value.(*schema.Set).List()
+	serverDisks := value.([]interface{})
 
-	disks = models.NewServerDisksFromStateData(serverDisks)
+	disks = models.NewDisksFromStateData(serverDisks)
 
 	return
 }
 
-func (helper resourcePropertyHelper) SetServerDisks(disks models.ServerDisks) {
-	diskProperties := &schema.Set{F: hashDisk}
-
-	for _, disk := range disks {
-		diskProperties.Add(
-			disk.ToMap(),
-		)
+func (helper resourcePropertyHelper) SetDisks(disks models.Disks) {
+	diskProperties := make([]interface{}, len(disks))
+	for index, disk := range disks {
+		diskProperties[index] = disk.ToMap()
 	}
 	helper.data.Set(resourceKeyServerDisk, diskProperties)
+}
+
+func (helper resourcePropertyHelper) GetNetworkAdapters() (networkAdapters models.NetworkAdapters) {
+	value, ok := helper.data.GetOk(resourceKeyServerNetworkAdapter)
+	if !ok {
+		return
+	}
+
+	networkAdapters = models.NewNetworkAdaptersFromStateData(
+		value.([]interface{}),
+	)
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetNetworkAdapters(networkAdapters models.NetworkAdapters) {
+	networkAdapterProperties := make([]interface{}, len(networkAdapters))
+
+	for index, networkAdapter := range networkAdapters.ToMaps() {
+		networkAdapterProperties[index] = networkAdapter
+	}
+	helper.data.Set(resourceKeyServerNetworkAdapter, networkAdapterProperties)
 }
 
 func (helper resourcePropertyHelper) GetVirtualListenerIRuleIDs(apiClient *compute.Client) (iRuleIDs []string, err error) {

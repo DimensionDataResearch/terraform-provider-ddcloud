@@ -55,15 +55,14 @@ Default is `STANDARD`.
     * `size_gb` - (Required) The size (in GB) of the disk. This value can be increased (to expand the disk) but not decreased.
     * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, or `HIGHPERFORMANCE` (but varies between data centres).
 * `networkdomain` - (Required) The Id of the network domain in which the server is deployed.
-* `primary_adapter_ipv4` - (Optional) The IPv4 address for the server's primary network adapter.  
-Must specify at least one of `primary_adapter_ipv4` or `primary_adapter_vlan`.
-* `primary_adapter_vlan` - (Optional) The Id of the VLAN to which the server's primary network adapter will be attached (the first available IPv4 address will be allocated).  
-Must specify at least one of `primary_adapter_vlan` or `primary_adapter_ipv4`.  
-`primary_adapter_vlan` is ignored if `primary_adapter_ipv4` is also specified.  
-It's still useful to supply both, though, since it sets up a dependency between the server and the VLAN.
-**Note**: Changing this property will result in the server being destroyed and re-created.
-* `primary_adapter_type` - (Optional) The type of the server's primary network adapter (`E1000` or `VMXNET3`).  
-**Note**: Changing this property will result in the server being destroyed and re-created.
+* `network_adapter` - (Required, 1..*) One or more network adapters attached to the server
+  * `vlan` - (Optional) The Id of the VLAN that the network adapter is attached to.  
+  Must specify at least one of `vlan` or `ipv4`.
+  * `ipv4` - (Optional) The IPv4 address for the network adapter.  
+  Note that if `ipv4` is specified, the VLAN will be inferred from this value.  
+  Must specify at least one of `ipv4` or `vlan`.
+  * `type` - (Optional) The adapter type.  
+  Must be either `E1000` (default) or `VMXNET3`.
 * `dns_primary` - (Required) The IP address of the server's primary DNS server.  
 If not specified, Google DNS (`8.8.8.8`) is used.
 * `dns_secondary` - (Required) The IP address of the server's secondary DNS.  
@@ -83,7 +82,7 @@ If not specified, Google DNS (`8.8.4.4`) is used.
 * `os_image_name` - The name of the OS image (if any) from which the server was created. Calculated if `os_image_id` is specified.
 * `customer_image_id` - The Id of the customer image (if any) from which the server was created. Calculated if `customer_image_name` is specified.
 * `customer_image_name` - The name of the customer image (if any) from which the server was created. Calculated if `customer_image_id` is specified.
-* `primary_adapter_ipv4` - The IPv4 address of the server's primary network adapter. Calculated if `primary_adapter_vlan` is specified.
+* `primary_adapter_ipv4` - The IPv4 address of the server's primary network adapter.
 * `primary_adapter_ipv6` - The IPv6 address of the server's primary network adapter.
 * `primary_adapter_vlan` - The Id of the VLAN to which the server's primary network adapter is attached. Calculated if `primary_adapter_ipv4` is specified.
 * `public_ipv4` - The server's public IPv4 address (if any). Calculated if there is a NAT rule that points to any of the server's private IPv4 addresses. **Note**: Due to an incompatibility between the CloudControl resource model and Terraform life-cycle model, this attribute is only available after a subsequent refresh (not when the server is first deployed).
