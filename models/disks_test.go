@@ -18,17 +18,17 @@ func TestSplitInitiallyConfiguredDisksEmpty(test *testing.T) {
 	assert.EqualsInt("AdditionalDisks.Length", 0, len(additionalDisks))
 }
 
-// Unit test - splitInitiallyConfiguredDisksByType with both image and additional disks.
+// Unit test - splitInitiallyConfi guredDisksByType with both image and additional disks.
 func TestSplitInitiallyConfiguredDisksBoth(test *testing.T) {
 	configuredDisks := Disks{
 		Disk{
-			ID:         nil,
+			ID:         "",
 			SCSIUnitID: 0,
 			SizeGB:     5,
 			Speed:      "STANDARD",
 		},
 		Disk{
-			ID:         nil,
+			ID:         "",
 			SCSIUnitID: 1,
 			SizeGB:     20,
 			Speed:      "STANDARD",

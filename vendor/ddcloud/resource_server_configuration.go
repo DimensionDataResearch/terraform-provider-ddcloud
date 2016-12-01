@@ -65,7 +65,6 @@ func captureServerNetworkConfiguration(server *compute.Server, data *schema.Reso
 		data.Set(resourceKeyServerPrimaryAdapterVLAN, nil)
 		data.Set(resourceKeyServerPrimaryAdapterIPv4, nil)
 		data.Set(resourceKeyServerPrimaryAdapterIPv6, nil)
-		data.Set(resourceKeyServerPrimaryAdapterType, nil)
 	}
 	if isPartial {
 		data.SetPartial(resourceKeyServerPrimaryAdapterVLAN)
