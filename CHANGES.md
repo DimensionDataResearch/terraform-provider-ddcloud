@@ -1,5 +1,14 @@
 # Changes
 
+## v1.2-preview4
+
+This is a preview release intended to gather feedback on changes to `ddcloud_server.disk` and `ddcloud_server._network_adapter` behaviour.
+
+Enhancements:
+
+* The provider will now attempt to automatically migrate the data for `ddcloud_server.disk` from a Set to a List.  
+**Note** - if you have not used v1.2-preview3, then you can now disregard the warning about `terraform.tfstate` incompatibility. 
+
 ## v1.2-preview3
 
 This is a preview release intended to gather feedback on changes to `ddcloud_server.disk` and `ddcloud_server._network_adapter` behaviour.
@@ -8,7 +17,7 @@ Breaking changes:
 
 * Network adapters now modelled as `ddcloud_server.network_adapter` (see documentation on `ddcloud_server` resource type for details).
 * Change `ddcloud_server.disk` from a set to a list in order to fix errors when performing subsequent `terraform apply` that modifies an existing disk (#63).  
-**Note** - this will break any existing terraform.tfstate values you have for `ddcloud_server` resources.
+**Note** - this will break any existing `terraform.tfstate` values you have for `ddcloud_server` resources.
 
 ## v1.2-preview2
 
