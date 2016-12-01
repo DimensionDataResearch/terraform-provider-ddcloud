@@ -316,7 +316,7 @@ func (helper resourcePropertyHelper) GetDisks() (disks models.Disks) {
 	if !ok {
 		return
 	}
-	serverDisks := value.(*schema.Set).List()
+	serverDisks := value.([]interface{})
 
 	disks = models.NewDisksFromStateData(serverDisks)
 
@@ -324,12 +324,9 @@ func (helper resourcePropertyHelper) GetDisks() (disks models.Disks) {
 }
 
 func (helper resourcePropertyHelper) SetDisks(disks models.Disks) {
-	diskProperties := &schema.Set{F: hashDisk}
-
-	for _, disk := range disks {
-		diskProperties.Add(
-			disk.ToMap(),
-		)
+	diskProperties := make([]interface{}, len(disks))
+	for index, disk := range disks {
+		diskProperties[index] = disk.ToMap()
 	}
 	helper.data.Set(resourceKeyServerDisk, diskProperties)
 }

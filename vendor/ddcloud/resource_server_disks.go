@@ -20,7 +20,7 @@ const (
 
 func schemaDisk() *schema.Schema {
 	return &schema.Schema{
-		Type:        schema.TypeSet,
+		Type:        schema.TypeList,
 		Optional:    true,
 		Computed:    true,
 		Default:     nil,
@@ -51,7 +51,6 @@ func schemaDisk() *schema.Schema {
 				},
 			},
 		},
-		Set: hashDisk,
 	}
 }
 
@@ -253,6 +252,8 @@ func processAddDisks(addDisks models.Disks, data *schema.ResourceData, providerS
 //
 // Disk Ids must already be populated.
 func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, providerState *providerState) error {
+	log.Printf("modifyDisks = %#v", modifyDisks)
+
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
@@ -273,6 +274,7 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 
 	for index := range modifyDisks {
 		modifyDisk := &modifyDisks[index]
+		log.Printf("modifyDisk = %#v", modifyDisk)
 		actualImageDisk := actualDisksByUnitID[modifyDisk.SCSIUnitID]
 
 		// Can't shrink disk, only grow it.
@@ -500,25 +502,4 @@ func hashDiskUnitID(item interface{}) int {
 	diskData := item.(map[string]interface{})
 
 	return diskData[resourceKeyServerDiskUnitID].(int)
-}
-
-func hashDisk(item interface{}) int {
-	disk, ok := item.(compute.VirtualMachineDisk)
-	if ok {
-		return schema.HashString(fmt.Sprintf(
-			"%d/%d/%s",
-			disk.SCSIUnitID,
-			disk.SizeGB,
-			disk.Speed,
-		))
-	}
-
-	diskData := item.(map[string]interface{})
-
-	return schema.HashString(fmt.Sprintf(
-		"%d/%d/%s",
-		diskData[resourceKeyServerDiskUnitID].(int),
-		diskData[resourceKeyServerDiskSizeGB].(int),
-		diskData[resourceKeyServerDiskSpeed].(string),
-	))
 }
