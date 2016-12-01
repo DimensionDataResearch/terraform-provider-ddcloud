@@ -24,7 +24,7 @@ const (
 
 // Disk represents the Terraform configuration for a ddcloud_server disk.
 type Disk struct {
-	ID         *string
+	ID         string
 	SCSIUnitID int
 	SizeGB     int
 	Speed      string
@@ -35,7 +35,7 @@ type Disk struct {
 func (disk *Disk) ReadMap(diskProperties map[string]interface{}) {
 	reader := maps.NewReader(diskProperties)
 
-	disk.ID = reader.GetStringPtr("id")
+	disk.ID = reader.GetString("id")
 	disk.SCSIUnitID = reader.GetInt("scsi_unit_id")
 	disk.SizeGB = reader.GetInt("size_gb")
 	disk.Speed = reader.GetString("speed")
@@ -53,7 +53,7 @@ func (disk *Disk) ToMap() map[string]interface{} {
 func (disk *Disk) UpdateMap(diskProperties map[string]interface{}) {
 	writer := maps.NewWriter(diskProperties)
 
-	writer.SetStringPtr("id", disk.ID)
+	writer.SetString("id", disk.ID)
 	writer.SetInt("scsi_unit_id", disk.SCSIUnitID)
 	writer.SetInt("size_gb", disk.SizeGB)
 	writer.SetString("speed", disk.Speed)
@@ -61,7 +61,7 @@ func (disk *Disk) UpdateMap(diskProperties map[string]interface{}) {
 
 // ReadVirtualMachineDisk populates the Disk with values from the specified VirtualMachineDisk.
 func (disk *Disk) ReadVirtualMachineDisk(virtualMachineDisk compute.VirtualMachineDisk) {
-	disk.ID = virtualMachineDisk.ID
+	disk.ID = ptrToString(virtualMachineDisk.ID)
 	disk.SCSIUnitID = virtualMachineDisk.SCSIUnitID
 	disk.SizeGB = virtualMachineDisk.SizeGB
 	disk.Speed = virtualMachineDisk.Speed
@@ -77,7 +77,7 @@ func (disk *Disk) ToVirtualMachineDisk() compute.VirtualMachineDisk {
 
 // UpdateVirtualMachineDisk updates a CloudControl VirtualMachineDisk using values from the Disk.
 func (disk *Disk) UpdateVirtualMachineDisk(virtualMachineDisk *compute.VirtualMachineDisk) {
-	virtualMachineDisk.ID = disk.ID
+	virtualMachineDisk.ID = stringToPtr(disk.ID)
 	virtualMachineDisk.SCSIUnitID = disk.SCSIUnitID
 	virtualMachineDisk.SizeGB = disk.SizeGB
 	virtualMachineDisk.Speed = disk.Speed
@@ -97,37 +97,4 @@ func NewDiskFromVirtualMachineDisk(virtualMachineDisk compute.VirtualMachineDisk
 	disk.ReadVirtualMachineDisk(virtualMachineDisk)
 
 	return disk
-}
-
-// NewDisksFromStateData creates Disks from an array of Terraform state data.
-//
-// The values in the diskPropertyList are expected to be map[string]interface{}.
-func NewDisksFromStateData(diskPropertyList []interface{}) Disks {
-	disks := make(Disks, len(diskPropertyList))
-	for index, data := range diskPropertyList {
-		diskProperties := data.(map[string]interface{})
-		disks[index] = NewDiskFromMap(diskProperties)
-	}
-
-	return disks
-}
-
-// NewDisksFromMaps creates Disks from an array of Terraform value maps.
-func NewDisksFromMaps(diskPropertyList []map[string]interface{}) Disks {
-	disks := make(Disks, len(diskPropertyList))
-	for index, data := range diskPropertyList {
-		disks[index] = NewDiskFromMap(data)
-	}
-
-	return disks
-}
-
-// NewDisksFromVirtualMachineDisks creates Disks from an array of compute.VirtualMachineDisk.
-func NewDisksFromVirtualMachineDisks(virtualMachineDisks []compute.VirtualMachineDisk) Disks {
-	disks := make(Disks, len(virtualMachineDisks))
-	for index, virtualMachineDisk := range virtualMachineDisks {
-		disks[index] = NewDiskFromVirtualMachineDisk(virtualMachineDisk)
-	}
-
-	return disks
 }

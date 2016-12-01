@@ -109,3 +109,36 @@ func (disks Disks) SplitByAction(actualDisks Disks) (addDisks Disks, changeDisks
 
 	return
 }
+
+// NewDisksFromStateData creates Disks from an array of Terraform state data.
+//
+// The values in the diskPropertyList are expected to be map[string]interface{}.
+func NewDisksFromStateData(diskPropertyList []interface{}) Disks {
+	disks := make(Disks, len(diskPropertyList))
+	for index, data := range diskPropertyList {
+		diskProperties := data.(map[string]interface{})
+		disks[index] = NewDiskFromMap(diskProperties)
+	}
+
+	return disks
+}
+
+// NewDisksFromMaps creates Disks from an array of Terraform value maps.
+func NewDisksFromMaps(diskPropertyList []map[string]interface{}) Disks {
+	disks := make(Disks, len(diskPropertyList))
+	for index, data := range diskPropertyList {
+		disks[index] = NewDiskFromMap(data)
+	}
+
+	return disks
+}
+
+// NewDisksFromVirtualMachineDisks creates Disks from an array of compute.VirtualMachineDisk.
+func NewDisksFromVirtualMachineDisks(virtualMachineDisks []compute.VirtualMachineDisk) Disks {
+	disks := make(Disks, len(virtualMachineDisks))
+	for index, virtualMachineDisk := range virtualMachineDisks {
+		disks[index] = NewDiskFromVirtualMachineDisk(virtualMachineDisk)
+	}
+
+	return disks
+}

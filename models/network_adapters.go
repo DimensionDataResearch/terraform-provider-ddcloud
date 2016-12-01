@@ -137,8 +137,6 @@ func (networkAdapters NetworkAdapters) CaptureIDs(virtualMachineNetwork compute.
 		networkAdapter = &networkAdapters[index+1]
 		networkAdapter.ID = *actualNetworkAdapter.ID
 	}
-
-	log.Printf("CaptureIDs - networkAdapters2 = %#v", networkAdapters)
 }
 
 // CaptureIndexes updates the Index field on each NetworkAdapter with its corresponding index in the compute.VirtualMachineNetwork.

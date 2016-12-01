@@ -398,7 +398,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server CPU deployment configuration: %+v", deploymentConfiguration.CPU)
 
 	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-	asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
+	asyncLock := providerState.AcquireAsyncOperationLock("Create server '%s'", name)
 	defer asyncLock.Release()
 
 	serverID, err := apiClient.DeployServer(deploymentConfiguration)
