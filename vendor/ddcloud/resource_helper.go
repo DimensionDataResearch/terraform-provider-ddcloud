@@ -311,6 +311,29 @@ func (helper resourcePropertyHelper) SetPortListPorts(ports []compute.PortListEn
 	helper.data.Set(resourceKeyPortListPort, portProperties)
 }
 
+func (helper resourcePropertyHelper) GetImage() *models.Image {
+	value, ok := helper.data.GetOk(resourceKeyServerImage)
+	if !ok {
+		return nil
+	}
+
+	imageProperties := value.(map[string]interface{})
+
+	image := models.NewImageFromMap(imageProperties)
+
+	return &image
+}
+
+func (helper resourcePropertyHelper) SetImage(image *models.Image) {
+	if image != nil {
+		helper.data.Set(resourceKeyServerImage,
+			image.ToMap(),
+		)
+	} else {
+		helper.data.Set(resourceKeyServerImage, nil)
+	}
+}
+
 func (helper resourcePropertyHelper) GetDisks() (disks models.Disks) {
 	value, ok := helper.data.GetOk(resourceKeyServerDisk)
 	if !ok {

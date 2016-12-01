@@ -5,30 +5,12 @@ import (
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 )
 
-// DiskAction represents an action to be taken for a Disk.
-type DiskAction int
-
-const (
-	// DiskActionNone indicates that no action is to be taken.
-	DiskActionNone DiskAction = iota
-
-	// DiskActionCreate indicates that the Disk is to be created.
-	DiskActionCreate
-
-	// DiskActionUpdate indicates that the Disk is to be updated.
-	DiskActionUpdate
-
-	// DiskActionDelete indicates that the Disk is to be deleted.
-	DiskActionDelete
-)
-
 // Disk represents the Terraform configuration for a ddcloud_server disk.
 type Disk struct {
 	ID         string
 	SCSIUnitID int
 	SizeGB     int
 	Speed      string
-	Action     DiskAction
 }
 
 // ReadMap populates the Disk with values from the specified map.

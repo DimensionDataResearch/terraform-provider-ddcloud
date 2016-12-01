@@ -25,6 +25,10 @@ const (
 	resourceKeyServerCPUCount           = "cpu_count"
 	resourceKeyServerCPUCoreCount       = "cores_per_cpu"
 	resourceKeyServerCPUSpeed           = "cpu_speed"
+	resourceKeyServerImage              = "image"
+	resourceKeyServerImageID            = "id"
+	resourceKeyServerImageName          = "name"
+	resourceKeyServerImageType          = "type"
 	resourceKeyServerOSImageID          = "os_image_id"
 	resourceKeyServerOSImageName        = "os_image_name"
 	resourceKeyServerCustomerImageID    = "customer_image_id"
@@ -150,13 +154,56 @@ func resourceServer() *schema.Resource {
 				Default:     "",
 				Description: "The IP address of the server's secondary DNS server",
 			},
+			resourceKeyServerImage: &schema.Schema{
+				Type:     schema.TypeMap,
+				Required: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						resourceKeyServerImageID: &schema.Schema{
+							Type:        schema.TypeString,
+							Optional:    true,
+							Computed:    true,
+							Default:     nil,
+							Description: "The Id of the image from which the server is created",
+						},
+						resourceKeyServerImageName: &schema.Schema{
+							Type:        schema.TypeString,
+							Optional:    true,
+							Computed:    true,
+							Default:     nil,
+							Description: "The Id of the image from which the server is created",
+						},
+						resourceKeyServerImageType: &schema.Schema{
+							Type:        schema.TypeString,
+							Optional:    true,
+							Default:     "",
+							Description: "The type of image from which the server is created (default is auto-detect)",
+							ValidateFunc: func(value interface{}, key string) (warnings []string, errors []error) {
+								imageType := value.(string)
+
+								switch imageType {
+								case "os":
+								case "customer":
+								case "":
+									return
+								default:
+									errors = append(errors,
+										fmt.Errorf("Invalid image type '%s'", imageType),
+									)
+								}
+
+								return
+							},
+						},
+					},
+				},
+			},
 			resourceKeyServerOSImageID: &schema.Schema{
 				Type:        schema.TypeString,
-				ForceNew:    true,
 				Optional:    true,
-				Computed:    true,
 				Default:     nil,
 				Description: "The Id of the OS (built-in) image from which the server is created",
+				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageID),
 			},
 			resourceKeyServerOSImageName: &schema.Schema{
 				Type:        schema.TypeString,
@@ -165,6 +212,7 @@ func resourceServer() *schema.Resource {
 				Computed:    true,
 				Default:     nil,
 				Description: "The name of the OS (built-in) image from which the server is created",
+				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageName),
 			},
 			resourceKeyServerCustomerImageID: &schema.Schema{
 				Type:        schema.TypeString,
@@ -173,6 +221,7 @@ func resourceServer() *schema.Resource {
 				Computed:    true,
 				Default:     nil,
 				Description: "The Id of the customer (custom) image from which the server is created",
+				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageID),
 			},
 			resourceKeyServerCustomerImageName: &schema.Schema{
 				Type:        schema.TypeString,
@@ -181,6 +230,7 @@ func resourceServer() *schema.Resource {
 				Computed:    true,
 				Default:     nil,
 				Description: "The name of the customer (custom) image from which the server is created",
+				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageName),
 			},
 			resourceKeyServerAutoStart: &schema.Schema{
 				Type:        schema.TypeBool,
@@ -231,112 +281,78 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	propertyHelper := propertyHelper(data)
 
 	// Retrieve image details.
-	osImageID := propertyHelper.GetOptionalString(resourceKeyServerOSImageID, false)
-	osImageName := propertyHelper.GetOptionalString(resourceKeyServerOSImageName, false)
-	customerImageID := propertyHelper.GetOptionalString(resourceKeyServerCustomerImageID, false)
-	customerImageName := propertyHelper.GetOptionalString(resourceKeyServerCustomerImageName, false)
+	var image compute.Image
+	configuredImage := propertyHelper.GetImage()
+	switch configuredImage.Type {
+	case "os":
+		if configuredImage.ID != "" {
+			image, err = lookupOSImageByID(configuredImage.ID, apiClient)
+			if err != nil {
+				return err
+			}
+		} else if configuredImage.Name != "" {
+			image, err = lookupOSImageByName(configuredImage.Name, dataCenterID, apiClient)
+			if err != nil {
+				return err
+			}
+		}
+	case "customer":
+		if configuredImage.ID != "" {
+			image, err = lookupCustomerImageByID(configuredImage.ID, apiClient)
+			if err != nil {
+				return err
+			}
+		} else if configuredImage.Name != "" {
+			image, err = lookupCustomerImageByName(configuredImage.Name, dataCenterID, apiClient)
+			if err != nil {
+				return err
+			}
+		}
+	case "": // Auto
+		if configuredImage.ID != "" {
+			image, err = lookupOSImageByID(configuredImage.ID, apiClient)
+			if err != nil {
+				return err
+			}
 
-	var (
-		osImage       *compute.OSImage
-		customerImage *compute.CustomerImage
+			// Fall back to customer image, if required.
+			if image == nil {
+				image, err = lookupCustomerImageByID(configuredImage.ID, apiClient)
+				if err != nil {
+					return err
+				}
+			}
+		} else if configuredImage.Name != "" {
+			image, err = lookupOSImageByName(configuredImage.Name, dataCenterID, apiClient)
+			if err != nil {
+				return err
+			}
+
+			// Fall back to customer image, if required.
+			if image == nil {
+				image, err = lookupCustomerImageByName(configuredImage.Name, dataCenterID, apiClient)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	default:
+		return fmt.Errorf("Invalid image type '%s'", configuredImage.Type)
+	}
+
+	if image == nil {
+		return fmt.Errorf("Failed to find a matching server image.")
+	}
+
+	configuredImage.ReadImage(image)
+	propertyHelper.SetImage(configuredImage)
+
+	log.Printf("Server will be deployed from %s image named '%s' (Id = '%s').",
+		compute.ImageTypeName(image.GetType()),
+		image.GetName(),
+		image.GetID(),
 	)
-	if osImageID != nil {
-		log.Printf("Looking up OS image '%s' by Id...", *osImageID)
-
-		osImage, err = apiClient.GetOSImage(*osImageID)
-		if err != nil {
-			return err
-		}
-		if osImage == nil {
-			return fmt.Errorf("Unable to find OS image with Id '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
-				*osImageID,
-				dataCenterID,
-				networkDomainID,
-			)
-		}
-
-		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').",
-			osImage.Name,
-			osImage.ID,
-		)
-		data.Set(resourceKeyServerOSImageName, osImage.Name)
-	} else if osImageName != nil {
-		log.Printf("Looking up OS image '%s' by name...", *osImageName)
-
-		osImage, err = apiClient.FindOSImage(*osImageName, dataCenterID)
-		if err != nil {
-			return err
-		}
-		if osImage == nil {
-			return fmt.Errorf(
-				"Unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
-				*osImageName,
-				dataCenterID,
-				networkDomainID,
-			)
-		}
-
-		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').",
-			osImage.Name,
-			osImage.ID,
-		)
-		data.Set(resourceKeyServerOSImageID, osImage.ID)
-	} else if customerImageID != nil {
-		log.Printf("Looking up customer image '%s' by Id...", *customerImageID)
-
-		customerImage, err = apiClient.GetCustomerImage(*customerImageID)
-		if err != nil {
-			return err
-		}
-		if customerImage == nil {
-			return fmt.Errorf("Unable to find customer image with Id '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
-				*customerImageID,
-				dataCenterID,
-				networkDomainID,
-			)
-		}
-
-		log.Printf("Server will be deployed from customer image named '%s' (Id = '%s').",
-			customerImage.Name,
-			customerImage.ID,
-		)
-		data.Set(resourceKeyServerCustomerImageName, customerImage.Name)
-	} else if customerImageName != nil {
-		log.Printf("Looking up customer image '%s' by name...", *customerImageName)
-
-		customerImage, err = apiClient.FindCustomerImage(*customerImageName, dataCenterID)
-		if err != nil {
-			return err
-		}
-		if customerImage == nil {
-			return fmt.Errorf(
-				"Unable to find a customer image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
-				*customerImageName,
-				dataCenterID,
-				networkDomainID,
-			)
-		}
-
-		log.Printf("Server will be deployed from customer image named '%s' (Id = '%s').",
-			customerImage.Name,
-			customerImage.ID,
-		)
-		data.Set(resourceKeyServerCustomerImageID, customerImage.ID)
-	}
-
-	if osImage != nil {
-		err = deploymentConfiguration.ApplyOSImage(osImage)
-		if err != nil {
-			return err
-		}
-	} else if customerImage != nil {
-		err = deploymentConfiguration.ApplyCustomerImage(customerImage)
-		if err != nil {
-			return err
-		}
-	} else {
-		return fmt.Errorf("Must specify either os_image_id, os_image_name, customer_image_id, or customer_image_name.")
-	}
+	image.ApplyTo(&deploymentConfiguration)
 
 	// Image disk speeds
 	configuredDisks := propertyHelper.GetDisks().ByUnitID()
@@ -910,4 +926,28 @@ func serverPowerOff(providerState *providerState, serverID string) error {
 	}
 
 	return nil
+}
+
+func lookupOSImageByID(imageID string, apiClient *compute.Client) (compute.Image, error) {
+	log.Printf("Looking up OS image '%s' by Id...", imageID)
+
+	return apiClient.GetOSImage(imageID)
+}
+
+func lookupOSImageByName(imageName string, dataCenterID string, apiClient *compute.Client) (compute.Image, error) {
+	log.Printf("Looking up OS image '%s' by name in datacenter '%s'...", imageName, dataCenterID)
+
+	return apiClient.FindOSImage(imageName, dataCenterID)
+}
+
+func lookupCustomerImageByID(imageID string, apiClient *compute.Client) (compute.Image, error) {
+	log.Printf("Looking up customer image '%s' by Id...", imageID)
+
+	return apiClient.GetCustomerImage(imageID)
+}
+
+func lookupCustomerImageByName(imageName string, dataCenterID string, apiClient *compute.Client) (compute.Image, error) {
+	log.Printf("Looking up customer image '%s' by name in datacenter '%s'...", imageName, dataCenterID)
+
+	return apiClient.FindOSImage(imageName, dataCenterID)
 }
