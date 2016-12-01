@@ -46,8 +46,11 @@ func testAccDDCloudServerBasic(name string, description string, primaryIPv4Addre
 			memory_gb			 = 8
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "%s"
+			
+			network_adapter {
+				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4             = "%s"
+			}
 
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
@@ -97,8 +100,11 @@ func testAccDDCloudServerImageDisk1(sizeGB int, speed string) string {
 			memory_gb			 = 8
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "192.168.17.6"
+			
+			network_adapter {
+				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4             = "192.168.17.6"
+			}
 
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
@@ -148,9 +154,12 @@ func testAccDDCloudServerAdditionalDisk1(scsiUnitID int, sizeGB int, speed strin
 			memory_gb			 = 8
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "192.168.17.6"
 
+			network_adapter {
+				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4             = "192.168.17.6"
+			}
+			
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"
 
@@ -217,8 +226,11 @@ func testAccDDCloudServerTag(tags map[string]string) string {
 			memory_gb			 = 8
 
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan = "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4 = "192.168.17.6"
+			
+			network_adapter {
+				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4             = "192.168.17.6"
+			}
 
 			dns_primary			 = "8.8.8.8"
 			dns_secondary		 = "8.8.4.4"

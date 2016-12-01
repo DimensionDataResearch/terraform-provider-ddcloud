@@ -41,7 +41,11 @@ resource "ddcloud_server" "myserver" {
   cpu_count            = 2
 
   networkdomain        = "${ddcloud_networkdomain.mydomain.id}"
-  primary_adapter_ipv4 = "192.168.17.10"
+
+  network_adapter {
+      ipv4             = "192.168.17.10"
+  }
+
   dns_primary          = "8.8.8.8"
   dns_secondary        = "8.8.4.4"
 
@@ -50,7 +54,7 @@ resource "ddcloud_server" "myserver" {
 
 resource "ddcloud_nat" "mynat" {
   networkdomain = "${ddcloud_networkdomain.mydomain.id}"
-  private_ipv4  = "${ddcloud_server.myserver.primary_adapter_ipv4}"
+  private_ipv4  = "${ddcloud_server.myserver.network_adapter.0.ipv4}"
 
   depends_on    = [ "ddcloud_vlan.myvlan" ]
 }
