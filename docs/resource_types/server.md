@@ -40,8 +40,13 @@ The following arguments are supported:
 
 * `name` - (Required) A name for the server.
 * `description` - (Optional) A description for the server.
-* `admin_password` - (Required) The initial administrative password for the deployed server.  
+* `admin_password` - (Optional) The initial administrative password for the deployed server.  
 Has no effect after deployment.
+  * Required for all OS images.
+  * Required for Windows Server 2008 customer images.
+  * Required for Windows Server 2012 customer images.
+  * Required for Windows Server 2012 R2 customer images.
+  * Optional for Linux customer images.
 * `memory_gb` - (Optional) The amount of memory (in GB) allocated to the server.  
 Defaults to the memory specified by the image from which the server is created.
 * `cpu_count` - (Optional) The number of CPUs allocated to the server.  
