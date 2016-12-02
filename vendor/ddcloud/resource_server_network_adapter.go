@@ -59,7 +59,8 @@ func schemaServerNetworkAdapter() *schema.Schema {
 				resourceKeyServerNetworkAdapterType: &schema.Schema{
 					Type:     schema.TypeString,
 					Optional: true,
-					Default:  compute.NetworkAdapterTypeE1000,
+					Computed: true,
+					Default:  nil,
 					Description: fmt.Sprintf("The type of network adapter (%s or %s)",
 						compute.NetworkAdapterTypeE1000,
 						compute.NetworkAdapterTypeVMXNET3,

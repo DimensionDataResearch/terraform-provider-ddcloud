@@ -120,30 +120,30 @@ func (networkAdapters NetworkAdapters) ToMaps() []map[string]interface{} {
 
 // ByID creates a map of NetworkAdapter keyed by Id.
 func (networkAdapters NetworkAdapters) ByID() map[string]NetworkAdapter {
-	networkAdaptersByIndex := make(map[string]NetworkAdapter)
+	networkAdaptersByID := make(map[string]NetworkAdapter)
 	for _, networkAdapter := range networkAdapters {
 		if networkAdapter.ID == "" {
 			continue
 		}
 
-		networkAdaptersByIndex[networkAdapter.ID] = networkAdapter
+		networkAdaptersByID[networkAdapter.ID] = networkAdapter
 	}
 
-	return networkAdaptersByIndex
+	return networkAdaptersByID
 }
 
 // ByMACAddress creates a map of NetworkAdapter keyed by MAC address.
 func (networkAdapters NetworkAdapters) ByMACAddress() map[string]NetworkAdapter {
-	networkAdaptersByIndex := make(map[string]NetworkAdapter)
+	networkAdaptersByMACAddress := make(map[string]NetworkAdapter)
 	for _, networkAdapter := range networkAdapters {
 		if networkAdapter.MACAddress == "" {
 			continue
 		}
 
-		networkAdaptersByIndex[networkAdapter.MACAddress] = networkAdapter
+		networkAdaptersByMACAddress[networkAdapter.MACAddress] = networkAdapter
 	}
 
-	return networkAdaptersByIndex
+	return networkAdaptersByMACAddress
 }
 
 // SplitByAction splits the (configured) network adapters by the action to be performed (add, change, or remove).
