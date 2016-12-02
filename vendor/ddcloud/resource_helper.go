@@ -375,6 +375,25 @@ func (helper resourcePropertyHelper) GetNetworkAdapters() (networkAdapters model
 	return
 }
 
+func (helper resourcePropertyHelper) GetOldNetworkAdapters() (networkAdapters models.NetworkAdapters) {
+	if !helper.data.HasChange(resourceKeyServerNetworkAdapter) {
+		networkAdapters = helper.GetNetworkAdapters()
+
+		return
+	}
+
+	oldValue, _ := helper.data.GetChange(resourceKeyServerNetworkAdapter)
+	if oldValue == nil {
+		return
+	}
+
+	networkAdapters = models.NewNetworkAdaptersFromStateData(
+		oldValue.([]interface{}),
+	)
+
+	return
+}
+
 func (helper resourcePropertyHelper) SetNetworkAdapters(networkAdapters models.NetworkAdapters) {
 	networkAdapterProperties := make([]interface{}, len(networkAdapters))
 

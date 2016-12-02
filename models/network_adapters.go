@@ -132,6 +132,20 @@ func (networkAdapters NetworkAdapters) ByID() map[string]NetworkAdapter {
 	return networkAdaptersByIndex
 }
 
+// ByMACAddress creates a map of NetworkAdapter keyed by MAC address.
+func (networkAdapters NetworkAdapters) ByMACAddress() map[string]NetworkAdapter {
+	networkAdaptersByIndex := make(map[string]NetworkAdapter)
+	for _, networkAdapter := range networkAdapters {
+		if networkAdapter.MACAddress == "" {
+			continue
+		}
+
+		networkAdaptersByIndex[networkAdapter.MACAddress] = networkAdapter
+	}
+
+	return networkAdaptersByIndex
+}
+
 // SplitByAction splits the (configured) network adapters by the action to be performed (add, change, or remove).
 //
 // configuredNetworkAdapters represents the network adapters currently specified in configuration.

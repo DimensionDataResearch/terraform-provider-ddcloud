@@ -51,7 +51,7 @@ func (image *Image) UpdateMap(imageProperties map[string]interface{}) {
 	writer := maps.NewWriter(imageProperties)
 
 	writer.SetString("id", image.ID)
-	writer.SetString("name", image.ID)
+	writer.SetString("name", image.Name)
 	writer.SetString("type", image.Type)
 }
 

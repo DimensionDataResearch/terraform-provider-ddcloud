@@ -168,27 +168,21 @@ func resourceServer() *schema.Resource {
 			},
 			resourceKeyServerOSImageName: &schema.Schema{
 				Type:        schema.TypeString,
-				ForceNew:    true,
 				Optional:    true,
-				Computed:    true,
 				Default:     nil,
 				Description: "The name of the OS (built-in) image from which the server is created",
 				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageName),
 			},
 			resourceKeyServerCustomerImageID: &schema.Schema{
 				Type:        schema.TypeString,
-				ForceNew:    true,
 				Optional:    true,
-				Computed:    true,
 				Default:     nil,
 				Description: "The Id of the customer (custom) image from which the server is created",
 				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageID),
 			},
 			resourceKeyServerCustomerImageName: &schema.Schema{
 				Type:        schema.TypeString,
-				ForceNew:    true,
 				Optional:    true,
-				Computed:    true,
 				Default:     nil,
 				Description: "The name of the customer (custom) image from which the server is created",
 				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageName),
@@ -411,7 +405,6 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	}
 	data.Set(resourceKeyServerName, server.Name)
 	data.Set(resourceKeyServerDescription, server.Description)
-	data.Set(resourceKeyServerOSImageID, server.SourceImageID)
 	data.Set(resourceKeyServerMemoryGB, server.MemoryGB)
 	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
 	data.Set(resourceKeyServerCPUCoreCount, server.CPU.CoresPerSocket)
@@ -527,11 +520,98 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
+	// prev := models.NetworkAdapters{
+	// 	models.NetworkAdapter{ // 0
+	// 		ID:                 "973c0c99-db93-4460-9109-e05cb62ce2a2",
+	// 		VLANID:             "686bca8d-3cfa-461a-b4ad-88fd77219947",
+	// 		PrivateIPv4Address: "192.168.17.20",
+	// 		PrivateIPv6Address: "2607:f480:111:1822:255f:f87a:5fa2:71b",
+	// 		AdapterType:        "VMXNET3",
+	// 	},
+	// 	models.NetworkAdapter{ // 1
+	// 		ID:                 "afb82832-add0-4575-8ee1-7d1c5ec8df1d",
+	// 		VLANID:             "6f84dce4-1ec6-4992-bf02-df15d4d3dd37",
+	// 		PrivateIPv4Address: "192.168.18.20",
+	// 		PrivateIPv6Address: "2607:f480:111:1820:7b8:813f:60fa:1a92",
+	// 		AdapterType:        "E1000",
+	// 	},
+	// 	models.NetworkAdapter{ // 2
+	// 		ID:                 "3d1b8c0a-b4ed-431a-85b8-968c1f261f01",
+	// 		VLANID:             "40bb9975-63c6-43fa-96ab-2392df45f923",
+	// 		PrivateIPv4Address: "192.168.19.20",
+	// 		PrivateIPv6Address: "2607:f480:111:1821:4fae:5618:e5d9:6305",
+	// 		AdapterType:        "E1000",
+	// 	},
+	// }
+
+	// cur := models.NetworkAdapters{
+	// 	models.NetworkAdapter{ // 0
+	// 		ID:                 "973c0c99-db93-4460-9109-e05cb62ce2a2",
+	// 		VLANID:             "686bca8d-3cfa-461a-b4ad-88fd77219947",
+	// 		PrivateIPv4Address: "192.168.17.20",
+	// 		PrivateIPv6Address: "2607:f480:111:1822:255f:f87a:5fa2:71b",
+	// 		AdapterType:        "VMXNET3",
+	// 	},
+	// 	models.NetworkAdapter{ // 1 (was 2)
+	// 		ID:                 "afb82832-add0-4575-8ee1-7d1c5ec8df1d",
+	// 		VLANID:             "40bb9975-63c6-43fa-96ab-2392df45f923",
+	// 		PrivateIPv4Address: "192.168.19.20",
+	// 		PrivateIPv6Address: "2607:f480:111:1820:7b8:813f:60fa:1a92",
+	// 		AdapterType:        "E1000",
+	// 	},
+	// }
+
+	// mod := models.NetworkAdapters{
+	// 	models.NetworkAdapter{
+	// 		ID:                 "afb82832-add0-4575-8ee1-7d1c5ec8df1d",
+	// 		VLANID:             "40bb9975-63c6-43fa-96ab-2392df45f923",
+	// 		PrivateIPv4Address: "192.168.19.20",
+	// 		PrivateIPv6Address: "2607:f480:111:1820:7b8:813f:60fa:1a92",
+	// 		AdapterType:        "E1000",
+	// 	},
+	// }
+
 	if data.HasChange(resourceKeyServerNetworkAdapter) {
 		actualNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
 
 		configuredNetworkAdapters := propertyHelper.GetNetworkAdapters()
+		previouslyConfiguredNetworkAdapters := propertyHelper.GetOldNetworkAdapters()
+
+		log.Printf("Currently configured NICs  (%d)  = %#v", len(configuredNetworkAdapters), configuredNetworkAdapters)
+		log.Printf("Previously configured NICs (%d) = %#v", len(previouslyConfiguredNetworkAdapters), previouslyConfiguredNetworkAdapters)
+
+		// First, has the configuration for any network adapters been removed?
+		_, _, removeAdapters := configuredNetworkAdapters.SplitByAction(previouslyConfiguredNetworkAdapters)
+		if !removeAdapters.IsEmpty() {
+			// Remove unconfigured network adapters.
+			for index := range removeAdapters {
+				removeAdapter := &removeAdapters[index]
+
+				err = removeServerNetworkAdapter(providerState, serverID, removeAdapter)
+				if err != nil {
+					return err
+				}
+			}
+
+			server, err = apiClient.GetServer(serverID)
+			if err != nil {
+				return err
+			}
+			if server == nil {
+				return fmt.Errorf("Cannot find server with Id '%s'", serverID)
+			}
+
+			actualNetworkAdapters = models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
+			propertyHelper.SetNetworkAdapters(actualNetworkAdapters)
+			data.SetPartial(resourceKeyServerNetworkAdapter)
+		}
+
+		// Now we can handle the remaining adapters.
 		addAdapters, modifyAdapters, removeAdapters := configuredNetworkAdapters.SplitByAction(actualNetworkAdapters)
+		log.Printf("NICs to add    = %#v", addAdapters)
+		log.Printf("NICs to modify = %#v", modifyAdapters)
+		log.Printf("NICs to remove = %#v", removeAdapters)
+
 		if !addAdapters.IsEmpty() || !modifyAdapters.IsEmpty() || !removeAdapters.IsEmpty() {
 			log.Printf("Server network configuration change detected.")
 
@@ -580,6 +660,17 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 			}
 		}
 
+		// Persist final state.
+		server, err = apiClient.GetServer(serverID)
+		if err != nil {
+			return err
+		}
+		if server == nil {
+			return fmt.Errorf("Cannot find server with Id '%s'", serverID)
+		}
+
+		actualNetworkAdapters = models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
+		propertyHelper.SetNetworkAdapters(actualNetworkAdapters)
 		data.SetPartial(resourceKeyServerNetworkAdapter)
 	}
 

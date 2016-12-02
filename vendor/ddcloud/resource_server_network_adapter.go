@@ -13,7 +13,7 @@ import (
 const (
 	resourceKeyServerNetworkAdapter       = "network_adapter"
 	resourceKeyServerNetworkAdapterID     = "id"
-	resourceKeyServerNetworkAdapterIndex  = "index"
+	resourceKeyServerNetworkAdapterMAC    = "mac"
 	resourceKeyServerNetworkAdapterVLANID = "vlan"
 	resourceKeyServerNetworkAdapterIPV4   = "ipv4"
 	resourceKeyServerNetworkAdapterIPV6   = "ipv6"
@@ -32,11 +32,10 @@ func schemaServerNetworkAdapter() *schema.Schema {
 					Computed:    true,
 					Description: "The network adapter's identifier in CloudControl",
 				},
-				resourceKeyServerNetworkAdapterIndex: &schema.Schema{
-					Type:        schema.TypeInt,
+				resourceKeyServerNetworkAdapterMAC: &schema.Schema{
+					Type:        schema.TypeString,
 					Computed:    true,
-					Default:     nil,
-					Description: "The index of the network adapter in CloudControl (0 is the primary adapter)",
+					Description: "The network adapter's MAC address",
 				},
 				resourceKeyServerNetworkAdapterVLANID: &schema.Schema{
 					Type:        schema.TypeString,
@@ -44,7 +43,6 @@ func schemaServerNetworkAdapter() *schema.Schema {
 					Optional:    true,
 					Default:     nil,
 					Description: "VLAN ID of the network adapter",
-					ForceNew:    true,
 				},
 				resourceKeyServerNetworkAdapterIPV4: &schema.Schema{
 					Type:        schema.TypeString,
@@ -61,7 +59,6 @@ func schemaServerNetworkAdapter() *schema.Schema {
 				resourceKeyServerNetworkAdapterType: &schema.Schema{
 					Type:     schema.TypeString,
 					Optional: true,
-					ForceNew: true,
 					Default:  compute.NetworkAdapterTypeE1000,
 					Description: fmt.Sprintf("The type of network adapter (%s or %s)",
 						compute.NetworkAdapterTypeE1000,
@@ -88,14 +85,14 @@ func addServerNetworkAdapter(providerState *providerState, serverID string, netw
 		var addAdapterError error
 		if networkAdapter.HasExplicitType() {
 			networkAdapter.ID, addAdapterError = apiClient.AddNicWithTypeToServer(
-				networkAdapter.ID,
+				serverID,
 				networkAdapter.PrivateIPv4Address,
 				networkAdapter.VLANID,
 				networkAdapter.AdapterType,
 			)
 		} else {
 			networkAdapter.ID, addAdapterError = apiClient.AddNicToServer(
-				networkAdapter.ID,
+				serverID,
 				networkAdapter.PrivateIPv4Address,
 				networkAdapter.VLANID,
 			)
@@ -166,6 +163,7 @@ func removeServerNetworkAdapter(providerState *providerState, serverID string, n
 	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
+	removingAdapter := true
 	operationDescription := fmt.Sprintf("Remove network adapter '%s'", networkAdapter.ID)
 	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
@@ -174,6 +172,11 @@ func removeServerNetworkAdapter(providerState *providerState, serverID string, n
 		removeError := apiClient.RemoveNicFromServer(networkAdapter.ID)
 		if compute.IsResourceBusyError(removeError) {
 			context.Retry()
+		} else if compute.IsResourceNotFoundError(removeError) {
+			log.Printf("Network adapter '%s' not found (will treat as deleted).",
+				networkAdapter.ID,
+			)
+			removingAdapter = false
 		} else if removeError != nil {
 			context.Fail(removeError)
 		}
@@ -182,14 +185,19 @@ func removeServerNetworkAdapter(providerState *providerState, serverID string, n
 		return err
 	}
 
-	log.Printf("Removing network adapter '%s'...", networkAdapter.ID)
+	if removingAdapter {
+		log.Printf("Removing network adapter '%s'...", networkAdapter.ID)
 
-	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
-	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
+		compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
+		_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
+		if err != nil {
+			return err
+		}
 
-	log.Printf("Removed network adapter '%s'.", networkAdapter.ID)
+		log.Printf("Removed network adapter '%s'.", networkAdapter.ID)
+	}
 
-	return err
+	return nil
 }
 
 // Validate that the specified value represents a valid network adapter type.
