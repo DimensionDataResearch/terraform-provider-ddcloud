@@ -8,7 +8,6 @@ import (
 // NetworkAdapter represents the Terraform configuration for a ddcloud_server network_adapter.
 type NetworkAdapter struct {
 	ID                 string
-	Index              int
 	VLANID             string
 	PrivateIPv4Address string
 	PrivateIPv6Address string
@@ -25,7 +24,6 @@ func (networkAdapter *NetworkAdapter) ReadMap(networkAdapterProperties map[strin
 	reader := maps.NewReader(networkAdapterProperties)
 
 	networkAdapter.ID = reader.GetString("id")
-	networkAdapter.Index = reader.GetIntOr("index", -1)
 	networkAdapter.VLANID = reader.GetString("vlan")
 	networkAdapter.PrivateIPv4Address = reader.GetString("ipv4")
 	networkAdapter.PrivateIPv6Address = reader.GetString("ipv6")
@@ -45,7 +43,6 @@ func (networkAdapter *NetworkAdapter) UpdateMap(networkAdapterProperties map[str
 	writer := maps.NewWriter(networkAdapterProperties)
 
 	writer.SetString("id", networkAdapter.ID)
-	writer.SetInt("index", networkAdapter.Index)
 	writer.SetString("vlan", networkAdapter.VLANID)
 	writer.SetString("ipv4", networkAdapter.PrivateIPv4Address)
 	writer.SetString("ipv6", networkAdapter.PrivateIPv6Address)

@@ -310,12 +310,8 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		NetworkDomainID: networkDomainID,
 	}
 
-	// Populate adapter indexes.
-	networkAdapters := propertyHelper.GetNetworkAdapters()
-	networkAdapters.InitializeIndexes()
-	propertyHelper.SetNetworkAdapters(networkAdapters)
-
 	// Initial configuration for network adapters.
+	networkAdapters := propertyHelper.GetNetworkAdapters()
 	networkAdapters.UpdateVirtualMachineNetwork(&deploymentConfiguration.Network)
 
 	deploymentConfiguration.PrimaryDNS = primaryDNS
@@ -531,43 +527,60 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
-	var primaryIPv4, primaryIPv6 *string
-	if data.HasChange(resourceKeyServerPrimaryAdapterIPv4) {
-		primaryIPv4 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterIPv4, false)
-	}
-	if data.HasChange(resourceKeyServerPrimaryAdapterIPv6) {
-		primaryIPv6 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterIPv6, false)
-	}
+	if data.HasChange(resourceKeyServerNetworkAdapter) {
+		actualNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
 
-	if primaryIPv4 != nil || primaryIPv6 != nil {
-		log.Printf("Server network configuration change detected.")
+		configuredNetworkAdapters := propertyHelper.GetNetworkAdapters()
+		addAdapters, modifyAdapters, removeAdapters := configuredNetworkAdapters.SplitByAction(actualNetworkAdapters)
+		if !addAdapters.IsEmpty() || !modifyAdapters.IsEmpty() || !removeAdapters.IsEmpty() {
+			log.Printf("Server network configuration change detected.")
 
-		err = updateServerIPAddresses(apiClient, server, primaryIPv4, primaryIPv6)
-		if err != nil {
-			return err
+			// First, remove unconfigured network adapters.
+			for index := range removeAdapters {
+				removeAdapter := &removeAdapters[index]
+
+				err = removeServerNetworkAdapter(providerState, serverID, removeAdapter)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Then, modify existing network adapters.
+			for index := range modifyAdapters {
+				modifyAdapter := &modifyAdapters[index]
+
+				err = modifyServerNetworkAdapter(providerState, serverID, modifyAdapter)
+				if err != nil {
+					return err
+				}
+			}
+
+			// Finally, add new network adapters.
+			for index := range addAdapters {
+				addAdapter := &addAdapters[index]
+
+				err = addServerNetworkAdapter(providerState, serverID, addAdapter)
+				if err != nil {
+					return err
+				}
+			}
+
+			var publicIPv4Address string
+			publicIPv4Address, err = findPublicIPv4Address(apiClient,
+				server.Network.NetworkDomainID,
+				*server.Network.PrimaryAdapter.PrivateIPv4Address,
+			)
+			if err != nil {
+				return err
+			}
+			if !isEmpty(publicIPv4Address) {
+				data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
+			} else {
+				data.Set(resourceKeyServerPublicIPv4, nil)
+			}
 		}
 
-		if data.HasChange(resourceKeyServerPrimaryAdapterIPv4) {
-			data.SetPartial(resourceKeyServerPrimaryAdapterIPv4)
-		}
-
-		if data.HasChange(resourceKeyServerPrimaryAdapterIPv6) {
-			data.SetPartial(resourceKeyServerPrimaryAdapterIPv6)
-		}
-
-		var publicIPv4Address string
-		publicIPv4Address, err = findPublicIPv4Address(apiClient,
-			server.Network.NetworkDomainID,
-			*server.Network.PrimaryAdapter.PrivateIPv4Address,
-		)
-		if err != nil {
-			return err
-		}
-		if !isEmpty(publicIPv4Address) {
-			data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
-		} else {
-			data.Set(resourceKeyServerPublicIPv4, nil)
-		}
+		data.SetPartial(resourceKeyServerNetworkAdapter)
 	}
 
 	if data.HasChange(resourceKeyServerTag) {
