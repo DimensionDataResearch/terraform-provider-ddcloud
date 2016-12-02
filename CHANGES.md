@@ -2,12 +2,30 @@
 
 ## v1.2-preview4
 
-This is a preview release intended to gather feedback on changes to `ddcloud_server.disk` and `ddcloud_server._network_adapter` behaviour.
+This is a preview release intended to gather feedback on changes to `ddcloud_server.image` and `ddcloud_server.admin_password`.
 
 Enhancements:
 
 * The provider will now attempt to automatically migrate the data for `ddcloud_server.disk` from a Set to a List.  
 **Note** - if you have not used v1.2-preview3, then you can now disregard the warning about `terraform.tfstate` incompatibility. 
+* The image for a `ddcloud_server` is now configured via `ddcloud_server.image` (#66).  
+You now only need to set 1 of 2 properties (and there's an optional 3rd property if you want to customise behaviour).
+  * `id` - The Id of the target image to use.
+  * `name` - The name of the target image to use.
+  * `type` - The type of image to use (optional, defaults to `auto`).
+    * `os` - Use an OS image with the specified Id or name.
+    * `customer` - Use an OS image with the specified Id or name.
+    * `auto` - Use an OS or customer image with the specified Id or name (auto-detect image type).  
+    Note that if an OS and customer image have the same name or Id, the OS image will be used.
+* `ddcloud_server.admin_password` is now optional for server images that don't require an initial administrator password (#65).
+
+Breaking changes:
+
+* `ddcloud_server` properties relating to image have been moved into `ddcloud_server.image` (#66).
+
+Bug fixes:
+
+* Fixed crash when deploying a `ddcloud_server`.
 
 ## v1.2-preview3
 
