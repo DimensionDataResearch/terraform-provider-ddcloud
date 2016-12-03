@@ -1,0 +1,50 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Test models",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "remotePath": "",
+            "port": 2345,
+            "host": "127.0.0.1",
+            "program": "github.com/DimensionDataResearch/dd-cloud-compute-terraform/models",
+            "env": {},
+            "args": [
+                "Test"
+            ],
+            "showLog": true
+        },
+        {
+            "name": "Test provider",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "remotePath": "",
+            "port": 2345,
+            "host": "127.0.0.1",
+            "program": "github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/ddcloud",
+            "env": {},
+            "args": [
+                "Test"
+            ],
+            "showLog": true
+        },
+        {
+            "name": "Test CloudControl API client",
+            "type": "go",
+            "request": "launch",
+            "mode": "test",
+            "remotePath": "",
+            "port": 2345,
+            "host": "127.0.0.1",
+            "program": "github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/github.com/DimensionDataResearch/go-dd-cloud-compute/compute",
+            "env": {},
+            "args": [
+                "Test"
+            ],
+            "showLog": true
+        }
+    ]
+}

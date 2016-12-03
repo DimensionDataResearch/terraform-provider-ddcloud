@@ -35,6 +35,52 @@ func (networkAdapters NetworkAdapters) GetPrimary() *NetworkAdapter {
 	return nil
 }
 
+// Insert a NetworkAdapter at the specified index.
+//
+// Returns a new NetworkAdapters.
+func (networkAdapters NetworkAdapters) Insert(index int, networkAdapter NetworkAdapter) NetworkAdapters {
+	firstSlice := networkAdapters[:index]
+	secondSlice := append(
+		NetworkAdapters{networkAdapter},
+		networkAdapters[index:]...,
+	)
+
+	return append(firstSlice, secondSlice...)
+}
+
+// Remove the specified NetworkAdapter (by Id).
+//
+// Returns a new NetworkAdapters.
+func (networkAdapters NetworkAdapters) Remove(networkAdapter NetworkAdapter) NetworkAdapters {
+	if networkAdapter.ID == "" {
+		return networkAdapters
+	}
+
+	adapterIndex := -1
+	for index, adapter := range networkAdapters {
+		if adapter.ID == networkAdapter.ID {
+			adapterIndex = index
+
+			break
+		}
+	}
+	if adapterIndex == -1 {
+		return networkAdapters
+	}
+
+	return networkAdapters.RemoveAt(adapterIndex)
+}
+
+// RemoveAt removes the NetworkAdapter at the specified index.
+//
+// Returns a new NetworkAdapters.
+func (networkAdapters NetworkAdapters) RemoveAt(index int) NetworkAdapters {
+	return append(
+		networkAdapters[0:index],
+		networkAdapters[index+1:]...,
+	)
+}
+
 // ToVirtualMachineNetworkAdapters converts the NetworkAdapters to an array of compute.VirtualMachineNetworkAdapter.
 func (networkAdapters NetworkAdapters) ToVirtualMachineNetworkAdapters() []compute.VirtualMachineNetworkAdapter {
 	virtualMachineNetworkAdapters := make([]compute.VirtualMachineNetworkAdapter, len(networkAdapters))
@@ -144,6 +190,23 @@ func (networkAdapters NetworkAdapters) ByMACAddress() map[string]NetworkAdapter 
 	}
 
 	return networkAdaptersByMACAddress
+}
+
+// Subtract the specified NetworkAdapters from the current NetworkAdapters.
+func (networkAdapters NetworkAdapters) Subtract(otherNetworkAdapters NetworkAdapters) (remainingNetworkAdapters NetworkAdapters) {
+	otherNetworkAdaptersByID := otherNetworkAdapters.ByID()
+	for _, networkAdapter := range networkAdapters {
+		if networkAdapter.ID == "" {
+			continue
+		}
+
+		_, ok := otherNetworkAdaptersByID[networkAdapter.ID]
+		if !ok {
+			remainingNetworkAdapters = append(remainingNetworkAdapters, networkAdapter)
+		}
+	}
+
+	return
 }
 
 // SplitByAction splits the (configured) network adapters by the action to be performed (add, change, or remove).

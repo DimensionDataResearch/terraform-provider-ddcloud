@@ -190,7 +190,7 @@ func removeServerNetworkAdapter(providerState *providerState, serverID string, n
 		log.Printf("Removing network adapter '%s'...", networkAdapter.ID)
 
 		compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
-		_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
+		_, err = apiClient.WaitForNestedDeleteChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Remove network adapter", resourceUpdateTimeoutServer)
 		if err != nil {
 			return err
 		}
