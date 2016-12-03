@@ -1,5 +1,19 @@
 # Changes
 
+## v1.2-preview5
+
+This is a preview release intended to gather feedback on changes to `ddcloud_server.primary_network_adapter`, `ddcloud_server.additional_network_adapter`, and `ddcloud_network_adapter`.
+
+Enhancements:
+
+* MAC address is now exposed on network adapters.
+
+Breaking changes:
+
+* Primary network adapter is now exposed via `ddcloud_server.primary_network_adapter` (#56).
+* Additional network adapters are now exposed via `ddcloud_server.additional_network_adapter` and `ddcloud_network_adapter` (#56).  
+**Note**: You can specify additional adapters for a given `ddcloud_server` via either the `ddcloud_server.additional_network_adapter` _or_ `ddcloud_network_adapter` (but not both). Use `ddcloud_network_adapter` if you want to be able to modify additional network adapters after deployment.
+
 ## v1.2-preview4
 
 This is a preview release intended to gather feedback on changes to `ddcloud_server.image` and `ddcloud_server.admin_password`.
