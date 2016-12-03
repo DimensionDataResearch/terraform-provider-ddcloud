@@ -2,6 +2,8 @@
 
 Represents an additional network adapter in an existing server.
 
+**Note**: Using both `ddcloud_network_adapter` _and_ `ddcloud_server.additional_network_adapter` for the same server is not supported.
+
 ## Example Usage
 
 ```
