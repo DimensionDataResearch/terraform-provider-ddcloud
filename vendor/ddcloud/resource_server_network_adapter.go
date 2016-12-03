@@ -11,20 +11,39 @@ import (
 )
 
 const (
-	resourceKeyServerNetworkAdapter       = "network_adapter"
-	resourceKeyServerNetworkAdapterID     = "id"
-	resourceKeyServerNetworkAdapterMAC    = "mac"
-	resourceKeyServerNetworkAdapterVLANID = "vlan"
-	resourceKeyServerNetworkAdapterIPV4   = "ipv4"
-	resourceKeyServerNetworkAdapterIPV6   = "ipv6"
-	resourceKeyServerNetworkAdapterType   = "type"
+	resourceKeyServerPrimaryNetworkAdapter    = "primary_network_adapter"
+	resourceKeyServerAdditionalNetworkAdapter = "additional_network_adapter"
+	resourceKeyServerNetworkAdapterID         = "id"
+	resourceKeyServerNetworkAdapterMAC        = "mac"
+	resourceKeyServerNetworkAdapterVLANID     = "vlan"
+	resourceKeyServerNetworkAdapterIPV4       = "ipv4"
+	resourceKeyServerNetworkAdapterIPV6       = "ipv6"
+	resourceKeyServerNetworkAdapterType       = "type"
 )
 
-func schemaServerNetworkAdapter() *schema.Schema {
+func schemaServerPrimaryNetworkAdapter() *schema.Schema {
+	return schemaServerNetworkAdapter(true)
+}
+func schemaServerAdditionalNetworkAdapter() *schema.Schema {
+	return schemaServerNetworkAdapter(false)
+}
+
+func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
+	var maxItems int
+	if isPrimary {
+		maxItems = 1
+	} else {
+		maxItems = 0
+	}
+
 	return &schema.Schema{
 		Type:     schema.TypeList,
-		Required: true,
+		Required: isPrimary,
+		Optional: !isPrimary,
+		Computed: !isPrimary,
+		ForceNew: !isPrimary,
 		MinItems: 1,
+		MaxItems: maxItems,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				resourceKeyServerNetworkAdapterID: &schema.Schema{
@@ -42,6 +61,7 @@ func schemaServerNetworkAdapter() *schema.Schema {
 					Computed:    true,
 					Optional:    true,
 					Default:     nil,
+					ForceNew:    true,
 					Description: "VLAN ID of the network adapter",
 				},
 				resourceKeyServerNetworkAdapterIPV4: &schema.Schema{
@@ -61,6 +81,7 @@ func schemaServerNetworkAdapter() *schema.Schema {
 					Optional: true,
 					Computed: true,
 					Default:  nil,
+					ForceNew: true,
 					Description: fmt.Sprintf("The type of network adapter (%s or %s)",
 						compute.NetworkAdapterTypeE1000,
 						compute.NetworkAdapterTypeVMXNET3,
@@ -199,32 +220,4 @@ func removeServerNetworkAdapter(providerState *providerState, serverID string, n
 	}
 
 	return nil
-}
-
-// Validate that the specified value represents a valid network adapter type.
-func validateNetworkAdapterAdapterType(value interface{}, propertyName string) (messages []string, errors []error) {
-	if value == nil {
-		return
-	}
-
-	adapterType, ok := value.(string)
-	if !ok {
-		errors = append(errors,
-			fmt.Errorf("Unexpected value type '%v'", value),
-		)
-
-		return
-	}
-
-	switch adapterType {
-	case compute.NetworkAdapterTypeE1000:
-	case compute.NetworkAdapterTypeVMXNET3:
-		break
-	default:
-		errors = append(errors,
-			fmt.Errorf("Invalid network adapter type '%s'", value),
-		)
-	}
-
-	return
 }

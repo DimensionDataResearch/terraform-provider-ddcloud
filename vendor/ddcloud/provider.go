@@ -78,6 +78,9 @@ func Provider() terraform.ResourceProvider {
 			// A server (virtual machine).
 			"ddcloud_server": resourceServer(),
 
+			// A network adapter.
+			"ddcloud_network_adapter": resourceNetworkAdapter(),
+
 			// A server anti-affinity rule.
 			"ddcloud_server_anti_affinity": resourceServerAntiAffinityRule(),
 

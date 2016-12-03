@@ -24,11 +24,6 @@ func resourceServerMigrateState(schemaVersion int, instanceState *terraform.Inst
 	case 0:
 		log.Println("Found Server state v0; migrating to v2")
 		migratedState, err = migrateServerStateV0toV1(instanceState)
-		if err != nil {
-			return
-		}
-
-		migratedState, err = migrateServerStateV1toV2(instanceState)
 	case 1:
 		log.Println("Found Server state v1; migrating to v2")
 		migratedState, err = migrateServerStateV1toV2(instanceState)

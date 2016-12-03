@@ -35,6 +35,31 @@ func (networkAdapters NetworkAdapters) GetPrimary() *NetworkAdapter {
 	return nil
 }
 
+// GetAdditional retrieves the additional network adapters (if any).
+func (networkAdapters NetworkAdapters) GetAdditional() (additionalAdapters NetworkAdapters) {
+	if len(networkAdapters) > 1 {
+		additionalAdapters = networkAdapters[1:]
+	}
+
+	return
+}
+
+// GetByID retrieves the NetworkAdapter (if any) with the specified Id.
+func (networkAdapters NetworkAdapters) GetByID(id string) *NetworkAdapter {
+	if id == "" {
+		return nil
+	}
+
+	for index := range networkAdapters {
+		networkAdapter := &networkAdapters[index]
+		if networkAdapter.ID == id {
+			return networkAdapter
+		}
+	}
+
+	return nil
+}
+
 // Insert a NetworkAdapter at the specified index.
 //
 // Returns a new NetworkAdapters.
