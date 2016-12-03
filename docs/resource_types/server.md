@@ -18,8 +18,11 @@ resource "ddcloud_server" "myserver" {
   cores_per_cpu        = 1
 
   networkdomain        = "${ddcloud_networkdomain.mydomain.id}"
-  primary_adapter_vlan = "${ddcloud_vlan.myvlan.id}"
-  primary_adapter_ipv4 = "192.168.17.10"
+
+  primary_network_adapter {
+    vlan               = "${ddcloud_vlan.myvlan.id}"
+    ipv4               = "192.168.17.10"
+  }
 
   dns_primary          = "8.8.8.8"
   dns_secondary        = "8.8.4.4"
@@ -60,13 +63,22 @@ Default is `STANDARD`.
     * `size_gb` - (Required) The size (in GB) of the disk. This value can be increased (to expand the disk) but not decreased.
     * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, or `HIGHPERFORMANCE` (but varies between data centres).
 * `networkdomain` - (Required) The Id of the network domain in which the server is deployed.
-* `network_adapter` - (Required, 1..*) One or more network adapters attached to the server
+* `primary_network_adapter` - (Required) The primary network adapter attached to the server
+  * `vlan` - (Optional) The Id of the VLAN that the primary network adapter is attached to.  
+  Must specify at least one of `vlan` or `ipv4`.
+  * `ipv4` - (Optional) The IPv4 address for the primary network adapter.  
+  Note that if `ipv4` is specified, the VLAN will be inferred from this value.  
+  Must specify at least one of `ipv4` or `vlan`.
+  * `type` - (Optional) The primary network adapter type.  
+  Must be either `E1000` (default) or `VMXNET3`.
+* `additional_network_adapter` - (Optional 0..*) Additional network adapters (if any) attached to the server  
+  **Note** Changing this property will result in the server being destroyed and recreated. If you want to support modifying of additional network adapters, use `ddcloud_network_adapter` resources instead.
   * `vlan` - (Optional) The Id of the VLAN that the network adapter is attached to.  
   Must specify at least one of `vlan` or `ipv4`.
   * `ipv4` - (Optional) The IPv4 address for the network adapter.  
   Note that if `ipv4` is specified, the VLAN will be inferred from this value.  
   Must specify at least one of `ipv4` or `vlan`.
-  * `type` - (Optional) The adapter type.  
+  * `type` - (Optional) The network adapter type.  
   Must be either `E1000` (default) or `VMXNET3`.
 * `dns_primary` - (Required) The IP address of the server's primary DNS server.  
 If not specified, Google DNS (`8.8.8.8`) is used.
