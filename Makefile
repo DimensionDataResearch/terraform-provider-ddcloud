@@ -1,14 +1,16 @@
-VERSION = 1.2-preview5
-VERSION_INFO_FILE = ./vendor/ddcloud/version-info.go
+PROVIDER_NAME = ddcloud
+
+VERSION = 1.2.0-alpha1
+VERSION_INFO_FILE = ./vendor/$(PROVIDER_NAME)/version-info.go
 
 BIN_DIRECTORY   = _bin
-EXECUTABLE_NAME = terraform-provider-ddcloud
+EXECUTABLE_NAME = terraform-provider-$(PROVIDER_NAME)
 DIST_ZIP_PREFIX = $(EXECUTABLE_NAME).v$(VERSION)
 
 REPO_BASE     = github.com/DimensionDataResearch
 REPO_ROOT     = $(REPO_BASE)/dd-cloud-compute-terraform
 VENDOR_ROOT   = $(REPO_ROOT)/vendor
-PROVIDER_ROOT = $(VENDOR_ROOT)/ddcloud
+PROVIDER_ROOT = $(VENDOR_ROOT)/$(PROVIDER_NAME)
 
 default: fmt build test
 
@@ -40,13 +42,13 @@ build-mac64: version
 
 # Build docker image
 build-docker: build-linux64
-	docker build -t ddresearch/terraform-provider-ddcloud .
-	docker tag ddresearch/terraform-provider-ddcloud ddresearch/terraform-provider-ddcloud:v${VERSION}
+	docker build -t ddresearch/terraform-provider-$(PROVIDER_NAME) .
+	docker tag ddresearch/terraform-provider-$(PROVIDER_NAME) ddresearch/terraform-provider-$(PROVIDER_NAME):v${VERSION}
 
 # Build docker image
 push-docker: build-docker
-	docker push ddresearch/terraform-provider-ddcloud:latest
-	docker push ddresearch/terraform-provider-ddcloud:v${VERSION}
+	docker push ddresearch/terraform-provider-$(PROVIDER_NAME):latest
+	docker push ddresearch/terraform-provider-$(PROVIDER_NAME):v${VERSION}
 
 # Produce archives for a GitHub release.
 dist: build
@@ -91,4 +93,4 @@ version: $(VERSION_INFO_FILE)
 
 $(VERSION_INFO_FILE): Makefile
 	@echo "Update version info: v$(VERSION)"
-	@echo "package ddcloud\n\n// ProviderVersion is the current version of the ddcloud terraform provider.\nconst ProviderVersion = \"v$(VERSION) (`git rev-parse HEAD`)\"" > $(VERSION_INFO_FILE)
+	@echo "package $(PROVIDER_NAME)\n\n// ProviderVersion is the current version of the $(PROVIDER_NAME) terraform provider.\nconst ProviderVersion = \"v$(VERSION) (`git rev-parse HEAD`)\"" > $(VERSION_INFO_FILE)
