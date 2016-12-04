@@ -42,7 +42,7 @@ resource "ddcloud_server" "myserver" {
 
   networkdomain        = "${ddcloud_networkdomain.mydomain.id}"
 
-  network_adapter {
+  primary_network_adapter {
       ipv4             = "192.168.17.10"
   }
 

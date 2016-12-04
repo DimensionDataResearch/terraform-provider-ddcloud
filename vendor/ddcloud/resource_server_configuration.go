@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -47,11 +48,15 @@ func updateServerConfiguration(apiClient *compute.Client, server *compute.Server
 func captureServerNetworkConfiguration(server *compute.Server, data *schema.ResourceData, isPartial bool) {
 	propertyHelper := propertyHelper(data)
 
-	networkAdapters := propertyHelper.GetNetworkAdapters()
-	networkAdapters.ReadVirtualMachineNetwork(server.Network)
-	propertyHelper.SetNetworkAdapters(networkAdapters)
+	networkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
+	propertyHelper.SetServerNetworkAdapters(networkAdapters, isPartial)
+
 	if isPartial {
-		data.SetPartial(resourceKeyServerNetworkAdapter)
+		data.SetPartial(resourceKeyServerPrimaryAdapterVLAN)
+		data.SetPartial(resourceKeyServerPrimaryAdapterIPv4)
+		data.SetPartial(resourceKeyServerPrimaryAdapterIPv6)
+		data.SetPartial(resourceKeyServerPrimaryAdapterType)
+		data.SetPartial(resourceKeyServerNetworkDomainID)
 	}
 
 	// Publish primary network adapter type.
@@ -66,17 +71,8 @@ func captureServerNetworkConfiguration(server *compute.Server, data *schema.Reso
 		data.Set(resourceKeyServerPrimaryAdapterIPv4, nil)
 		data.Set(resourceKeyServerPrimaryAdapterIPv6, nil)
 	}
-	if isPartial {
-		data.SetPartial(resourceKeyServerPrimaryAdapterVLAN)
-		data.SetPartial(resourceKeyServerPrimaryAdapterIPv4)
-		data.SetPartial(resourceKeyServerPrimaryAdapterIPv6)
-		data.SetPartial(resourceKeyServerPrimaryAdapterType)
-	}
 
 	data.Set(resourceKeyServerNetworkDomainID, server.Network.NetworkDomainID)
-	if isPartial {
-		data.SetPartial(resourceKeyServerNetworkDomainID)
-	}
 }
 
 // updateServerIPAddress notifies the compute infrastructure that a server's IP address has changed.

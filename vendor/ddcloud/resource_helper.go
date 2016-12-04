@@ -311,6 +311,37 @@ func (helper resourcePropertyHelper) SetPortListPorts(ports []compute.PortListEn
 	helper.data.Set(resourceKeyPortListPort, portProperties)
 }
 
+func (helper resourcePropertyHelper) GetImage() *models.Image {
+	value, ok := helper.data.GetOk(resourceKeyServerImage)
+	if !ok {
+		return nil
+	}
+
+	// Unfortunate limitation of Terraform's schema model - this has to be a list with a single item rather than simply a nested object.
+	singleItemList := value.([]interface{})
+	if len(singleItemList) < 1 {
+		return nil
+	}
+
+	imageProperties := singleItemList[0].(map[string]interface{})
+	image := models.NewImageFromMap(imageProperties)
+
+	return &image
+}
+
+func (helper resourcePropertyHelper) SetImage(image *models.Image) {
+	if image != nil {
+		// Unfortunate limitation of Terraform's schema model - this has to be a list with a single item rather than simply a nested object.
+		singleItemList := []interface{}{
+			image.ToMap(),
+		}
+
+		helper.data.Set(resourceKeyServerImage, singleItemList)
+	} else {
+		helper.data.Set(resourceKeyServerImage, nil)
+	}
+}
+
 func (helper resourcePropertyHelper) GetDisks() (disks models.Disks) {
 	value, ok := helper.data.GetOk(resourceKeyServerDisk)
 	if !ok {
@@ -331,26 +362,138 @@ func (helper resourcePropertyHelper) SetDisks(disks models.Disks) {
 	helper.data.Set(resourceKeyServerDisk, diskProperties)
 }
 
-func (helper resourcePropertyHelper) GetNetworkAdapters() (networkAdapters models.NetworkAdapters) {
-	value, ok := helper.data.GetOk(resourceKeyServerNetworkAdapter)
+func (helper resourcePropertyHelper) GetServerNetworkAdapters() (networkAdapters models.NetworkAdapters) {
+	// Primary network adapter.
+	value, ok := helper.data.GetOk(resourceKeyServerPrimaryNetworkAdapter)
 	if !ok {
 		return
 	}
-
 	networkAdapters = models.NewNetworkAdaptersFromStateData(
 		value.([]interface{}),
+	)
+
+	// Additional network adapter.
+	value, ok = helper.data.GetOk(resourceKeyServerAdditionalNetworkAdapter)
+	if !ok {
+		return
+	}
+	networkAdapters = append(networkAdapters,
+		models.NewNetworkAdaptersFromStateData(
+			value.([]interface{}),
+		)...,
 	)
 
 	return
 }
 
-func (helper resourcePropertyHelper) SetNetworkAdapters(networkAdapters models.NetworkAdapters) {
-	networkAdapterProperties := make([]interface{}, len(networkAdapters))
+func (helper resourcePropertyHelper) GetOldServerNetworkAdapters() (networkAdapters models.NetworkAdapters) {
+	if !(helper.data.HasChange(resourceKeyServerPrimaryNetworkAdapter) || helper.data.HasChange(resourceKeyServerAdditionalNetworkAdapter)) {
+		networkAdapters = helper.GetServerNetworkAdapters()
 
-	for index, networkAdapter := range networkAdapters.ToMaps() {
-		networkAdapterProperties[index] = networkAdapter
+		return
 	}
-	helper.data.Set(resourceKeyServerNetworkAdapter, networkAdapterProperties)
+
+	// Primary network adapter.
+	oldValue, _ := helper.data.GetChange(resourceKeyServerPrimaryNetworkAdapter)
+	if oldValue == nil {
+		return
+	}
+	networkAdapters = models.NewNetworkAdaptersFromStateData(
+		oldValue.([]interface{}),
+	)
+
+	// Additional network adapters.
+	oldValue, _ = helper.data.GetChange(resourceKeyServerAdditionalNetworkAdapter)
+	if oldValue == nil {
+		return
+	}
+	networkAdapters = append(networkAdapters,
+		models.NewNetworkAdaptersFromStateData(
+			oldValue.([]interface{}),
+		)...,
+	)
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetServerNetworkAdapters(networkAdapters models.NetworkAdapters, isPartial bool) {
+	data := helper.data
+	if isPartial {
+		data.SetPartial(resourceKeyServerPrimaryNetworkAdapter)
+		data.SetPartial(resourceKeyServerAdditionalNetworkAdapter)
+	}
+
+	if networkAdapters.IsEmpty() {
+		data.Set(resourceKeyServerPrimaryNetworkAdapter, nil)
+		data.Set(resourceKeyServerAdditionalNetworkAdapter, nil)
+
+		return
+	}
+
+	// Primary network adapter.
+	networkAdapterProperties := []interface{}{
+		networkAdapters.GetPrimary().ToMap(),
+	}
+	data.Set(resourceKeyServerPrimaryNetworkAdapter, networkAdapterProperties)
+
+	if len(networkAdapters) == 1 {
+		return // No additional network adapters.
+	}
+
+	// Additional network adapters.
+	networkAdapterProperties = make([]interface{}, len(networkAdapters)-1)
+	for index, additionalNetworkAdapter := range networkAdapters.GetAdditional() {
+		networkAdapterProperties[index] = additionalNetworkAdapter.ToMap()
+	}
+	data.Set(resourceKeyServerAdditionalNetworkAdapter, networkAdapterProperties)
+}
+
+func (helper resourcePropertyHelper) GetNetworkAdapter() models.NetworkAdapter {
+	data := helper.data
+
+	networkAdapter := &models.NetworkAdapter{
+		ID: data.Id(),
+	}
+
+	value, ok := data.GetOk(resourceKeyNetworkAdapterMACAddress)
+	if ok && value != nil {
+		networkAdapter.MACAddress = value.(string)
+	}
+	value, ok = data.GetOk(resourceKeyNetworkAdapterVLANID)
+	if ok && value != nil {
+		networkAdapter.VLANID = value.(string)
+	}
+	value, ok = data.GetOk(resourceKeyNetworkAdapterPrivateIPV4)
+	if ok && value != nil {
+		networkAdapter.PrivateIPv4Address = value.(string)
+	}
+	value, ok = data.GetOk(resourceKeyNetworkAdapterPrivateIPV6)
+	if ok && value != nil {
+		networkAdapter.PrivateIPv6Address = value.(string)
+	}
+	value, ok = data.GetOk(resourceKeyNetworkAdapterType)
+	if ok && value != nil {
+		networkAdapter.AdapterType = value.(string)
+	}
+
+	return *networkAdapter
+}
+
+func (helper resourcePropertyHelper) SetNetworkAdapter(networkAdapter models.NetworkAdapter, isPartial bool) {
+	data := helper.data
+	if isPartial {
+		data.SetPartial(resourceKeyNetworkAdapterMACAddress)
+		data.SetPartial(resourceKeyNetworkAdapterVLANID)
+		data.SetPartial(resourceKeyNetworkAdapterPrivateIPV4)
+		data.SetPartial(resourceKeyNetworkAdapterPrivateIPV6)
+		data.SetPartial(resourceKeyNetworkAdapterType)
+	}
+
+	data.Set(resourceKeyNetworkAdapterMACAddress, networkAdapter.MACAddress)
+	data.Set(resourceKeyNetworkAdapterVLANID, networkAdapter.VLANID)
+	data.Set(resourceKeyNetworkAdapterPrivateIPV4, networkAdapter.PrivateIPv4Address)
+	data.Set(resourceKeyNetworkAdapterPrivateIPV6, networkAdapter.PrivateIPv4Address)
+	data.Set(resourceKeyNetworkAdapterType, networkAdapter.AdapterType)
 }
 
 func (helper resourcePropertyHelper) GetVirtualListenerIRuleIDs(apiClient *compute.Client) (iRuleIDs []string, err error) {

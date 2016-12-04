@@ -3,17 +3,13 @@ package ddcloud
 import (
 	"fmt"
 	"log"
-	"sort"
 	"strings"
 	"time"
-
-	"strconv"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/hashicorp/terraform/terraform"
 )
 
 const (
@@ -25,18 +21,20 @@ const (
 	resourceKeyServerCPUCount           = "cpu_count"
 	resourceKeyServerCPUCoreCount       = "cores_per_cpu"
 	resourceKeyServerCPUSpeed           = "cpu_speed"
-	resourceKeyServerOSImageID          = "os_image_id"
-	resourceKeyServerOSImageName        = "os_image_name"
-	resourceKeyServerCustomerImageID    = "customer_image_id"
-	resourceKeyServerCustomerImageName  = "customer_image_name"
 	resourceKeyServerPrimaryAdapterVLAN = "primary_adapter_vlan"
 	resourceKeyServerPrimaryAdapterIPv4 = "primary_adapter_ipv4"
 	resourceKeyServerPrimaryAdapterIPv6 = "primary_adapter_ipv6"
-	resourceKeyServerPrimaryAdapterType = "primary_adapter_type"
 	resourceKeyServerPublicIPv4         = "public_ipv4"
 	resourceKeyServerPrimaryDNS         = "dns_primary"
 	resourceKeyServerSecondaryDNS       = "dns_secondary"
 	resourceKeyServerAutoStart          = "auto_start"
+
+	// Obsolete propertirs
+	resourceKeyServerOSImageID          = "os_image_id"
+	resourceKeyServerOSImageName        = "os_image_name"
+	resourceKeyServerCustomerImageID    = "customer_image_id"
+	resourceKeyServerCustomerImageName  = "customer_image_name"
+	resourceKeyServerPrimaryAdapterType = "primary_adapter_type"
 
 	resourceCreateTimeoutServer = 30 * time.Minute
 	resourceUpdateTimeoutServer = 10 * time.Minute
@@ -46,7 +44,7 @@ const (
 
 func resourceServer() *schema.Resource {
 	return &schema.Resource{
-		SchemaVersion: 1,
+		SchemaVersion: 2,
 		Create:        resourceServerCreate,
 		Read:          resourceServerRead,
 		Update:        resourceServerUpdate,
@@ -66,9 +64,10 @@ func resourceServer() *schema.Resource {
 			},
 			resourceKeyServerAdminPassword: &schema.Schema{
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
 				Sensitive:   true,
-				Description: "The initial administrative password for the deployed server",
+				Default:     "",
+				Description: "The initial administrative password (if applicable) for the deployed server",
 			},
 			resourceKeyServerMemoryGB: &schema.Schema{
 				Type:        schema.TypeInt,
@@ -105,6 +104,8 @@ func resourceServer() *schema.Resource {
 				Required:    true,
 				Description: "The Id of the network domain in which the server is deployed",
 			},
+			resourceKeyServerPrimaryNetworkAdapter:    schemaServerPrimaryNetworkAdapter(),
+			resourceKeyServerAdditionalNetworkAdapter: schemaServerAdditionalNetworkAdapter(),
 			resourceKeyServerPrimaryAdapterVLAN: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -117,14 +118,6 @@ func resourceServer() *schema.Resource {
 				Default:     nil,
 				Description: "The IPv4 address for the server's primary network adapter",
 			},
-			resourceKeyServerPrimaryAdapterType: &schema.Schema{
-				Type:        schema.TypeString,
-				Computed:    true,
-				Default:     nil,
-				Description: "The type of the server's primary network adapter (E1000 or VMXNET3)",
-				Removed:     "This property has been removed because it is not exposed via the CloudControl API and will not be available until the provider uses the new (v2.4) API",
-			},
-			resourceKeyServerNetworkAdapter: schemaServerNetworkAdapter(),
 			resourceKeyServerPublicIPv4: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -150,38 +143,7 @@ func resourceServer() *schema.Resource {
 				Default:     "",
 				Description: "The IP address of the server's secondary DNS server",
 			},
-			resourceKeyServerOSImageID: &schema.Schema{
-				Type:        schema.TypeString,
-				ForceNew:    true,
-				Optional:    true,
-				Computed:    true,
-				Default:     nil,
-				Description: "The Id of the OS (built-in) image from which the server is created",
-			},
-			resourceKeyServerOSImageName: &schema.Schema{
-				Type:        schema.TypeString,
-				ForceNew:    true,
-				Optional:    true,
-				Computed:    true,
-				Default:     nil,
-				Description: "The name of the OS (built-in) image from which the server is created",
-			},
-			resourceKeyServerCustomerImageID: &schema.Schema{
-				Type:        schema.TypeString,
-				ForceNew:    true,
-				Optional:    true,
-				Computed:    true,
-				Default:     nil,
-				Description: "The Id of the customer (custom) image from which the server is created",
-			},
-			resourceKeyServerCustomerImageName: &schema.Schema{
-				Type:        schema.TypeString,
-				ForceNew:    true,
-				Optional:    true,
-				Computed:    true,
-				Default:     nil,
-				Description: "The name of the customer (custom) image from which the server is created",
-			},
+			resourceKeyServerImage: schemaServerImage(),
 			resourceKeyServerAutoStart: &schema.Schema{
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -189,6 +151,43 @@ func resourceServer() *schema.Resource {
 				Description: "Should the server be started automatically once it has been deployed",
 			},
 			resourceKeyServerTag: schemaServerTag(),
+
+			// Obsolete properties
+			resourceKeyServerPrimaryAdapterType: &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Default:     nil,
+				Description: "The type of the server's primary network adapter (E1000 or VMXNET3)",
+				Removed:     "This property has been removed because it is not exposed via the CloudControl API and will not be available until the provider uses the new (v2.4) API",
+			},
+			resourceKeyServerOSImageID: &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     nil,
+				Description: "The Id of the OS (built-in) image from which the server is created",
+				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageID),
+			},
+			resourceKeyServerOSImageName: &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     nil,
+				Description: "The name of the OS (built-in) image from which the server is created",
+				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageName),
+			},
+			resourceKeyServerCustomerImageID: &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     nil,
+				Description: "The Id of the customer (custom) image from which the server is created",
+				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageID),
+			},
+			resourceKeyServerCustomerImageName: &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     nil,
+				Description: "The name of the customer (custom) image from which the server is created",
+				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageName),
+			},
 		},
 		MigrateState: resourceServerMigrateState,
 	}
@@ -207,6 +206,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Create server '%s' in network domain '%s' (description = '%s').", name, networkDomainID, description)
 
 	providerState := provider.(*providerState)
+	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	networkDomain, err := apiClient.GetNetworkDomain(networkDomainID)
@@ -229,114 +229,36 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	propertyHelper := propertyHelper(data)
+	configuredImage := propertyHelper.GetImage()
+	err = configuredImage.Validate()
+	if err != nil {
+		return err
+	}
 
-	// Retrieve image details.
-	osImageID := propertyHelper.GetOptionalString(resourceKeyServerOSImageID, false)
-	osImageName := propertyHelper.GetOptionalString(resourceKeyServerOSImageName, false)
-	customerImageID := propertyHelper.GetOptionalString(resourceKeyServerCustomerImageID, false)
-	customerImageName := propertyHelper.GetOptionalString(resourceKeyServerCustomerImageName, false)
+	image, err := resolveServerImage(configuredImage, dataCenterID, apiClient)
+	if err != nil {
+		return err
+	}
 
-	var (
-		osImage       *compute.OSImage
-		customerImage *compute.CustomerImage
+	log.Printf("Server will be deployed from %s image '%s' (Id = '%s') in datacenter '%s",
+		compute.ImageTypeName(image.GetType()),
+		image.GetName(),
+		image.GetID(),
+		dataCenterID,
 	)
-	if osImageID != nil {
-		log.Printf("Looking up OS image '%s' by Id...", *osImageID)
+	configuredImage.ReadImage(image)
+	propertyHelper.SetImage(configuredImage)
 
-		osImage, err = apiClient.GetOSImage(*osImageID)
-		if err != nil {
-			return err
-		}
-		if osImage == nil {
-			return fmt.Errorf("Unable to find OS image with Id '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
-				*osImageID,
-				dataCenterID,
-				networkDomainID,
-			)
-		}
-
-		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').",
-			osImage.Name,
-			osImage.ID,
-		)
-		data.Set(resourceKeyServerOSImageName, osImage.Name)
-	} else if osImageName != nil {
-		log.Printf("Looking up OS image '%s' by name...", *osImageName)
-
-		osImage, err = apiClient.FindOSImage(*osImageName, dataCenterID)
-		if err != nil {
-			return err
-		}
-		if osImage == nil {
-			return fmt.Errorf(
-				"Unable to find an OS image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
-				*osImageName,
-				dataCenterID,
-				networkDomainID,
-			)
-		}
-
-		log.Printf("Server will be deployed from OS image named '%s' (Id = '%s').",
-			osImage.Name,
-			osImage.ID,
-		)
-		data.Set(resourceKeyServerOSImageID, osImage.ID)
-	} else if customerImageID != nil {
-		log.Printf("Looking up customer image '%s' by Id...", *customerImageID)
-
-		customerImage, err = apiClient.GetCustomerImage(*customerImageID)
-		if err != nil {
-			return err
-		}
-		if customerImage == nil {
-			return fmt.Errorf("Unable to find customer image with Id '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
-				*customerImageID,
-				dataCenterID,
-				networkDomainID,
-			)
-		}
-
-		log.Printf("Server will be deployed from customer image named '%s' (Id = '%s').",
-			customerImage.Name,
-			customerImage.ID,
-		)
-		data.Set(resourceKeyServerCustomerImageName, customerImage.Name)
-	} else if customerImageName != nil {
-		log.Printf("Looking up customer image '%s' by name...", *customerImageName)
-
-		customerImage, err = apiClient.FindCustomerImage(*customerImageName, dataCenterID)
-		if err != nil {
-			return err
-		}
-		if customerImage == nil {
-			return fmt.Errorf(
-				"Unable to find a customer image named '%s' in data centre '%s' (which is where the target network domain, '%s', is located).",
-				*customerImageName,
-				dataCenterID,
-				networkDomainID,
-			)
-		}
-
-		log.Printf("Server will be deployed from customer image named '%s' (Id = '%s').",
-			customerImage.Name,
-			customerImage.ID,
-		)
-		data.Set(resourceKeyServerCustomerImageID, customerImage.ID)
+	log.Printf("Server will be deployed from %s image named '%s' (Id = '%s').",
+		compute.ImageTypeName(image.GetType()),
+		image.GetName(),
+		image.GetID(),
+	)
+	err = validateAdminPassword(deploymentConfiguration.AdministratorPassword, image)
+	if err != nil {
+		return err
 	}
-
-	if osImage != nil {
-		err = deploymentConfiguration.ApplyOSImage(osImage)
-		if err != nil {
-			return err
-		}
-	} else if customerImage != nil {
-		err = deploymentConfiguration.ApplyCustomerImage(customerImage)
-		if err != nil {
-			return err
-		}
-	} else {
-		return fmt.Errorf("Must specify either os_image_id, os_image_name, customer_image_id, or customer_image_name.")
-	}
+	image.ApplyTo(&deploymentConfiguration)
 
 	// Image disk speeds
 	configuredDisks := propertyHelper.GetDisks().ByUnitID()
@@ -383,12 +305,8 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		NetworkDomainID: networkDomainID,
 	}
 
-	// Populate adapter indexes.
-	networkAdapters := propertyHelper.GetNetworkAdapters()
-	networkAdapters.InitializeIndexes()
-	propertyHelper.SetNetworkAdapters(networkAdapters)
-
 	// Initial configuration for network adapters.
+	networkAdapters := propertyHelper.GetServerNetworkAdapters()
 	networkAdapters.UpdateVirtualMachineNetwork(&deploymentConfiguration.Network)
 
 	deploymentConfiguration.PrimaryDNS = primaryDNS
@@ -397,22 +315,26 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server deployment configuration: %+v", deploymentConfiguration)
 	log.Printf("Server CPU deployment configuration: %+v", deploymentConfiguration.CPU)
 
-	// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-	asyncLock := providerState.AcquireAsyncOperationLock("Create server '%s'", name)
-	defer asyncLock.Release()
+	var serverID string
+	operationDescription := fmt.Sprintf("Deploy server '%s'", name)
+	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
 
-	serverID, err := apiClient.DeployServer(deploymentConfiguration)
+		var deployError error
+		serverID, deployError = apiClient.DeployServer(deploymentConfiguration)
+		if compute.IsResourceBusyError(deployError) {
+			context.Retry()
+		} else if deployError != nil {
+			context.Fail(deployError)
+		}
+	})
 	if err != nil {
 		return err
 	}
-
-	// Operation initiated; we no longer need this lock.
-	asyncLock.Release()
-
 	data.SetId(serverID)
 
 	log.Printf("Server '%s' is being provisioned...", name)
-
 	resource, err := apiClient.WaitForDeploy(compute.ResourceTypeServer, serverID, resourceCreateTimeoutServer)
 	if err != nil {
 		return err
@@ -423,7 +345,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	server := resource.(*compute.Server)
 
 	networkAdapters.CaptureIDs(server.Network)
-	propertyHelper.SetNetworkAdapters(networkAdapters)
+	propertyHelper.SetServerNetworkAdapters(networkAdapters, true)
 	captureServerNetworkConfiguration(server, data, true)
 
 	var publicIPv4Address string
@@ -484,7 +406,6 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	}
 	data.Set(resourceKeyServerName, server.Name)
 	data.Set(resourceKeyServerDescription, server.Description)
-	data.Set(resourceKeyServerOSImageID, server.SourceImageID)
 	data.Set(resourceKeyServerMemoryGB, server.MemoryGB)
 	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
 	data.Set(resourceKeyServerCPUCoreCount, server.CPU.CoresPerSocket)
@@ -600,30 +521,21 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
-	var primaryIPv4, primaryIPv6 *string
-	if data.HasChange(resourceKeyServerPrimaryAdapterIPv4) {
-		primaryIPv4 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterIPv4, false)
-	}
-	if data.HasChange(resourceKeyServerPrimaryAdapterIPv6) {
-		primaryIPv6 = propertyHelper.GetOptionalString(resourceKeyServerPrimaryAdapterIPv6, false)
-	}
+	if data.HasChange(resourceKeyServerPrimaryNetworkAdapter) {
+		actualNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
+		actualPrimaryNetworkAdapter := models.NewNetworkAdapterFromVirtualMachineNetworkAdapter(server.Network.PrimaryAdapter)
 
-	if primaryIPv4 != nil || primaryIPv6 != nil {
-		log.Printf("Server network configuration change detected.")
+		configuredPrimaryNetworkAdapter := propertyHelper.GetServerNetworkAdapters().GetPrimary()
 
-		err = updateServerIPAddresses(apiClient, server, primaryIPv4, primaryIPv6)
+		log.Printf("Configured primary network adapter = %#v", configuredPrimaryNetworkAdapter)
+		log.Printf("Actual primary network adapter     = %#v", actualPrimaryNetworkAdapter)
+
+		err = modifyServerNetworkAdapter(providerState, serverID, configuredPrimaryNetworkAdapter)
 		if err != nil {
 			return err
 		}
 
-		if data.HasChange(resourceKeyServerPrimaryAdapterIPv4) {
-			data.SetPartial(resourceKeyServerPrimaryAdapterIPv4)
-		}
-
-		if data.HasChange(resourceKeyServerPrimaryAdapterIPv6) {
-			data.SetPartial(resourceKeyServerPrimaryAdapterIPv6)
-		}
-
+		// Capture updated public IPv4 address (if any).
 		var publicIPv4Address string
 		publicIPv4Address, err = findPublicIPv4Address(apiClient,
 			server.Network.NetworkDomainID,
@@ -637,6 +549,18 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		} else {
 			data.Set(resourceKeyServerPublicIPv4, nil)
 		}
+
+		// Persist final state.
+		server, err = apiClient.GetServer(serverID)
+		if err != nil {
+			return err
+		}
+		if server == nil {
+			return fmt.Errorf("Cannot find server with Id '%s'", serverID)
+		}
+
+		actualNetworkAdapters = models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
+		propertyHelper.SetServerNetworkAdapters(actualNetworkAdapters, true)
 	}
 
 	if data.HasChange(resourceKeyServerTag) {
@@ -711,78 +635,6 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
 }
 
-// Migrate state for ddcloud_server.
-func resourceServerMigrateState(schemaVersion int, instanceState *terraform.InstanceState, provider interface{}) (migratedState *terraform.InstanceState, err error) {
-	if instanceState.Empty() {
-		log.Println("Empty Server state; nothing to migrate.")
-		migratedState = instanceState
-
-		return
-	}
-
-	switch schemaVersion {
-	case 0:
-		log.Println("Found Server state v0; migrating to v1")
-		migratedState, err = migrateServerStateV0toV1(instanceState)
-	default:
-		err = fmt.Errorf("Unexpected schema version: %d", schemaVersion)
-	}
-
-	return
-}
-
-// Migrate state for ddcloud_server (v0 to v1).
-//
-// Note that we should really be sorting disks by SCSI unit Id, but that's a little complicated for now.
-func migrateServerStateV0toV1(instanceState *terraform.InstanceState) (migratedState *terraform.InstanceState, err error) {
-	migratedState = instanceState
-
-	// Convert disks from Set ("disk.HASH.property") to List ("disk.INDEX.property")
-	//
-	// Where INDEX is the 0-based index of the disk in the set.
-	var keys []string
-	for key := range migratedState.Attributes {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-
-	nextIndex := 0
-	diskIndexesByHash := make(map[string]int)
-	for _, key := range keys {
-		if !strings.HasPrefix(key, "disk.") {
-			continue
-		}
-
-		// Should be "disk.HASH.property".
-		keyParts := strings.Split(key, ".")
-		if len(keyParts) != 3 {
-			continue
-		}
-		hash := keyParts[1]
-
-		diskIndex, ok := diskIndexesByHash[hash]
-		if !ok {
-			nextIndex++
-			diskIndex = nextIndex
-			diskIndexesByHash[hash] = diskIndex
-		}
-
-		value := migratedState.Attributes[key]
-		delete(migratedState.Attributes, key)
-
-		// Convert to "disk.N.property"
-		keyParts[1] = strconv.Itoa(diskIndex)
-		key = strings.Join(keyParts, ".")
-		migratedState.Attributes[key] = value
-	}
-
-	log.Printf("Server attributes after migration from v0 to v1: %#v",
-		migratedState.Attributes,
-	)
-
-	return
-}
-
 func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, privateIPv4Address string) (publicIPv4Address string, err error) {
 	page := compute.DefaultPaging()
 	for {
@@ -805,6 +657,46 @@ func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, pr
 	}
 
 	return
+}
+
+func validateAdminPassword(adminPassword string, image compute.Image) error {
+	if adminPassword != "" {
+		return nil // Admin password is optional, and one has been supplied.
+	}
+
+	switch image.GetType() {
+	case compute.ImageTypeOS:
+		// Admin password is always mandatory for OS images.
+		if adminPassword == "" {
+			return fmt.Errorf("Must specify an initial admin password when deploying an OS image")
+		}
+	case compute.ImageTypeCustomer:
+		// Admin password is only mandatory for some types of Windows images
+		imageOS := image.GetOS()
+		if imageOS.Family != "WINDOWS" {
+			return nil
+		}
+
+		// Mandatory for Windows Server 2008.
+		if strings.HasPrefix(imageOS.ID, "WIN2008") {
+			return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2008")
+		}
+
+		// Mandatory for Windows Server 2012 R2.
+		if strings.HasPrefix(imageOS.ID, "WIN2012R2") {
+			return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2012 R2")
+		}
+
+		// Mandatory for Windows Server 2012.
+		if strings.HasPrefix(imageOS.ID, "WIN2012") {
+			return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2012")
+		}
+
+	default:
+		return fmt.Errorf("Unknown image type (%d)", image.GetType())
+	}
+
+	return nil
 }
 
 // Start a server.

@@ -117,8 +117,6 @@ func (do *doWithRetry) Action(description string, timeout time.Duration, action 
 			}
 
 		case <-initialAttemptTicker:
-			close(initialAttemptTicker)
-
 			context.NextIteration()
 
 			log.Printf("%s - performing initial attempt...", description)

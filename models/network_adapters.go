@@ -2,7 +2,6 @@ package models
 
 import (
 	"log"
-	"sort"
 
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 )
@@ -17,66 +16,94 @@ func (networkAdapters NetworkAdapters) IsEmpty() bool {
 
 // HasPrimary determines whether the NetworkAdapter array includes a primary network adapter.
 func (networkAdapters NetworkAdapters) HasPrimary() bool {
-	for _, networkAdapter := range networkAdapters {
-		if networkAdapter.Index == 0 {
-			return true
-		}
-	}
-
-	return false
+	return !networkAdapters.IsEmpty()
 }
 
 // HasAdditional determines whether the NetworkAdapter array includes one or more additional network adapters.
 func (networkAdapters NetworkAdapters) HasAdditional() bool {
-	for _, networkAdapter := range networkAdapters {
-		if networkAdapter.Index != 0 {
-			return true
-		}
-	}
-
-	return false
-}
-
-// HasContiguousIndexes determines whether each NetworkAdapter in the NetworkAdapters has an index that is 1 greater than the previous NetworkAdapter.
-func (networkAdapters NetworkAdapters) HasContiguousIndexes() bool {
-	if len(networkAdapters) < 2 {
-		return true
-	}
-
-	sortedAdapters := networkAdapters[:] // Copy
-	sortedAdapters.SortByIndex()
-
-	index := sortedAdapters[0].Index
-	for _, sortedAdapter := range sortedAdapters {
-		if sortedAdapter.Index != index {
-			return false
-		}
-
-		index++
-	}
-
-	return true
+	return len(networkAdapters) > 1
 }
 
 // GetPrimary retrieves the primary network adapter (if present).
 //
 // The primary network adapter has Index 0.
 func (networkAdapters NetworkAdapters) GetPrimary() *NetworkAdapter {
+	if networkAdapters.HasPrimary() {
+		return &networkAdapters[0]
+	}
+
+	return nil
+}
+
+// GetAdditional retrieves the additional network adapters (if any).
+func (networkAdapters NetworkAdapters) GetAdditional() (additionalAdapters NetworkAdapters) {
+	if len(networkAdapters) > 1 {
+		additionalAdapters = networkAdapters[1:]
+	}
+
+	return
+}
+
+// GetByID retrieves the NetworkAdapter (if any) with the specified Id.
+func (networkAdapters NetworkAdapters) GetByID(id string) *NetworkAdapter {
+	if id == "" {
+		return nil
+	}
+
 	for index := range networkAdapters {
-		if networkAdapters[index].Index == 0 {
-			return &networkAdapters[index]
+		networkAdapter := &networkAdapters[index]
+		if networkAdapter.ID == id {
+			return networkAdapter
 		}
 	}
 
 	return nil
 }
 
-// SortByIndex sorts the NetworkAdapters by NetworkAdapter.Index.
-func (networkAdapters NetworkAdapters) SortByIndex() {
-	sorter := &sortNetworkAdaptersByIndex{
-		networkAdapters: networkAdapters,
+// Insert a NetworkAdapter at the specified index.
+//
+// Returns a new NetworkAdapters.
+func (networkAdapters NetworkAdapters) Insert(index int, networkAdapter NetworkAdapter) NetworkAdapters {
+	firstSlice := networkAdapters[:index]
+	secondSlice := append(
+		NetworkAdapters{networkAdapter},
+		networkAdapters[index:]...,
+	)
+
+	return append(firstSlice, secondSlice...)
+}
+
+// Remove the specified NetworkAdapter (by Id).
+//
+// Returns a new NetworkAdapters.
+func (networkAdapters NetworkAdapters) Remove(networkAdapter NetworkAdapter) NetworkAdapters {
+	if networkAdapter.ID == "" {
+		return networkAdapters
 	}
-	sort.Sort(sorter)
+
+	adapterIndex := -1
+	for index, adapter := range networkAdapters {
+		if adapter.ID == networkAdapter.ID {
+			adapterIndex = index
+
+			break
+		}
+	}
+	if adapterIndex == -1 {
+		return networkAdapters
+	}
+
+	return networkAdapters.RemoveAt(adapterIndex)
+}
+
+// RemoveAt removes the NetworkAdapter at the specified index.
+//
+// Returns a new NetworkAdapters.
+func (networkAdapters NetworkAdapters) RemoveAt(index int) NetworkAdapters {
+	return append(
+		networkAdapters[0:index],
+		networkAdapters[index+1:]...,
+	)
 }
 
 // ToVirtualMachineNetworkAdapters converts the NetworkAdapters to an array of compute.VirtualMachineNetworkAdapter.
@@ -103,8 +130,8 @@ func (networkAdapters NetworkAdapters) UpdateVirtualMachineNetwork(virtualMachin
 		return
 	}
 
-	for _, networkAdapter := range networkAdapters {
-		if networkAdapter.Index == 0 {
+	for index, networkAdapter := range networkAdapters {
+		if index == 0 {
 			virtualMachineNetwork.PrimaryAdapter = networkAdapter.ToVirtualMachineNetworkAdapter()
 		} else {
 			virtualMachineNetwork.AdditionalNetworkAdapters = append(
@@ -112,14 +139,6 @@ func (networkAdapters NetworkAdapters) UpdateVirtualMachineNetwork(virtualMachin
 				networkAdapter.ToVirtualMachineNetworkAdapter(),
 			)
 		}
-	}
-}
-
-// InitializeIndexes sets the Index field on each NetworkAdapter to its index in the array.
-func (networkAdapters NetworkAdapters) InitializeIndexes() {
-	for index := range networkAdapters {
-		networkAdapter := &networkAdapters[index]
-		networkAdapter.Index = index
 	}
 }
 
@@ -136,33 +155,6 @@ func (networkAdapters NetworkAdapters) CaptureIDs(virtualMachineNetwork compute.
 	for index, actualNetworkAdapter := range virtualMachineNetwork.AdditionalNetworkAdapters {
 		networkAdapter = &networkAdapters[index+1]
 		networkAdapter.ID = *actualNetworkAdapter.ID
-	}
-}
-
-// CaptureIndexes updates the Index field on each NetworkAdapter with its corresponding index in the compute.VirtualMachineNetwork.
-func (networkAdapters NetworkAdapters) CaptureIndexes(virtualMachineNetwork compute.VirtualMachineNetwork) {
-	if networkAdapters.IsEmpty() {
-		return
-	}
-
-	actualAdapterIndexesByID := make(map[string]int)
-	actualAdapter := virtualMachineNetwork.PrimaryAdapter
-	actualAdapterIndexesByID[*actualAdapter.ID] = 0
-	for index, actualAdapter := range virtualMachineNetwork.AdditionalNetworkAdapters {
-		actualAdapter = virtualMachineNetwork.AdditionalNetworkAdapters[index]
-		actualAdapterIndexesByID[*actualAdapter.ID] = index + 1
-	}
-
-	for index := range networkAdapters {
-		networkAdapter := &networkAdapters[index]
-		if networkAdapter.ID == "" {
-			continue
-		}
-
-		actualAdapterIndex, ok := actualAdapterIndexesByID[networkAdapter.ID]
-		if ok {
-			networkAdapter.Index = actualAdapterIndex
-		}
 	}
 }
 
@@ -197,28 +189,49 @@ func (networkAdapters NetworkAdapters) ToMaps() []map[string]interface{} {
 	return networkAdapterPropertyList
 }
 
-// ByIndex creates a map of NetworkAdapter keyed by index.
-func (networkAdapters NetworkAdapters) ByIndex() map[int]NetworkAdapter {
-	networkAdaptersByIndex := make(map[int]NetworkAdapter)
-	for _, networkAdapter := range networkAdapters {
-		networkAdaptersByIndex[networkAdapter.Index] = networkAdapter
-	}
-
-	return networkAdaptersByIndex
-}
-
 // ByID creates a map of NetworkAdapter keyed by Id.
 func (networkAdapters NetworkAdapters) ByID() map[string]NetworkAdapter {
-	networkAdaptersByIndex := make(map[string]NetworkAdapter)
+	networkAdaptersByID := make(map[string]NetworkAdapter)
 	for _, networkAdapter := range networkAdapters {
 		if networkAdapter.ID == "" {
 			continue
 		}
 
-		networkAdaptersByIndex[networkAdapter.ID] = networkAdapter
+		networkAdaptersByID[networkAdapter.ID] = networkAdapter
 	}
 
-	return networkAdaptersByIndex
+	return networkAdaptersByID
+}
+
+// ByMACAddress creates a map of NetworkAdapter keyed by MAC address.
+func (networkAdapters NetworkAdapters) ByMACAddress() map[string]NetworkAdapter {
+	networkAdaptersByMACAddress := make(map[string]NetworkAdapter)
+	for _, networkAdapter := range networkAdapters {
+		if networkAdapter.MACAddress == "" {
+			continue
+		}
+
+		networkAdaptersByMACAddress[networkAdapter.MACAddress] = networkAdapter
+	}
+
+	return networkAdaptersByMACAddress
+}
+
+// Subtract the specified NetworkAdapters from the current NetworkAdapters.
+func (networkAdapters NetworkAdapters) Subtract(otherNetworkAdapters NetworkAdapters) (remainingNetworkAdapters NetworkAdapters) {
+	otherNetworkAdaptersByID := otherNetworkAdapters.ByID()
+	for _, networkAdapter := range networkAdapters {
+		if networkAdapter.ID == "" {
+			continue
+		}
+
+		_, ok := otherNetworkAdaptersByID[networkAdapter.ID]
+		if !ok {
+			remainingNetworkAdapters = append(remainingNetworkAdapters, networkAdapter)
+		}
+	}
+
+	return
 }
 
 // SplitByAction splits the (configured) network adapters by the action to be performed (add, change, or remove).
@@ -226,12 +239,12 @@ func (networkAdapters NetworkAdapters) ByID() map[string]NetworkAdapter {
 // configuredNetworkAdapters represents the network adapters currently specified in configuration.
 // actualNetworkAdapters represents the network adapters in the server, as returned by CloudControl.
 func (networkAdapters NetworkAdapters) SplitByAction(actualNetworkAdapters NetworkAdapters) (addNetworkAdapters NetworkAdapters, changeNetworkAdapters NetworkAdapters, removeNetworkAdapters NetworkAdapters) {
-	actualNetworkAdaptersByIndex := actualNetworkAdapters.ByIndex()
+	actualNetworkAdaptersByID := actualNetworkAdapters.ByID()
 	for _, configuredNetworkAdapter := range networkAdapters {
-		actualNetworkAdapter, ok := actualNetworkAdaptersByIndex[configuredNetworkAdapter.Index]
+		actualNetworkAdapter, ok := actualNetworkAdaptersByID[configuredNetworkAdapter.ID]
 
-		// We don't want to see this networkAdapter when we're looking for networkAdapters that don't appear in the configuration.
-		delete(actualNetworkAdaptersByIndex, configuredNetworkAdapter.Index)
+		// We don't want to see this network adapter when we're looking for networkAdapters that don't appear in the configuration.
+		delete(actualNetworkAdaptersByID, configuredNetworkAdapter.ID)
 
 		if ok {
 			// Existing network adapter.
@@ -244,9 +257,8 @@ func (networkAdapters NetworkAdapters) SplitByAction(actualNetworkAdapters Netwo
 		}
 	}
 
-	// By process of elimination, any remaining actual networkAdapters do not appear in the configuration and should be removed.
-	for unconfiguredNetworkAdapterIndex := range actualNetworkAdaptersByIndex {
-		unconfiguredNetworkAdapter := actualNetworkAdaptersByIndex[unconfiguredNetworkAdapterIndex]
+	// By process of elimination, any remaining actual network adapters do not appear in the configuration and should be removed.
+	for _, unconfiguredNetworkAdapter := range actualNetworkAdaptersByID {
 		removeNetworkAdapters = append(removeNetworkAdapters, unconfiguredNetworkAdapter)
 	}
 
@@ -258,12 +270,10 @@ func (networkAdapters NetworkAdapters) SplitByAction(actualNetworkAdapters Netwo
 // This allocates index values in the order that adapters are found, and so it only works if there's *no* existing state at all.
 func NewNetworkAdaptersFromVirtualMachineNetwork(virtualMachineNetwork compute.VirtualMachineNetwork) (networkAdapters NetworkAdapters) {
 	primaryAdapter := NewNetworkAdapterFromVirtualMachineNetworkAdapter(virtualMachineNetwork.PrimaryAdapter)
-	primaryAdapter.Index = 0
 	networkAdapters = append(networkAdapters, primaryAdapter)
 
-	for index, additionalNetworkAdapter := range virtualMachineNetwork.AdditionalNetworkAdapters {
+	for _, additionalNetworkAdapter := range virtualMachineNetwork.AdditionalNetworkAdapters {
 		additionalAdapter := NewNetworkAdapterFromVirtualMachineNetworkAdapter(additionalNetworkAdapter)
-		additionalAdapter.Index = index
 
 		networkAdapters = append(networkAdapters, additionalAdapter)
 	}

@@ -11,20 +11,39 @@ import (
 )
 
 const (
-	resourceKeyServerNetworkAdapter       = "network_adapter"
-	resourceKeyServerNetworkAdapterID     = "id"
-	resourceKeyServerNetworkAdapterIndex  = "index"
-	resourceKeyServerNetworkAdapterVLANID = "vlan"
-	resourceKeyServerNetworkAdapterIPV4   = "ipv4"
-	resourceKeyServerNetworkAdapterIPV6   = "ipv6"
-	resourceKeyServerNetworkAdapterType   = "type"
+	resourceKeyServerPrimaryNetworkAdapter    = "primary_network_adapter"
+	resourceKeyServerAdditionalNetworkAdapter = "additional_network_adapter"
+	resourceKeyServerNetworkAdapterID         = "id"
+	resourceKeyServerNetworkAdapterMAC        = "mac"
+	resourceKeyServerNetworkAdapterVLANID     = "vlan"
+	resourceKeyServerNetworkAdapterIPV4       = "ipv4"
+	resourceKeyServerNetworkAdapterIPV6       = "ipv6"
+	resourceKeyServerNetworkAdapterType       = "type"
 )
 
-func schemaServerNetworkAdapter() *schema.Schema {
+func schemaServerPrimaryNetworkAdapter() *schema.Schema {
+	return schemaServerNetworkAdapter(true)
+}
+func schemaServerAdditionalNetworkAdapter() *schema.Schema {
+	return schemaServerNetworkAdapter(false)
+}
+
+func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
+	var maxItems int
+	if isPrimary {
+		maxItems = 1
+	} else {
+		maxItems = 0
+	}
+
 	return &schema.Schema{
 		Type:     schema.TypeList,
-		Required: true,
+		Required: isPrimary,
+		Optional: !isPrimary,
+		Computed: !isPrimary,
+		ForceNew: !isPrimary,
 		MinItems: 1,
+		MaxItems: maxItems,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				resourceKeyServerNetworkAdapterID: &schema.Schema{
@@ -32,19 +51,18 @@ func schemaServerNetworkAdapter() *schema.Schema {
 					Computed:    true,
 					Description: "The network adapter's identifier in CloudControl",
 				},
-				resourceKeyServerNetworkAdapterIndex: &schema.Schema{
-					Type:        schema.TypeInt,
+				resourceKeyServerNetworkAdapterMAC: &schema.Schema{
+					Type:        schema.TypeString,
 					Computed:    true,
-					Default:     nil,
-					Description: "The index of the network adapter in CloudControl (0 is the primary adapter)",
+					Description: "The network adapter's MAC address",
 				},
 				resourceKeyServerNetworkAdapterVLANID: &schema.Schema{
 					Type:        schema.TypeString,
 					Computed:    true,
 					Optional:    true,
 					Default:     nil,
-					Description: "VLAN ID of the network adapter",
 					ForceNew:    true,
+					Description: "VLAN ID of the network adapter",
 				},
 				resourceKeyServerNetworkAdapterIPV4: &schema.Schema{
 					Type:        schema.TypeString,
@@ -61,8 +79,9 @@ func schemaServerNetworkAdapter() *schema.Schema {
 				resourceKeyServerNetworkAdapterType: &schema.Schema{
 					Type:     schema.TypeString,
 					Optional: true,
+					Computed: true,
+					Default:  nil,
 					ForceNew: true,
-					Default:  compute.NetworkAdapterTypeE1000,
 					Description: fmt.Sprintf("The type of network adapter (%s or %s)",
 						compute.NetworkAdapterTypeE1000,
 						compute.NetworkAdapterTypeVMXNET3,
@@ -74,29 +93,8 @@ func schemaServerNetworkAdapter() *schema.Schema {
 	}
 }
 
-// AF: This is unnecessary - we do this in the initial deployment configuration.
-func createNetworkAdapters(server *compute.Server, data *schema.ResourceData, providerState *providerState) error {
-	propertyHelper := propertyHelper(data)
-	serverID := data.Id()
-
-	configuredNetworkAdapters := propertyHelper.GetNetworkAdapters()
-	actualNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
-
-	addNetworkAdapters, _, _ := configuredNetworkAdapters.SplitByAction(actualNetworkAdapters)
-	if addNetworkAdapters.IsEmpty() {
-		log.Printf("No post-deploy changes required for network adapters of server '%s'.", serverID)
-
-		return nil
-	}
-
-	return nil
-}
-
 func addServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
-	log.Printf("Add network adapter with index %d to server '%s'",
-		networkAdapter.Index,
-		serverID,
-	)
+	log.Printf("Add network adapter to server '%s'", serverID)
 
 	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
@@ -109,14 +107,14 @@ func addServerNetworkAdapter(providerState *providerState, serverID string, netw
 		var addAdapterError error
 		if networkAdapter.HasExplicitType() {
 			networkAdapter.ID, addAdapterError = apiClient.AddNicWithTypeToServer(
-				networkAdapter.ID,
+				serverID,
 				networkAdapter.PrivateIPv4Address,
 				networkAdapter.VLANID,
 				networkAdapter.AdapterType,
 			)
 		} else {
 			networkAdapter.ID, addAdapterError = apiClient.AddNicToServer(
-				networkAdapter.ID,
+				serverID,
 				networkAdapter.PrivateIPv4Address,
 				networkAdapter.VLANID,
 			)
@@ -134,7 +132,7 @@ func addServerNetworkAdapter(providerState *providerState, serverID string, netw
 	log.Printf("Adding network adapter '%s' to server '%s'...", networkAdapter.ID, serverID)
 
 	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
-	resource, err := apiClient.WaitForChange(
+	_, err = apiClient.WaitForChange(
 		compute.ResourceTypeNetworkAdapter,
 		compositeNetworkAdapterID,
 		"Add network adapter",
@@ -144,27 +142,12 @@ func addServerNetworkAdapter(providerState *providerState, serverID string, netw
 		return err
 	}
 
-	server := resource.(*compute.Server)
-	for index, serverNetworkAdapter := range server.Network.AdditionalNetworkAdapters {
-		if *serverNetworkAdapter.ID == networkAdapter.ID {
-			networkAdapter.Index = index
-
-			break
-		}
-	}
-	if networkAdapter.Index == 0 {
-		return fmt.Errorf("Unable to find network adapter '%s' in server '%s'",
-			networkAdapter.ID,
-			serverID,
-		)
-	}
-
-	log.Printf("Added network adapter '%s' to server '%s' at index %d.", networkAdapter.ID, serverID, networkAdapter.Index)
+	log.Printf("Added network adapter '%s' to server '%s'.", networkAdapter.ID, serverID)
 
 	return nil
 }
 
-func updateServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
+func modifyServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
 	log.Printf("Update IP address(es) for network adapter '%s'.", networkAdapter.ID)
 
 	providerSettings := providerState.Settings()
@@ -197,71 +180,44 @@ func updateServerNetworkAdapter(providerState *providerState, serverID string, n
 }
 
 func removeServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
-	return fmt.Errorf("removeServerNetworkAdapter is not yet implemented")
-}
+	log.Printf("Remove network adapter '%s'.", networkAdapter.ID)
 
-// Validate that the specified value represents a valid network adapter type.
-func validateNetworkAdapterAdapterType(value interface{}, propertyName string) (messages []string, errors []error) {
-	if value == nil {
-		return
+	providerSettings := providerState.Settings()
+	apiClient := providerState.Client()
+
+	removingAdapter := true
+	operationDescription := fmt.Sprintf("Remove network adapter '%s'", networkAdapter.ID)
+	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
+		removeError := apiClient.RemoveNicFromServer(networkAdapter.ID)
+		if compute.IsResourceBusyError(removeError) {
+			context.Retry()
+		} else if compute.IsResourceNotFoundError(removeError) {
+			log.Printf("Network adapter '%s' not found (will treat as deleted).",
+				networkAdapter.ID,
+			)
+			removingAdapter = false
+		} else if removeError != nil {
+			context.Fail(removeError)
+		}
+	})
+	if err != nil {
+		return err
 	}
 
-	adapterType, ok := value.(string)
-	if !ok {
-		errors = append(errors,
-			fmt.Errorf("Unexpected value type '%v'", value),
-		)
+	if removingAdapter {
+		log.Printf("Removing network adapter '%s'...", networkAdapter.ID)
 
-		return
+		compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
+		_, err = apiClient.WaitForNestedDeleteChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Remove network adapter", resourceUpdateTimeoutServer)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Removed network adapter '%s'.", networkAdapter.ID)
 	}
 
-	switch adapterType {
-	case compute.NetworkAdapterTypeE1000:
-	case compute.NetworkAdapterTypeVMXNET3:
-		break
-	default:
-		errors = append(errors,
-			fmt.Errorf("Invalid network adapter type '%s'", value),
-		)
-	}
-
-	return
-}
-
-// Create a hash code to represent the property values for a server network adapter.
-func hashServerNetworkAdapter(value interface{}) int {
-	adapterProperties, ok := value.(map[string]interface{})
-	if !ok {
-		return -1
-	}
-
-	var (
-		index       int
-		vlanID      string
-		ipv4Address string
-		adapterType string
-	)
-	adapterProperty, ok := adapterProperties[resourceKeyServerNetworkAdapterIndex]
-	if ok {
-		index = adapterProperty.(int)
-	}
-
-	adapterProperty, ok = adapterProperties[resourceKeyServerNetworkAdapterVLANID]
-	if ok {
-		vlanID = adapterProperty.(string)
-	}
-
-	adapterProperty, ok = adapterProperties[resourceKeyServerNetworkAdapterIPV4]
-	if ok {
-		ipv4Address = adapterProperty.(string)
-	}
-
-	adapterProperty, ok = adapterProperties[resourceKeyServerNetworkAdapterType]
-	if ok {
-		adapterType = adapterProperty.(string)
-	}
-
-	return schema.HashString(fmt.Sprintf(
-		"%d|%s|%s|%s", index, vlanID, ipv4Address, adapterType,
-	))
+	return nil
 }
