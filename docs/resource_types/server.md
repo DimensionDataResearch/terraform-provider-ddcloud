@@ -2,8 +2,6 @@
 
 A Server is a virtual machine. It is deployed in a network domain, and each of its network adapters are connected to a VLAN. Each server is created from an OS or customer image that also specifies sensible defaults for the server configuration.
 
-**Note**: Currently, the provider can only manage a server's primary network adapter.
-
 ## Example Usage
 
 ```
