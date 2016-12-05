@@ -68,9 +68,11 @@ Default is `STANDARD`.
   Note that if `ipv4` is specified, the VLAN will be inferred from this value.  
   Must specify at least one of `ipv4` or `vlan`.
   * `type` - (Optional) The primary network adapter type.  
-  Must be either `E1000` (default) or `VMXNET3`.
-* `additional_network_adapter` - (Optional 0..*) Additional network adapters (if any) attached to the server  
-  **Note**: Changing this property will result in the server being destroyed and recreated. If you want to support modifying of additional network adapters, use `ddcloud_network_adapter` resources instead.
+  Must be either `E1000` (default) or `VMXNET3`.  
+  **Note**: Changing this property will result in the server being destroyed and recreated.
+* `additional_network_adapter` - (Optional 0..\*) Additional network adapters (if any) attached to the server  
+  **Note**: Changing this property will result in the server being destroyed and recreated.  
+  If you want to support modifying of additional network adapters, use `ddcloud_network_adapter` resources instead.  
   **Note**: Using both `additional_network_adapter` _and_ the `ddcloud_network_adapter` resource type for the same server is not supported.
   * `vlan` - (Optional) The Id of the VLAN that the network adapter is attached to.  
   Must specify at least one of `vlan` or `ipv4`.
