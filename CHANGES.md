@@ -1,5 +1,9 @@
 # Changes
 
+## v1.2.0-alpha1
+
+* Fix crash when deploying `ddcloud_server` from a customer image (#66).
+
 ## v1.2-preview5
 
 This is a preview release intended to gather feedback on changes to `ddcloud_server.primary_network_adapter`, `ddcloud_server.additional_network_adapter`, and `ddcloud_network_adapter`.
