@@ -239,6 +239,9 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	if err != nil {
 		return err
 	}
+	if image == nil {
+		return fmt.Errorf("An unexpected error occurred while resolving the configured server image.")
+	}
 
 	log.Printf("Server will be deployed from %s image '%s' (Id = '%s') in datacenter '%s",
 		compute.ImageTypeName(image.GetType()),
@@ -660,10 +663,6 @@ func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, pr
 }
 
 func validateAdminPassword(adminPassword string, image compute.Image) error {
-	if adminPassword != "" {
-		return nil // Admin password is optional, and one has been supplied.
-	}
-
 	switch image.GetType() {
 	case compute.ImageTypeOS:
 		// Admin password is always mandatory for OS images.
@@ -671,25 +670,34 @@ func validateAdminPassword(adminPassword string, image compute.Image) error {
 			return fmt.Errorf("Must specify an initial admin password when deploying an OS image")
 		}
 	case compute.ImageTypeCustomer:
-		// Admin password is only mandatory for some types of Windows images
 		imageOS := image.GetOS()
+
+		// Admin password cannot be supplied for Linux customer images.
+		if imageOS.Family == "UNIX" && adminPassword != "" {
+			return fmt.Errorf("Cannot specify an initial admin password when deploying a Linux OS image")
+		}
+
+		// Admin password is only mandatory for some types of Windows images
 		if imageOS.Family != "WINDOWS" {
 			return nil
 		}
 
-		// Mandatory for Windows Server 2008.
-		if strings.HasPrefix(imageOS.ID, "WIN2008") {
-			return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2008")
-		}
+		if adminPassword == "" {
+			// Mandatory for Windows Server 2008.
+			if strings.HasPrefix(imageOS.ID, "WIN2008") {
 
-		// Mandatory for Windows Server 2012 R2.
-		if strings.HasPrefix(imageOS.ID, "WIN2012R2") {
-			return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2012 R2")
-		}
+				return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2008")
+			}
 
-		// Mandatory for Windows Server 2012.
-		if strings.HasPrefix(imageOS.ID, "WIN2012") {
-			return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2012")
+			// Mandatory for Windows Server 2012 R2.
+			if strings.HasPrefix(imageOS.ID, "WIN2012R2") {
+				return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2012 R2")
+			}
+
+			// Mandatory for Windows Server 2012.
+			if strings.HasPrefix(imageOS.ID, "WIN2012") {
+				return fmt.Errorf("Must specify an initial admin password when deploying a customer image for Windows Server 2012")
+			}
 		}
 
 	default:

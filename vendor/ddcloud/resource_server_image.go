@@ -195,5 +195,5 @@ func lookupCustomerImageByID(imageID string, apiClient *compute.Client) (compute
 func lookupCustomerImageByName(imageName string, dataCenterID string, apiClient *compute.Client) (compute.Image, error) {
 	log.Printf("Looking up customer image '%s' by name in datacenter '%s'...", imageName, dataCenterID)
 
-	return apiClient.FindOSImage(imageName, dataCenterID)
+	return apiClient.FindCustomerImage(imageName, dataCenterID)
 }
