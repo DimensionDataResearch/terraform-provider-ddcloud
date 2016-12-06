@@ -175,11 +175,11 @@ func migrateServerStateV2toV3(instanceState *terraform.InstanceState) (migratedS
 		value := migratedState.Attributes[key]
 		delete(migratedState.Attributes, key)
 
-		if key == keyPrefix+"#" {
+		if key == keyPrefix+"#" { // "image.#"
 			continue // Count - nothing else to do.
 		}
 
-		switch key[len(keyPrefix)+1:] {
+		switch key[len(keyPrefix+"0")+1:] { // "image.0."
 		case "id":
 		case "name":
 			image = value
