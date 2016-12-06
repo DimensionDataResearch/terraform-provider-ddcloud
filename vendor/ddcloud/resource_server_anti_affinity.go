@@ -11,45 +11,45 @@ import (
 )
 
 const (
-	resourceKeyServerAntiAffinityRuleServer1ID       = "server1"
-	resourceKeyServerAntiAffinityRuleServer1Name     = "server1_name"
-	resourceKeyServerAntiAffinityRuleServer2ID       = "server2"
-	resourceKeyServerAntiAffinityRuleServer2Name     = "server2_name"
-	resourceKeyServerAntiAffinityRuleNetworkDomainID = "networkdomain"
-	resourceCreateTimeoutServerAntiAffinityRule      = 5 * time.Minute
-	resourceDeleteTimeoutServerAntiAffinityRule      = 5 * time.Minute
+	resourceKeyAntiAffinityRuleServer1ID       = "server1"
+	resourceKeyAntiAffinityRuleServer1Name     = "server1_name"
+	resourceKeyAntiAffinityRuleServer2ID       = "server2"
+	resourceKeyAntiAffinityRuleServer2Name     = "server2_name"
+	resourceKeyAntiAffinityRuleNetworkDomainID = "networkdomain"
+	resourceCreateTimeoutAntiAffinityRule      = 5 * time.Minute
+	resourceDeleteTimeoutAntiAffinityRule      = 5 * time.Minute
 )
 
-func resourceServerAntiAffinityRule() *schema.Resource {
+func resourceAntiAffinityRule() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceServerAntiAffinityRuleCreate,
-		Read:   resourceServerAntiAffinityRuleRead,
-		Delete: resourceServerAntiAffinityRuleDelete,
+		Create: resourceAntiAffinityRuleCreate,
+		Read:   resourceAntiAffinityRuleRead,
+		Delete: resourceAntiAffinityRuleDelete,
 
 		Schema: map[string]*schema.Schema{
-			resourceKeyServerAntiAffinityRuleServer1ID: &schema.Schema{
+			resourceKeyAntiAffinityRuleServer1ID: &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "The Id of the first server that the anti-affinity rule relates to.",
 			},
-			resourceKeyServerAntiAffinityRuleServer1Name: &schema.Schema{
+			resourceKeyAntiAffinityRuleServer1Name: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The name of the first server that the anti-affinity rule relates to.",
 			},
-			resourceKeyServerAntiAffinityRuleServer2ID: &schema.Schema{
+			resourceKeyAntiAffinityRuleServer2ID: &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
 				ForceNew:    true,
 				Description: "The Id of the second server that the anti-affinity rule relates to.",
 			},
-			resourceKeyServerAntiAffinityRuleServer2Name: &schema.Schema{
+			resourceKeyAntiAffinityRuleServer2Name: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The name of the second server that the anti-affinity rule relates to.",
 			},
-			resourceKeyServerAntiAffinityRuleNetworkDomainID: &schema.Schema{
+			resourceKeyAntiAffinityRuleNetworkDomainID: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The Id of the network domain in which the anti-affinity rule applies.",
@@ -59,9 +59,9 @@ func resourceServerAntiAffinityRule() *schema.Resource {
 }
 
 // Create a server anti-affinity rule resource.
-func resourceServerAntiAffinityRuleCreate(data *schema.ResourceData, provider interface{}) error {
-	server1ID := data.Get(resourceKeyServerAntiAffinityRuleServer1ID).(string)
-	server2ID := data.Get(resourceKeyServerAntiAffinityRuleServer2ID).(string)
+func resourceAntiAffinityRuleCreate(data *schema.ResourceData, provider interface{}) error {
+	server1ID := data.Get(resourceKeyAntiAffinityRuleServer1ID).(string)
+	server2ID := data.Get(resourceKeyAntiAffinityRuleServer2ID).(string)
 
 	log.Printf("Create server anti-affinity rule for servers '%s' and '%s'.", server1ID, server2ID)
 
@@ -119,7 +119,7 @@ func resourceServerAntiAffinityRuleCreate(data *schema.ResourceData, provider in
 	data.SetId(ruleID)
 
 	qualifiedRuleID := networkDomainID + "/" + ruleID
-	resource, err := apiClient.WaitForChange(compute.ResourceTypeServerAntiAffinityRule, qualifiedRuleID, "Create", resourceCreateTimeoutServerAntiAffinityRule)
+	resource, err := apiClient.WaitForChange(compute.ResourceTypeServerAntiAffinityRule, qualifiedRuleID, "Create", resourceCreateTimeoutAntiAffinityRule)
 	if err != nil {
 		return err
 	}
@@ -147,19 +147,19 @@ func resourceServerAntiAffinityRuleCreate(data *schema.ResourceData, provider in
 		return fmt.Errorf("Anti-affinity rule '%s' targets unexpected server ('%s')", ruleID, server2ID)
 	}
 
-	data.Set(resourceKeyServerAntiAffinityRuleServer1Name, targetServer1.Name)
-	data.Set(resourceKeyServerAntiAffinityRuleServer2Name, targetServer2.Name)
-	data.Set(resourceKeyServerAntiAffinityRuleNetworkDomainID, server1.Network.NetworkDomainID)
+	data.Set(resourceKeyAntiAffinityRuleServer1Name, targetServer1.Name)
+	data.Set(resourceKeyAntiAffinityRuleServer2Name, targetServer2.Name)
+	data.Set(resourceKeyAntiAffinityRuleNetworkDomainID, server1.Network.NetworkDomainID)
 
 	return nil
 }
 
 // Read a server anti-affinity rule resource.
-func resourceServerAntiAffinityRuleRead(data *schema.ResourceData, provider interface{}) error {
+func resourceAntiAffinityRuleRead(data *schema.ResourceData, provider interface{}) error {
 	ruleID := data.Id()
-	server1Name := data.Get(resourceKeyServerAntiAffinityRuleServer1Name).(string)
-	server2Name := data.Get(resourceKeyServerAntiAffinityRuleServer2Name).(string)
-	networkDomainID := data.Get(resourceKeyServerAntiAffinityRuleNetworkDomainID).(string)
+	server1Name := data.Get(resourceKeyAntiAffinityRuleServer1Name).(string)
+	server2Name := data.Get(resourceKeyAntiAffinityRuleServer2Name).(string)
+	networkDomainID := data.Get(resourceKeyAntiAffinityRuleNetworkDomainID).(string)
 
 	log.Printf("Read server anti-affinity rule '%s' (servers '%s' and '%s').", ruleID, server1Name, server2Name)
 
@@ -183,20 +183,20 @@ func resourceServerAntiAffinityRuleRead(data *schema.ResourceData, provider inte
 			serversByID[server.ID] = server
 		}
 
-		server1ID := data.Get(resourceKeyServerAntiAffinityRuleServer1ID).(string)
+		server1ID := data.Get(resourceKeyAntiAffinityRuleServer1ID).(string)
 		server1, ok := serversByID[server1ID]
 		if !ok {
 			return fmt.Errorf("Anti-affinity rule '%s' relates to unexpected server ('%s')", ruleID, server1ID)
 		}
 
-		server2ID := data.Get(resourceKeyServerAntiAffinityRuleServer1ID).(string)
+		server2ID := data.Get(resourceKeyAntiAffinityRuleServer1ID).(string)
 		server2, ok := serversByID[server2ID]
 		if !ok {
 			return fmt.Errorf("Anti-affinity rule '%s' relates to unexpected server ('%s')", ruleID, server2ID)
 		}
 
-		data.Set(resourceKeyServerAntiAffinityRuleServer1Name, server1.Name)
-		data.Set(resourceKeyServerAntiAffinityRuleServer2Name, server2.Name)
+		data.Set(resourceKeyAntiAffinityRuleServer1Name, server1.Name)
+		data.Set(resourceKeyAntiAffinityRuleServer2Name, server2.Name)
 	} else {
 		data.SetId("") // Mark resource as deleted.
 	}
@@ -205,9 +205,9 @@ func resourceServerAntiAffinityRuleRead(data *schema.ResourceData, provider inte
 }
 
 // Delete a server anti-affinity rule resource.
-func resourceServerAntiAffinityRuleDelete(data *schema.ResourceData, provider interface{}) error {
+func resourceAntiAffinityRuleDelete(data *schema.ResourceData, provider interface{}) error {
 	ruleID := data.Id()
-	networkDomainID := data.Get(resourceKeyServerAntiAffinityRuleNetworkDomainID).(string)
+	networkDomainID := data.Get(resourceKeyAntiAffinityRuleNetworkDomainID).(string)
 
 	log.Printf("Delete server anti-affinity rule '%s' in network domain '%s'.", ruleID, networkDomainID)
 
@@ -237,7 +237,7 @@ func resourceServerAntiAffinityRuleDelete(data *schema.ResourceData, provider in
 	log.Printf("Deleting server anti-affinity rule '%s' in network domain '%s'...", ruleID, networkDomainID)
 
 	qualifiedRuleID := networkDomainID + "/" + ruleID
-	err = apiClient.WaitForDelete(compute.ResourceTypeServerAntiAffinityRule, qualifiedRuleID, resourceDeleteTimeoutServerAntiAffinityRule)
+	err = apiClient.WaitForDelete(compute.ResourceTypeServerAntiAffinityRule, qualifiedRuleID, resourceDeleteTimeoutAntiAffinityRule)
 	if err != nil {
 		return err
 	}

@@ -82,7 +82,7 @@ func Provider() terraform.ResourceProvider {
 			"ddcloud_network_adapter": resourceNetworkAdapter(),
 
 			// A server anti-affinity rule.
-			"ddcloud_server_anti_affinity": resourceServerAntiAffinityRule(),
+			"ddcloud_server_anti_affinity": resourceAntiAffinityRule(),
 
 			// A Network Address Translation (NAT) rule.
 			"ddcloud_nat": resourceNAT(),

@@ -2,16 +2,17 @@ package ddcloud
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"testing"
 )
 
 /*
  * Acceptance-test configurations.
  */
 
-func testAccDDCloudServerAntiAffinityRuleBasic() string {
+func testAccDDCloudAntiAffinityRuleBasic() string {
 	return `
 		provider "ddcloud" {
 			region		= "AU"
@@ -76,15 +77,15 @@ func testAccDDCloudServerAntiAffinityRuleBasic() string {
 // Acceptance test for ddcloud_server_anti_affinity (basic):
 //
 // Create a server anti-affinity rule and verify that it gets created with the correct configuration.
-func TestAccServerAntiAffinityRuleBasicCreate(t *testing.T) {
+func TestAccAntiAffinityRuleBasicCreate(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers:    testAccProviders,
-		CheckDestroy: testCheckDDCloudServerAntiAffinityRuleDestroy,
+		CheckDestroy: testCheckDDCloudAntiAffinityRuleDestroy,
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudServerAntiAffinityRuleBasic(),
+				Config: testAccDDCloudAntiAffinityRuleBasic(),
 				Check: resource.ComposeTestCheckFunc(
-					testCheckDDCloudServerAntiAffinityRuleExists("acc_test_anti_affinity_rule", true),
+					testCheckDDCloudAntiAffinityRuleExists("acc_test_anti_affinity_rule", true),
 					// TODO: Validate rule targets correct servers.
 				),
 			},
@@ -99,7 +100,7 @@ func TestAccServerAntiAffinityRuleBasicCreate(t *testing.T) {
 // Acceptance test check for ddcloud_server_anti_affinity:
 //
 // Check if the server anti-affinity rule exists.
-func testCheckDDCloudServerAntiAffinityRuleExists(name string, exists bool) resource.TestCheckFunc {
+func testCheckDDCloudAntiAffinityRuleExists(name string, exists bool) resource.TestCheckFunc {
 	name = ensureResourceTypePrefix(name, "ddcloud_server_anti_affinity")
 
 	return func(state *terraform.State) error {
@@ -109,7 +110,7 @@ func testCheckDDCloudServerAntiAffinityRuleExists(name string, exists bool) reso
 		}
 
 		ruleID := res.Primary.ID
-		networkDomainID := res.Primary.Attributes[resourceKeyServerAntiAffinityRuleNetworkDomainID]
+		networkDomainID := res.Primary.Attributes[resourceKeyAntiAffinityRuleNetworkDomainID]
 
 		client := testAccProvider.Meta().(*providerState).Client()
 		networkDomain, err := client.GetServerAntiAffinityRule(ruleID, networkDomainID)
@@ -129,14 +130,14 @@ func testCheckDDCloudServerAntiAffinityRuleExists(name string, exists bool) reso
 // Acceptance test resource-destruction check for ddcloud_server_anti_affinity:
 //
 // Check all server anti-affinity rules specified in the configuration have been destroyed.
-func testCheckDDCloudServerAntiAffinityRuleDestroy(state *terraform.State) error {
+func testCheckDDCloudAntiAffinityRuleDestroy(state *terraform.State) error {
 	for _, res := range state.RootModule().Resources {
 		if res.Type != "ddcloud_server_anti_affinity" {
 			continue
 		}
 
 		ruleID := res.Primary.ID
-		networkDomainID := res.Primary.Attributes[resourceKeyServerAntiAffinityRuleNetworkDomainID]
+		networkDomainID := res.Primary.Attributes[resourceKeyAntiAffinityRuleNetworkDomainID]
 
 		client := testAccProvider.Meta().(*providerState).Client()
 		networkDomain, err := client.GetServerAntiAffinityRule(ruleID, networkDomainID)
