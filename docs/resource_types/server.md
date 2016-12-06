@@ -15,6 +15,8 @@ resource "ddcloud_server" "myserver" {
   cpu_speed            = "STANDARD"
   cores_per_cpu        = 1
 
+  image                = "CentOS 7 64-bit 2 CPU"
+
   networkdomain        = "${ddcloud_networkdomain.mydomain.id}"
 
   primary_network_adapter {
@@ -30,8 +32,6 @@ resource "ddcloud_server" "myserver" {
       size_gb          = 10
       speed            = "STANDARD"
   }
-
-  os_image_name        = "CentOS 7 64-bit 2 CPU"
 }
 ```
 
@@ -56,6 +56,10 @@ Defaults to the CPU count specified by the image from which the server is create
 Defaults to the number of cores specified by the image from which the server is created.
 * `cpu_speed` - (Optional) The speed of the CPU(s) allocated to the server (`STANDARD` or `HIGHPERFORMANCE`).  
 Default is `STANDARD`.
+* `image` - (Required) The name or Id of the image used to create the server.  
+If `image` is a GUID / UUID, then it is treated as the image Id. Otherwise, it is treated as the image name.
+* `image_type` - (Optional) The type of image used to create the server.  
+If specified, must be `os`, `customer`, or `auto` (default). 
 * `disk` - (Optional) The set of virtual disks attached to the server.
     * `scsi_unit_id` - (Required) The SCSI Logical Unit Number (LUN) for the disk. Must be unique across the server's disks.
     * `size_gb` - (Required) The size (in GB) of the disk. This value can be increased (to expand the disk) but not decreased.
@@ -85,10 +89,6 @@ Default is `STANDARD`.
 If not specified, Google DNS (`8.8.8.8`) is used.
 * `dns_secondary` - (Required) The IP address of the server's secondary DNS.  
 If not specified, Google DNS (`8.8.4.4`) is used.
-* `os_image_id` - (Required) The Id of the OS (built-in) image from which the server will be created. Must specify exactly one of `os_image_id`, `os_image_name`, `customer_image_id`, `customer_image_name`.
-* `os_image_name` - (Required) The name of the OS (built-in) image from which the server will be created (the name must be unique within the data center in which the network domain is deployed). Must specify exactly one of `os_image_id`, `os_image_name`, `customer_image_id`, `customer_image_name`.
-* `customer_image_id` - (Required) The Id of the customer (custom) image from which the server will be created. Must specify exactly one of `os_image_id`, `os_image_name`, `customer_image_id`, `customer_image_name`.
-* `customer_image_name` - (Required) The name of the customer (custom) image from which the server will be created (the name must be unique within the data center in which the network domain is deployed). Must specify exactly one of `os_image_id`, `os_image_name`, `customer_image_id`, `customer_image_name`.
 * `auto_start` - (Optional) Automatically start the server once it is deployed (default is false).
 * `tag` - (Optional) A set of tags to apply to the server.
     * `name` - (Required) The tag name. **Note**: The tag name must already be defined for your organisation.
@@ -96,10 +96,6 @@ If not specified, Google DNS (`8.8.4.4`) is used.
 
 ## Attribute Reference
 
-* `os_image_id` - The Id of the OS image (if any) from which the server was created. Calculated if `os_image_name` is specified.
-* `os_image_name` - The name of the OS image (if any) from which the server was created. Calculated if `os_image_id` is specified.
-* `customer_image_id` - The Id of the customer image (if any) from which the server was created. Calculated if `customer_image_name` is specified.
-* `customer_image_name` - The name of the customer image (if any) from which the server was created. Calculated if `customer_image_id` is specified.
 * `primary_adapter_ipv4` - The IPv4 address of the server's primary network adapter.
 * `primary_adapter_ipv6` - The IPv6 address of the server's primary network adapter.
 * `primary_adapter_vlan` - The Id of the VLAN to which the server's primary network adapter is attached. Calculated if `primary_adapter_ipv4` is specified.

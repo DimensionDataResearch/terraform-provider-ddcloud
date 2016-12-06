@@ -90,7 +90,7 @@ resource "ddcloud_server" "my-server" {
   dns_primary          = "8.8.8.8"
   dns_secondary        = "8.8.4.4"
 
-  os_image_name        = "CentOS 7 64-bit 2 CPU"
+  image                = "CentOS 7 64-bit 2 CPU"
 
   # The image disk (part of the original server image). If size_gb is larger than the image disk's original size, it will be expanded (specifying a smaller size is not supported).
   # You don't have to specify this but, if you don't, then Terraform will keep treating the ddcloud_server resource as modified.

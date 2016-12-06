@@ -3,136 +3,90 @@ package ddcloud
 import (
 	"fmt"
 	"log"
+	"regexp"
 
-	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (
-	resourceKeyServerImage     = "image"
-	resourceKeyServerImageID   = "id"
-	resourceKeyServerImageName = "name"
-	resourceKeyServerImageType = "type"
-
 	serverImageTypeOS       = "os"
 	serverImageTypeCustomer = "customer"
 	serverImageTypeAuto     = "auto"
 )
 
-func schemaServerImage() *schema.Schema {
-	return &schema.Schema{
-		Type:     schema.TypeList, // Unfortunate limitation of Terraform schema - have to model this as a list with exactly 1 item.
-		Required: true,
-		MinItems: 1,
-		MaxItems: 1,
-		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				resourceKeyServerImageID: &schema.Schema{
-					Type:        schema.TypeString,
-					Optional:    true,
-					Computed:    true,
-					Default:     nil,
-					Description: "The Id of the image from which the server is created",
-				},
-				resourceKeyServerImageName: &schema.Schema{
-					Type:        schema.TypeString,
-					Optional:    true,
-					Computed:    true,
-					Default:     nil,
-					Description: "The Id of the image from which the server is created",
-				},
-				resourceKeyServerImageType: &schema.Schema{
-					Type:        schema.TypeString,
-					Optional:    true,
-					Default:     serverImageTypeAuto,
-					Description: "The type of image from which the server is created (default is auto-detect)",
-					ValidateFunc: func(value interface{}, key string) (warnings []string, errors []error) {
-						imageType := value.(string)
-
-						switch imageType {
-						case serverImageTypeOS:
-						case serverImageTypeCustomer:
-						case serverImageTypeAuto:
-							return
-						default:
-							errors = append(errors,
-								fmt.Errorf("Invalid image type '%s'", imageType),
-							)
-						}
-
-						return
-					},
-				},
-			},
-		},
-	}
+func isUUID(str string) (bool, error) {
+	return regexp.Match(`[A-Fa-f0-9]{8}(-[A-Fa-f0-9]{4}){3}-[A-Fa-f0-9]{12}`, []byte(str))
 }
 
-func resolveServerImage(configuredImage *models.Image, dataCenterID string, apiClient *compute.Client) (resolvedImage compute.Image, err error) {
-	switch configuredImage.Type {
+func resolveServerImage(imageNameOrID string, imageType string, dataCenterID string, apiClient *compute.Client) (resolvedImage compute.Image, err error) {
+	isID, err := isUUID(imageNameOrID)
+	if err != nil {
+		return
+	}
+
+	switch imageType {
 	case serverImageTypeOS:
-		if configuredImage.ID != "" {
-			resolvedImage, err = lookupOSImageByID(configuredImage.ID, apiClient)
+		if isID {
+			resolvedImage, err = lookupOSImageByID(imageNameOrID, apiClient)
 			if err != nil {
 				return
 			}
 
 			if resolvedImage == nil {
 				err = fmt.Errorf("Cannot find an OS image with Id '%s' in datacenter '%s'",
-					configuredImage.ID,
+					imageNameOrID,
 					dataCenterID,
 				)
 			}
-		} else if configuredImage.Name != "" {
-			resolvedImage, err = lookupOSImageByName(configuredImage.Name, dataCenterID, apiClient)
+		} else {
+			resolvedImage, err = lookupOSImageByName(imageNameOrID, dataCenterID, apiClient)
 			if err != nil {
 				return
 			}
 
 			if resolvedImage == nil {
 				err = fmt.Errorf("Cannot find an OS image named '%s' in datacenter '%s'",
-					configuredImage.Name,
+					imageNameOrID,
 					dataCenterID,
 				)
 			}
 		}
 	case serverImageTypeCustomer:
-		if configuredImage.ID != "" {
-			resolvedImage, err = lookupCustomerImageByID(configuredImage.ID, apiClient)
+		if isID {
+			resolvedImage, err = lookupCustomerImageByID(imageNameOrID, apiClient)
 			if err != nil {
 				return
 			}
 
 			if resolvedImage == nil {
 				err = fmt.Errorf("Cannot find a customer image with Id '%s' in datacenter '%s'",
-					configuredImage.ID,
+					imageNameOrID,
 					dataCenterID,
 				)
 			}
-		} else if configuredImage.Name != "" {
-			resolvedImage, err = lookupCustomerImageByName(configuredImage.Name, dataCenterID, apiClient)
+		} else {
+			resolvedImage, err = lookupCustomerImageByName(imageNameOrID, dataCenterID, apiClient)
 			if err != nil {
 				return
 			}
 
 			if resolvedImage == nil {
 				err = fmt.Errorf("Cannot find a customer image named '%s' in datacenter '%s'",
-					configuredImage.Name,
+					imageNameOrID,
 					dataCenterID,
 				)
 			}
 		}
 	case serverImageTypeAuto:
-		if configuredImage.ID != "" {
-			resolvedImage, err = lookupOSImageByID(configuredImage.ID, apiClient)
+		if isID {
+			resolvedImage, err = lookupOSImageByID(imageNameOrID, apiClient)
 			if err != nil {
 				return
 			}
 
 			// Fall back to customer image, if required.
 			if resolvedImage == nil {
-				resolvedImage, err = lookupCustomerImageByID(configuredImage.ID, apiClient)
+				resolvedImage, err = lookupCustomerImageByID(imageNameOrID, apiClient)
 				if err != nil {
 					return
 				}
@@ -140,19 +94,19 @@ func resolveServerImage(configuredImage *models.Image, dataCenterID string, apiC
 
 			if resolvedImage == nil {
 				err = fmt.Errorf("Cannot find an OS or customer image with Id '%s' in datacenter '%s'",
-					configuredImage.ID,
+					imageNameOrID,
 					dataCenterID,
 				)
 			}
-		} else if configuredImage.Name != "" {
-			resolvedImage, err = lookupOSImageByName(configuredImage.Name, dataCenterID, apiClient)
+		} else {
+			resolvedImage, err = lookupOSImageByName(imageNameOrID, dataCenterID, apiClient)
 			if err != nil {
 				return
 			}
 
 			// Fall back to customer image, if required.
 			if resolvedImage == nil {
-				resolvedImage, err = lookupCustomerImageByName(configuredImage.Name, dataCenterID, apiClient)
+				resolvedImage, err = lookupCustomerImageByName(imageNameOrID, dataCenterID, apiClient)
 				if err != nil {
 					return
 				}
@@ -160,13 +114,13 @@ func resolveServerImage(configuredImage *models.Image, dataCenterID string, apiC
 
 			if resolvedImage == nil {
 				err = fmt.Errorf("Cannot find an OS or customer image named '%s' in datacenter '%s'",
-					configuredImage.Name,
+					imageNameOrID,
 					dataCenterID,
 				)
 			}
 		}
 	default:
-		err = fmt.Errorf("Invalid image type '%s'", configuredImage.Type)
+		err = fmt.Errorf("Invalid image type '%s'", imageType)
 
 		return
 	}

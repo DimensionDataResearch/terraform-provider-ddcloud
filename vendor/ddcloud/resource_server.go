@@ -16,6 +16,8 @@ const (
 	resourceKeyServerName               = "name"
 	resourceKeyServerDescription        = "description"
 	resourceKeyServerAdminPassword      = "admin_password"
+	resourceKeyServerImage              = "image"
+	resourceKeyServerImageType          = "image_type"
 	resourceKeyServerNetworkDomainID    = "networkdomain"
 	resourceKeyServerMemoryGB           = "memory_gb"
 	resourceKeyServerCPUCount           = "cpu_count"
@@ -44,7 +46,7 @@ const (
 
 func resourceServer() *schema.Resource {
 	return &schema.Resource{
-		SchemaVersion: 2,
+		SchemaVersion: 3,
 		Create:        resourceServerCreate,
 		Read:          resourceServerRead,
 		Update:        resourceServerUpdate,
@@ -97,6 +99,34 @@ func resourceServer() *schema.Resource {
 				Default:     nil,
 				Description: "The speed (quality-of-service) for CPUs allocated to the server",
 			},
+			resourceKeyServerImage: &schema.Schema{
+				Type:        schema.TypeString,
+				Required:    true,
+				ForceNew:    true,
+				Description: "The name or Id of the image from which the server is created",
+			},
+			resourceKeyServerImageType: &schema.Schema{
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     serverImageTypeAuto,
+				Description: "The type of image from which the server is created (default is auto-detect)",
+				ValidateFunc: func(value interface{}, key string) (warnings []string, errors []error) {
+					imageType := value.(string)
+
+					switch imageType {
+					case serverImageTypeOS:
+					case serverImageTypeCustomer:
+					case serverImageTypeAuto:
+						return
+					default:
+						errors = append(errors,
+							fmt.Errorf("Invalid image type '%s'", imageType),
+						)
+					}
+
+					return
+				},
+			},
 			resourceKeyServerDisk: schemaDisk(),
 			resourceKeyServerNetworkDomainID: &schema.Schema{
 				Type:        schema.TypeString,
@@ -143,7 +173,6 @@ func resourceServer() *schema.Resource {
 				Default:     "",
 				Description: "The IP address of the server's secondary DNS server",
 			},
-			resourceKeyServerImage: schemaServerImage(),
 			resourceKeyServerAutoStart: &schema.Schema{
 				Type:        schema.TypeBool,
 				Optional:    true,
@@ -165,28 +194,28 @@ func resourceServer() *schema.Resource {
 				Optional:    true,
 				Default:     nil,
 				Description: "The Id of the OS (built-in) image from which the server is created",
-				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageID),
+				Removed:     fmt.Sprintf("This property has been removed; use %s instead.", resourceKeyServerImage),
 			},
 			resourceKeyServerOSImageName: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     nil,
 				Description: "The name of the OS (built-in) image from which the server is created",
-				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageName),
+				Removed:     fmt.Sprintf("This property has been removed; use %s instead.", resourceKeyServerImage),
 			},
 			resourceKeyServerCustomerImageID: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     nil,
 				Description: "The Id of the customer (custom) image from which the server is created",
-				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageID),
+				Removed:     fmt.Sprintf("This property has been removed; use %s instead.", resourceKeyServerImage),
 			},
 			resourceKeyServerCustomerImageName: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     nil,
 				Description: "The name of the customer (custom) image from which the server is created",
-				Removed:     fmt.Sprintf("This property has been removed; use %s.%s instead.", resourceKeyServerImage, resourceKeyServerImageName),
+				Removed:     fmt.Sprintf("This property has been removed; use %s instead.", resourceKeyServerImage),
 			},
 		},
 		MigrateState: resourceServerMigrateState,
@@ -229,13 +258,9 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	propertyHelper := propertyHelper(data)
-	configuredImage := propertyHelper.GetImage()
-	err = configuredImage.Validate()
-	if err != nil {
-		return err
-	}
-
-	image, err := resolveServerImage(configuredImage, dataCenterID, apiClient)
+	configuredImage := data.Get(resourceKeyServerImage).(string)
+	configuredImageType := data.Get(resourceKeyServerImageType).(string)
+	image, err := resolveServerImage(configuredImage, configuredImageType, dataCenterID, apiClient)
 	if err != nil {
 		return err
 	}
@@ -249,8 +274,6 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		image.GetID(),
 		dataCenterID,
 	)
-	configuredImage.ReadImage(image)
-	propertyHelper.SetImage(configuredImage)
 
 	log.Printf("Server will be deployed from %s image named '%s' (Id = '%s').",
 		compute.ImageTypeName(image.GetType()),

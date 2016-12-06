@@ -27,6 +27,9 @@ func resourceServerMigrateState(schemaVersion int, instanceState *terraform.Inst
 	case 1:
 		log.Println("Found Server state v1; migrating to v2")
 		migratedState, err = migrateServerStateV1toV2(instanceState)
+	case 2:
+		log.Println("Found Server state v2; migrating to v3")
+		migratedState, err = migrateServerStateV2toV3(instanceState)
 	default:
 		err = fmt.Errorf("Unexpected schema version: %d", schemaVersion)
 	}
@@ -37,8 +40,9 @@ func resourceServerMigrateState(schemaVersion int, instanceState *terraform.Inst
 // Migrate state for ddcloud_server (v0 to v1).
 //
 // disk.HASH.xxx -> disk.INDEX.xxx (where INDEX is the 0-based index of the disk in the set).
-//
 // Note that we should really be sorting disks by SCSI unit Id, but that's a little complicated for now.
+//
+// Also, os_image_id / os_image_name / customer_image_id / customer_image_name -> image, image_type
 func migrateServerStateV0toV1(instanceState *terraform.InstanceState) (migratedState *terraform.InstanceState, err error) {
 	migratedState = instanceState
 
@@ -124,17 +128,63 @@ func migrateServerStateV1toV2(instanceState *terraform.InstanceState) (migratedS
 	}
 
 	if osImageID != "" {
-		setImageProperty(resourceKeyServerImageID, osImageID)
+		setImageProperty("id", osImageID)
 		setImageProperty(resourceKeyServerImageType, "os")
 	} else if osImageName != "" {
-		setImageProperty(resourceKeyServerImageName, osImageName)
+		setImageProperty("name", osImageName)
 		setImageProperty(resourceKeyServerImageType, "os")
 	} else if customerImageID != "" {
-		setImageProperty(resourceKeyServerImageID, customerImageID)
+		setImageProperty("id", customerImageID)
 		setImageProperty(resourceKeyServerImageType, "customer")
 	} else if customerImageName != "" {
-		setImageProperty(resourceKeyServerImageName, customerImageName)
+		setImageProperty("name", customerImageName)
 		setImageProperty(resourceKeyServerImageType, "customer")
+	}
+
+	log.Printf("Server attributes after migration from v1 to v2: %#v",
+		migratedState.Attributes,
+	)
+
+	return
+}
+
+// Migrate state for ddcloud_server (v2 to v3).
+//
+// image { id   = "xxx", type = "os" }       -> image = "xxx"
+// image { name = "xxx", type = "os" }       -> image = "xxx"
+// image { id   = "xxx", type = "customer" } -> image = "xxx", image_type = "customer"
+// image { name = "xxx", type = "customer" } -> image = "xxx", image_type = "customer"
+func migrateServerStateV2toV3(instanceState *terraform.InstanceState) (migratedState *terraform.InstanceState, err error) {
+	migratedState = instanceState
+
+	const keyPrefix = "image."
+	var image, imageType string
+	for key := range migratedState.Attributes {
+		if !strings.HasPrefix(key, keyPrefix) {
+			continue
+		}
+
+		value := migratedState.Attributes[key]
+		delete(migratedState.Attributes, key)
+
+		if key == keyPrefix+"#" {
+			continue // Count - nothing else to do.
+		}
+
+		switch key[len(keyPrefix)+1:] {
+		case "id":
+		case "name":
+			image = value
+		case resourceKeyServerImageType:
+			imageType = value
+		}
+	}
+
+	if image != "" {
+		migratedState.Attributes[resourceKeyServerImage] = image
+		if imageType == "customer" {
+			migratedState.Attributes[resourceKeyServerImageType] = "customer"
+		}
 	}
 
 	log.Printf("Server attributes after migration from v1 to v2: %#v",
