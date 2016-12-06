@@ -39,31 +39,31 @@ func testAccDDCloudServerBasic(name string, description string, primaryIPv4Addre
 		}
 
 		resource "ddcloud_server" "acc_test_server" {
-			name				 = "%s"
-			description 		 = "%s"
-			admin_password		 = "snausages!"
+			name				= "%s"
+			description 		= "%s"
+			admin_password		= "snausages!"
 
-			memory_gb			 = 8
+			memory_gb			= 8
 
-			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
+			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
 			
-			network_adapter {
-				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
-				ipv4             = "%s"
+			primary_network_adapter {
+				vlan            = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4            = "%s"
 			}
 
-			dns_primary			 = "8.8.8.8"
-			dns_secondary		 = "8.8.4.4"
+			dns_primary			= "8.8.8.8"
+			dns_secondary		= "8.8.4.4"
 
-			os_image_name		 = "CentOS 7 64-bit 2 CPU"
+			image				= "CentOS 7 64-bit 2 CPU"
 
-			auto_start			 = false
+			auto_start			= false
 
 			# Image disk
 			disk {
-				scsi_unit_id     = 0
-				size_gb          = 10
-				speed            = "STANDARD"
+				scsi_unit_id    = 0
+				size_gb         = 10
+				speed           = "STANDARD"
 			}
 		}
 	`, name, description, primaryIPv4Address)
@@ -93,31 +93,31 @@ func testAccDDCloudServerImageDisk1(sizeGB int, speed string) string {
 		}
 
 		resource "ddcloud_server" "acc_test_server" {
-			name				 = "acc-test-server-1-image-disk"
-			description 		 = "Server for Terraform acceptance test (single image disk)."
-			admin_password		 = "snausages!"
+			name				= "acc-test-server-1-image-disk"
+			description 		= "Server for Terraform acceptance test (single image disk)."
+			admin_password		= "snausages!"
 
-			memory_gb			 = 8
+			memory_gb			= 8
 
-			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
+			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
 			
-			network_adapter {
-				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
-				ipv4             = "192.168.17.6"
+			primary_network_adapter {
+				vlan            = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4            = "192.168.17.6"
 			}
 
-			dns_primary			 = "8.8.8.8"
-			dns_secondary		 = "8.8.4.4"
+			dns_primary			= "8.8.8.8"
+			dns_secondary		= "8.8.4.4"
 
-			os_image_name		 = "CentOS 7 64-bit 2 CPU"
+			image				= "CentOS 7 64-bit 2 CPU"
 
-			auto_start			 = false
+			auto_start			= false
 
 			# Image disk
 			disk {
-				scsi_unit_id     = 0
-				size_gb          = %d
-				speed            = "%s"
+				scsi_unit_id    = 0
+				size_gb         = %d
+				speed           = "%s"
 			}
 		}
 	`, sizeGB, speed)
@@ -147,38 +147,38 @@ func testAccDDCloudServerAdditionalDisk1(scsiUnitID int, sizeGB int, speed strin
 		}
 
 		resource "ddcloud_server" "acc_test_server" {
-			name				 = "acc-test-server-1-additional-disk"
-			description 		 = "Server for Terraform acceptance test (single additional disk)."
-			admin_password		 = "snausages!"
+			name				= "acc-test-server-1-additional-disk"
+			description 		= "Server for Terraform acceptance test (single additional disk)."
+			admin_password		= "snausages!"
 
-			memory_gb			 = 8
+			memory_gb			= 8
 
-			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
+			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
 
-			network_adapter {
-				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
-				ipv4             = "192.168.17.6"
+			primary_network_adapter {
+				vlan            = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4            = "192.168.17.6"
 			}
 			
-			dns_primary			 = "8.8.8.8"
-			dns_secondary		 = "8.8.4.4"
+			dns_primary			= "8.8.8.8"
+			dns_secondary		= "8.8.4.4"
 
-			os_image_name		 = "CentOS 7 64-bit 2 CPU"
+			image		 		= "CentOS 7 64-bit 2 CPU"
 
-			auto_start			 = false
+			auto_start			= false
 
 			# Image disk
 			disk {
-				scsi_unit_id     = 0
-				size_gb          = 10
-				speed            = "STANDARD"
+				scsi_unit_id    = 0
+				size_gb         = 10
+				speed           = "STANDARD"
 			}
 
 			# Additional disk
 			disk {
-				scsi_unit_id     = %d
-				size_gb          = %d
-				speed            = "%s"
+				scsi_unit_id    = %d
+				size_gb         = %d
+				speed           = "%s"
 			}
 		}
 	`, scsiUnitID, sizeGB, speed)
@@ -219,29 +219,29 @@ func testAccDDCloudServerTag(tags map[string]string) string {
 		}
 
 		resource "ddcloud_server" "acc_test_server" {
-			name				 = "acc-test-server-tags"
-			description 		 = "Server for Terraform acceptance test (tags)."
-			admin_password		 = "snausages!"
+			name				= "acc-test-server-tags"
+			description 		= "Server for Terraform acceptance test (tags)."
+			admin_password		= "snausages!"
 
-			memory_gb			 = 8
+			memory_gb			= 8
 
-			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
+			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
 			
-			network_adapter {
-				vlan             = "${ddcloud_vlan.acc_test_vlan.id}"
-				ipv4             = "192.168.17.6"
+			primary_network_adapter {
+				vlan            = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4            = "192.168.17.6"
 			}
 
 			dns_primary			 = "8.8.8.8"
-			dns_secondary		 = "8.8.4.4"
+			dns_secondary		= "8.8.4.4"
 
-			os_image_name		 = "CentOS 7 64-bit 2 CPU"
+			image		 		= "CentOS 7 64-bit 2 CPU"
 
 			# Image disk
 			disk {
-				scsi_unit_id     = 0
-				size_gb          = 10
-				speed            = "STANDARD"
+				scsi_unit_id    = 0
+				size_gb         = 10
+				speed           = "STANDARD"
 			}
 
 			# Tags
