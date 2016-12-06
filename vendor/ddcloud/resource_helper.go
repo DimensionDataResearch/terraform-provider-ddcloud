@@ -198,7 +198,7 @@ func (helper resourcePropertyHelper) SetTags(key string, tags []compute.Tag) {
 }
 
 func (helper resourcePropertyHelper) GetAddressListAddresses() (addresses []compute.IPAddressListEntry) {
-	value, ok := helper.data.GetOk(resourceKeyAddressListAddresses)
+	value, ok := helper.data.GetOk(resourceKeyAddressListAddress)
 	if !ok {
 		return
 	}
@@ -265,7 +265,7 @@ func (helper resourcePropertyHelper) SetAddressListAddresses(addresses []compute
 		}
 	}
 
-	helper.data.Set(resourceKeyAddressListAddresses, addressProperties)
+	helper.data.Set(resourceKeyAddressListAddress, addressProperties)
 }
 
 func (helper resourcePropertyHelper) GetPortListPorts() (ports []compute.PortListEntry) {
