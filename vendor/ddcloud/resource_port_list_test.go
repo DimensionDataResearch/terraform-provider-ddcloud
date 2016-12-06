@@ -2,18 +2,45 @@ package ddcloud
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"testing"
 )
 
 /*
  * Acceptance-test configurations.
  */
 
+// Acceptance test configuration - ddcloud_port_list with simple ports.
+func testAccDDCloudPortListSimple(resourceName string, portListName string) string {
+	return fmt.Sprintf(`
+		provider "ddcloud" {
+			region		= "AU"
+		}
+
+		resource "ddcloud_networkdomain" "acc_test_domain" {
+			name				= "acc-test-domain"
+			description			= "Port list for Terraform acceptance test."
+			datacenter			= "AU9"
+
+			plan				= "ADVANCED"
+		}
+
+		resource "ddcloud_port_list" "%s" {
+			name					= "%s"
+			description 			= "Adam's Terraform test port list (do not delete)."
+
+			ports					= [80,443]
+
+			networkdomain 			= "${ddcloud_networkdomain.acc_test_domain.id}"
+		}
+	`, resourceName, portListName)
+}
+
 // Acceptance test configuration - ddcloud_port_list with ports and port ranges.
-func testAccDDCloudPortListBasic(resourceName string, portListName string) string {
+func testAccDDCloudPortListComplex(resourceName string, portListName string) string {
 	return fmt.Sprintf(`
 		provider "ddcloud" {
 			region		= "AU"
@@ -54,8 +81,8 @@ func testAccDDCloudPortListBasic(resourceName string, portListName string) strin
 
 // Acceptance test for ddcloud_port_list:
 //
-// Create a port list and verify that it gets created with the correct configuration.
-func TestAccPortListBasicCreate(t *testing.T) {
+// Create a port list with simple ports, and verify that it gets created with the correct configuration.
+func TestAccPortListSimpleCreate(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
@@ -64,7 +91,40 @@ func TestAccPortListBasicCreate(t *testing.T) {
 		),
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudPortListBasic("acc_test_list", "af_terraform_list"),
+				Config: testAccDDCloudPortListSimple("acc_test_list", "af_terraform_list"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudPortListExists("acc_test_list", true),
+					testCheckDDCloudPortListMatches("acc_test_list", compute.PortList{
+						Name:        "af_terraform_list",
+						Description: "Adam's Terraform test port list (do not delete).",
+						Ports: []compute.PortListEntry{
+							compute.PortListEntry{
+								Begin: 80,
+							},
+							compute.PortListEntry{
+								Begin: 443,
+							},
+						},
+					}),
+				),
+			},
+		},
+	})
+}
+
+// Acceptance test for ddcloud_port_list:
+//
+// Create a port list with ports and port-ranges, and verify that it gets created with the correct configuration.
+func TestAccPortListComplexCreate(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		CheckDestroy: resource.ComposeTestCheckFunc(
+			testCheckDDCloudPortListDestroy,
+			testCheckDDCloudNetworkDomainDestroy,
+		),
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccDDCloudPortListComplex("acc_test_list", "af_terraform_list"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudPortListExists("acc_test_list", true),
 					testCheckDDCloudPortListMatches("acc_test_list", compute.PortList{
