@@ -20,18 +20,26 @@ func resourceServerMigrateState(schemaVersion int, instanceState *terraform.Inst
 		return
 	}
 
-	switch schemaVersion {
-	case 0:
-		log.Println("Found Server state v0; migrating to v2")
-		migratedState, err = migrateServerStateV0toV1(instanceState)
-	case 1:
-		log.Println("Found Server state v1; migrating to v2")
-		migratedState, err = migrateServerStateV1toV2(instanceState)
-	case 2:
-		log.Println("Found Server state v2; migrating to v3")
-		migratedState, err = migrateServerStateV2toV3(instanceState)
-	default:
-		err = fmt.Errorf("Unexpected schema version: %d", schemaVersion)
+	const currentSchemaVersion = 3
+	for schemaVersion < currentSchemaVersion {
+		switch schemaVersion {
+		case 0:
+			log.Println("Found Server state v0; migrating to v1")
+			migratedState, err = migrateServerStateV0toV1(instanceState)
+		case 1:
+			log.Println("Found Server state v1; migrating to v2")
+			migratedState, err = migrateServerStateV1toV2(instanceState)
+		case 2:
+			log.Println("Found Server state v2; migrating to v3")
+			migratedState, err = migrateServerStateV2toV3(instanceState)
+		default:
+			err = fmt.Errorf("Unexpected schema version: %d", schemaVersion)
+		}
+		if err != nil {
+			return
+		}
+
+		schemaVersion++
 	}
 
 	return
