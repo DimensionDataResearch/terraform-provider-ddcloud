@@ -5,6 +5,7 @@
 * Simplify image properties for `ddcloud_server` (#66).  
 There are now just 2 image-related properties: `image` (image name or Id), and `image_type`.  
 See the provider documentation for details.
+* Change simple ports in `ddcloud_port_list` from strings to integers (#71).
 
 ## v1.2.0-alpha1
 
