@@ -1,5 +1,11 @@
 # Changes
 
+## v1.1.10
+
+Bug fixes:
+
+* Fix incorrect schema for simple port list on `ddcloud_port_list` (#71).
+
 ## v1.1.9
 
 New features:

@@ -1,9 +1,10 @@
 package ddcloud
 
 import (
+	"log"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
-	"log"
 )
 
 const (
@@ -70,9 +71,8 @@ func resourcePortList() *schema.Resource {
 				Optional:    true,
 				Description: "Simple ports included in the port list",
 				Elem: &schema.Schema{
-					Type: schema.TypeString,
+					Type: schema.TypeInt,
 				},
-				Set:           schema.HashString,
 				ConflictsWith: []string{resourceKeyPortListPort},
 			},
 			resourceKeyPortListChildIDs: &schema.Schema{
