@@ -1,5 +1,11 @@
 # Changes
 
+## v1.2.0-alpha2
+
+* Simplify image properties for `ddcloud_server` (#66).  
+There are now just 2 image-related properties: `image` (image name or Id), and `image_type`.  
+See the provider documentation for details.
+
 ## v1.2.0-alpha1
 
 * Fix crash when deploying `ddcloud_server` from a customer image (#66).
