@@ -1,5 +1,11 @@
 # Changes
 
+## v1.2.0-alpha3
+
+Bug fixes:
+
+* Fix INVALID_INPUT_DATA when creating a ddcloud_address_list using complex addresses (#72).
+
 ## v1.2.0-alpha2
 
 * Simplify image properties for `ddcloud_server` (#66).  
