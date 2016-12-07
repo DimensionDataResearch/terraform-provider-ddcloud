@@ -64,8 +64,14 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 
 	// Since this is the first time, populate image disks.
 	configuredDisks := propertyHelper.GetDisks()
+	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
 	actualDisks := models.NewDisksFromVirtualMachineDisks(imageDisks)
 	configuredDisks.CaptureIDs(actualDisks)
+
+	err := validateDisks(configuredDisks)
+	if err != nil {
+		return err
+	}
 
 	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
 	if len(configuredDisks) == 0 {
@@ -135,6 +141,10 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 
 	configuredDisks := propertyHelper.GetDisks()
 	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
+	err = validateDisks(configuredDisks)
+	if err != nil {
+		return err
+	}
 
 	if configuredDisks.IsEmpty() {
 		// No explicitly-configured disks.
@@ -494,12 +504,35 @@ func processRemoveDisks(removeDisks models.Disks, data *schema.ResourceData, pro
 }
 
 func hashDiskUnitID(item interface{}) int {
-	disk, ok := item.(compute.VirtualMachineDisk)
+	disk, ok := item.(models.Disk)
 	if ok {
 		return disk.SCSIUnitID
+	}
+
+	virtualMachineDisk, ok := item.(compute.VirtualMachineDisk)
+	if ok {
+		return virtualMachineDisk.SCSIUnitID
 	}
 
 	diskData := item.(map[string]interface{})
 
 	return diskData[resourceKeyServerDiskUnitID].(int)
+}
+
+func validateDisks(disks models.Disks) error {
+	if disks.IsEmpty() {
+		return nil
+	}
+
+	disksByUnitID := make(map[int]models.Disk)
+	for _, disk := range disks {
+		_, duplicate := disksByUnitID[disk.SCSIUnitID]
+		if duplicate {
+			return fmt.Errorf("Multiple disks with SCSI unit ID '%d'", disk.SCSIUnitID)
+		}
+
+		disksByUnitID[disk.SCSIUnitID] = disk
+	}
+
+	return nil
 }

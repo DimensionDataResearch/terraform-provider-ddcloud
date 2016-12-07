@@ -286,12 +286,19 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 	image.ApplyTo(&deploymentConfiguration)
 
+	// Validate disk configuration.
+	configuredDisks := propertyHelper.GetDisks()
+	err = validateDisks(configuredDisks)
+	if err != nil {
+		return err
+	}
+
 	// Image disk speeds
-	configuredDisks := propertyHelper.GetDisks().ByUnitID()
+	configuredDisksByUnitID := configuredDisks.ByUnitID()
 	for index := range deploymentConfiguration.Disks {
 		deploymentDisk := &deploymentConfiguration.Disks[index]
 
-		configuredDisk, ok := configuredDisks[deploymentDisk.SCSIUnitID]
+		configuredDisk, ok := configuredDisksByUnitID[deploymentDisk.SCSIUnitID]
 		if ok {
 			deploymentDisk.Speed = configuredDisk.Speed
 		}
