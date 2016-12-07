@@ -1,5 +1,11 @@
 # Changes
 
+## v1.2.0-beta1
+
+Enhancements:
+
+* Provider now checks for disks with duplicate SCSI unit Ids before deployment (#63).
+
 ## v1.2.0-alpha4
 
 Bug fixes:
