@@ -1,10 +1,16 @@
 # Changes
 
+## v1.2.0-alpha4
+
+Bug fixes:
+
+* Fix crash when deploying a customer image using `image_type="auto"` (#66).
+
 ## v1.2.0-alpha3
 
 Bug fixes:
 
-* Fix INVALID_INPUT_DATA when creating a ddcloud_address_list using complex addresses (#72).
+* Fix INVALID\_INPUT\_DATA when creating a ddcloud\_address\_list using complex addresses (#72).
 
 ## v1.2.0-alpha2
 
