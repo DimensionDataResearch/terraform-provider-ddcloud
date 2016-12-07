@@ -424,8 +424,8 @@ func (helper resourcePropertyHelper) SetServerNetworkAdapters(networkAdapters mo
 	}
 
 	if networkAdapters.IsEmpty() {
-		data.Set(resourceKeyServerPrimaryNetworkAdapter, nil)
-		data.Set(resourceKeyServerAdditionalNetworkAdapter, nil)
+		data.Set(resourceKeyServerPrimaryNetworkAdapter, [0]interface{}{})
+		data.Set(resourceKeyServerAdditionalNetworkAdapter, [0]interface{}{})
 
 		return
 	}
@@ -437,6 +437,8 @@ func (helper resourcePropertyHelper) SetServerNetworkAdapters(networkAdapters mo
 	data.Set(resourceKeyServerPrimaryNetworkAdapter, networkAdapterProperties)
 
 	if len(networkAdapters) == 1 {
+		data.Set(resourceKeyServerAdditionalNetworkAdapter, [0]interface{}{})
+
 		return // No additional network adapters.
 	}
 
