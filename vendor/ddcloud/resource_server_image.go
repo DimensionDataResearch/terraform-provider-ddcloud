@@ -24,100 +24,128 @@ func resolveServerImage(imageNameOrID string, imageType string, dataCenterID str
 		return
 	}
 
+	var (
+		osImage       *compute.OSImage
+		customerImage *compute.CustomerImage
+	)
 	switch imageType {
 	case serverImageTypeOS:
 		if isID {
-			resolvedImage, err = lookupOSImageByID(imageNameOrID, apiClient)
+			osImage, err = lookupOSImageByID(imageNameOrID, apiClient)
 			if err != nil {
 				return
 			}
+			if osImage != nil {
+				resolvedImage = osImage
 
-			if resolvedImage == nil {
-				err = fmt.Errorf("Cannot find an OS image with Id '%s' in datacenter '%s'",
-					imageNameOrID,
-					dataCenterID,
-				)
+				return
 			}
+
+			err = fmt.Errorf("Cannot find an OS image with Id '%s' in datacenter '%s'",
+				imageNameOrID,
+				dataCenterID,
+			)
 		} else {
-			resolvedImage, err = lookupOSImageByName(imageNameOrID, dataCenterID, apiClient)
+			osImage, err = lookupOSImageByName(imageNameOrID, dataCenterID, apiClient)
 			if err != nil {
 				return
 			}
+			if osImage != nil {
+				resolvedImage = osImage
 
-			if resolvedImage == nil {
-				err = fmt.Errorf("Cannot find an OS image named '%s' in datacenter '%s'",
-					imageNameOrID,
-					dataCenterID,
-				)
+				return
 			}
+
+			err = fmt.Errorf("Cannot find an OS image named '%s' in datacenter '%s'",
+				imageNameOrID,
+				dataCenterID,
+			)
 		}
 	case serverImageTypeCustomer:
 		if isID {
-			resolvedImage, err = lookupCustomerImageByID(imageNameOrID, apiClient)
+			customerImage, err = lookupCustomerImageByID(imageNameOrID, apiClient)
 			if err != nil {
 				return
 			}
+			if customerImage != nil {
+				resolvedImage = customerImage
 
-			if resolvedImage == nil {
-				err = fmt.Errorf("Cannot find a customer image with Id '%s' in datacenter '%s'",
-					imageNameOrID,
-					dataCenterID,
-				)
+				return
 			}
+
+			err = fmt.Errorf("Cannot find a customer image with Id '%s' in datacenter '%s'",
+				imageNameOrID,
+				dataCenterID,
+			)
 		} else {
-			resolvedImage, err = lookupCustomerImageByName(imageNameOrID, dataCenterID, apiClient)
+			customerImage, err = lookupCustomerImageByName(imageNameOrID, dataCenterID, apiClient)
 			if err != nil {
 				return
 			}
+			if customerImage != nil {
+				resolvedImage = customerImage
 
-			if resolvedImage == nil {
-				err = fmt.Errorf("Cannot find a customer image named '%s' in datacenter '%s'",
-					imageNameOrID,
-					dataCenterID,
-				)
+				return
 			}
+
+			err = fmt.Errorf("Cannot find a customer image named '%s' in datacenter '%s'",
+				imageNameOrID,
+				dataCenterID,
+			)
 		}
 	case serverImageTypeAuto:
 		if isID {
-			resolvedImage, err = lookupOSImageByID(imageNameOrID, apiClient)
+			osImage, err = lookupOSImageByID(imageNameOrID, apiClient)
 			if err != nil {
+				return
+			}
+			if osImage != nil {
+				resolvedImage = osImage
+
 				return
 			}
 
 			// Fall back to customer image, if required.
-			if resolvedImage == nil {
-				resolvedImage, err = lookupCustomerImageByID(imageNameOrID, apiClient)
-				if err != nil {
-					return
-				}
+			customerImage, err = lookupCustomerImageByID(imageNameOrID, apiClient)
+			if err != nil {
+				return
+			}
+			if customerImage != nil {
+				resolvedImage = customerImage
+
+				return
 			}
 
-			if resolvedImage == nil {
-				err = fmt.Errorf("Cannot find an OS or customer image with Id '%s' in datacenter '%s'",
-					imageNameOrID,
-					dataCenterID,
-				)
-			}
+			err = fmt.Errorf("Cannot find an OS or customer image with Id '%s' in datacenter '%s'",
+				imageNameOrID,
+				dataCenterID,
+			)
 		} else {
-			resolvedImage, err = lookupOSImageByName(imageNameOrID, dataCenterID, apiClient)
+			osImage, err = lookupOSImageByName(imageNameOrID, dataCenterID, apiClient)
 			if err != nil {
+				return
+			}
+			if osImage != nil {
+				resolvedImage = osImage
+
 				return
 			}
 
 			// Fall back to customer image, if required.
-			if resolvedImage == nil {
-				resolvedImage, err = lookupCustomerImageByName(imageNameOrID, dataCenterID, apiClient)
-				if err != nil {
-					return
-				}
+			customerImage, err = lookupCustomerImageByName(imageNameOrID, dataCenterID, apiClient)
+			if err != nil {
+				return
+			}
+			if customerImage != nil {
+				resolvedImage = customerImage
+
+				return
 			}
 
-			if resolvedImage == nil {
-				err = fmt.Errorf("Cannot find an OS or customer image named '%s' in datacenter '%s'",
-					imageNameOrID,
-					dataCenterID,
-				)
-			}
+			err = fmt.Errorf("Cannot find an OS or customer image named '%s' in datacenter '%s'",
+				imageNameOrID,
+				dataCenterID,
+			)
 		}
 	default:
 		err = fmt.Errorf("Invalid image type '%s'", imageType)
@@ -128,25 +156,25 @@ func resolveServerImage(imageNameOrID string, imageType string, dataCenterID str
 	return
 }
 
-func lookupOSImageByID(imageID string, apiClient *compute.Client) (compute.Image, error) {
+func lookupOSImageByID(imageID string, apiClient *compute.Client) (*compute.OSImage, error) {
 	log.Printf("Looking up OS image '%s' by Id...", imageID)
 
 	return apiClient.GetOSImage(imageID)
 }
 
-func lookupOSImageByName(imageName string, dataCenterID string, apiClient *compute.Client) (compute.Image, error) {
+func lookupOSImageByName(imageName string, dataCenterID string, apiClient *compute.Client) (*compute.OSImage, error) {
 	log.Printf("Looking up OS image '%s' by name in datacenter '%s'...", imageName, dataCenterID)
 
 	return apiClient.FindOSImage(imageName, dataCenterID)
 }
 
-func lookupCustomerImageByID(imageID string, apiClient *compute.Client) (compute.Image, error) {
+func lookupCustomerImageByID(imageID string, apiClient *compute.Client) (*compute.CustomerImage, error) {
 	log.Printf("Looking up customer image '%s' by Id...", imageID)
 
 	return apiClient.GetCustomerImage(imageID)
 }
 
-func lookupCustomerImageByName(imageName string, dataCenterID string, apiClient *compute.Client) (compute.Image, error) {
+func lookupCustomerImageByName(imageName string, dataCenterID string, apiClient *compute.Client) (*compute.CustomerImage, error) {
 	log.Printf("Looking up customer image '%s' by name in datacenter '%s'...", imageName, dataCenterID)
 
 	return apiClient.FindCustomerImage(imageName, dataCenterID)
