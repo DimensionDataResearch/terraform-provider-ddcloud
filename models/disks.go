@@ -54,6 +54,31 @@ func (disks Disks) CaptureIDs(actualDisks Disks) {
 	}
 }
 
+// ApplyCurrentConfiguration applies the current configuration, inline, to the old configuration.
+//
+// Call this function on the old Disks, passing the new Disks.
+func (disks *Disks) ApplyCurrentConfiguration(currentDisks Disks) {
+	previousDisks := *disks
+	currentDisksByID := currentDisks.ByUnitID()
+
+	appliedDisks := make(Disks, 0)
+	for index := range previousDisks {
+		previousDisk := &previousDisks[index]
+		currentDisk, ok := currentDisksByID[previousDisk.SCSIUnitID]
+		if !ok {
+			continue // Disk no longer configured; leave it out.
+		}
+
+		// Update properties from current configuration.
+		previousDisk.Speed = currentDisk.Speed
+		previousDisk.SizeGB = currentDisk.SizeGB
+
+		appliedDisks = append(appliedDisks, *previousDisk)
+	}
+
+	*disks = appliedDisks
+}
+
 // SplitByInitialType splits the (initially-configured) disks by whether they represent image disks or additional disks.
 //
 // configuredDisks represents the disks currently specified in configuration.
