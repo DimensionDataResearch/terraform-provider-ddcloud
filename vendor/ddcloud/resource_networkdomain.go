@@ -78,14 +78,13 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 	dataCenterID = data.Get(resourceKeyNetworkDomainDataCenter).(string)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	log.Printf("Create network domain '%s' in data center '%s' (plan = '%s', description = '%s').", name, dataCenterID, plan, description)
 
 	var networkDomainID string
 	operationDescription := fmt.Sprintf("Create network domain '%s'", name)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock("Create network domain '%s'", name)
 		defer asyncLock.Release()
@@ -230,7 +229,6 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 	log.Printf("Delete network domain '%s' ('%s') in data center '%s'.", networkDomainID, name, dataCenterID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	err := deleteAllPublicIPBlocks(networkDomainID, providerState)
@@ -239,7 +237,7 @@ func resourceNetworkDomainDelete(data *schema.ResourceData, provider interface{}
 	}
 
 	operationDescription := fmt.Sprintf("Create network domain '%s'", name)
-	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock("Delete network domain '%s'", networkDomainID)
 		defer asyncLock.Release()

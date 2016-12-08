@@ -66,7 +66,6 @@ func resourceAntiAffinityRuleCreate(data *schema.ResourceData, provider interfac
 	log.Printf("Create server anti-affinity rule for servers '%s' and '%s'.", server1ID, server2ID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	// Capture server details
@@ -98,7 +97,7 @@ func resourceAntiAffinityRuleCreate(data *schema.ResourceData, provider interfac
 		createError error
 	)
 	operationDescription := fmt.Sprintf("Create anti-affinity rule between servers '%s' and '%s'", server1ID, server2ID)
-	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock("Create server anti-affinity rule '%s'", networkDomainID)
 		defer asyncLock.Release()
@@ -212,11 +211,10 @@ func resourceAntiAffinityRuleDelete(data *schema.ResourceData, provider interfac
 	log.Printf("Delete server anti-affinity rule '%s' in network domain '%s'.", ruleID, networkDomainID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Delete anti-affinity rule '%s'", ruleID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock("Delete server anti-affinity rule '%s'", networkDomainID)
 		defer asyncLock.Release()

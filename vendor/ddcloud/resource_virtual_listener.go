@@ -181,7 +181,6 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 	log.Printf("Create virtual listener '%s' ('%s') in network domain '%s'.", name, description, networkDomainID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	propertyHelper := propertyHelper(data)
@@ -189,7 +188,7 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 	var virtualListenerID string
 
 	operationDescription := fmt.Sprintf("Create virtual listener '%s' ", name)
-	operationError := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	operationError := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// Map from names to Ids, as required.
 		persistenceProfileID, err := propertyHelper.GetVirtualListenerPersistenceProfileID(apiClient)
 		if err != nil {
@@ -422,12 +421,11 @@ func resourceVirtualListenerDelete(data *schema.ResourceData, provider interface
 	log.Printf("Delete virtual listener '%s' ('%s') from network domain '%s'...", name, id, networkDomainID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Delete virtual listener '%s", id)
 
-	return providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	return providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release() // Released at the end of the current attempt.

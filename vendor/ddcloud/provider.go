@@ -63,7 +63,7 @@ func Provider() terraform.ResourceProvider {
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Default:     30,
-				Description: "The delay, in seconds, between retries of operations that fail due to a RESOURCE_BUSY response from CloudControl.",
+				Description: "The maximum delay, in seconds, between retries of operations that fail due to a RESOURCE_BUSY response from CloudControl.",
 			},
 		},
 
@@ -246,8 +246,25 @@ func (state *providerState) Settings() ProviderSettings {
 }
 
 // Retry retrieves the provider's operation-retry executor.
+//
+// Note that, for performance reasons, this executor is shared by all actions in the provider.
+// This means that the retry period is shared across all actions being perfomed.
 func (state *providerState) Retry() retry.Do {
 	return state.retry
+}
+
+// RetryAction performs an action with retry using the provider's shared operation-retry executor.
+//
+// description is a short description of the function used for logging.
+// timeout is the period of time before the process
+// action is the action function to invoke
+//
+// Returns the error (if any) passed to Context.Fail or caused by the operation timing out.
+//
+// Note that, for performance reasons, the executor is shared by all actions in the provider.
+// This means that the retry period is shared across all actions being perfomed.
+func (state *providerState) RetryAction(description string, action retry.ActionFunc) error {
+	return state.Retry().Action(description, state.Settings().RetryTimeout, action)
 }
 
 // AcquireAsyncOperationLock acquires (locks) the global lock used to synchronise initiation of global operations.

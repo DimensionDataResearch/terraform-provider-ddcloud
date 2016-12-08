@@ -72,12 +72,11 @@ func resourceVIPPoolMemberCreate(data *schema.ResourceData, provider interface{}
 	log.Printf("Add node '%s' as a member of VIP pool '%s'.", nodeID, poolID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	var memberID string
 	operationDescription := fmt.Sprintf("Add node '%s' to VIP pool '%s'", nodeID, poolID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		var addError error
 		memberID, addError = apiClient.AddVIPPoolMember(poolID, nodeID, status, port)
 		if compute.IsResourceBusyError(addError) {
@@ -163,13 +162,12 @@ func resourceVIPPoolMemberUpdate(data *schema.ResourceData, provider interface{}
 	}
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	status := data.Get(resourceKeyVIPPoolMemberStatus).(string)
 
 	operationDescription := fmt.Sprintf("Edit VIP pool member '%s'", id)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		editError := apiClient.EditVIPPoolMember(id, status)
 		if compute.IsResourceBusyError(editError) {
 			context.Retry()
@@ -191,11 +189,10 @@ func resourceVIPPoolMemberDelete(data *schema.ResourceData, provider interface{}
 	log.Printf("Delete member '%s' from VIP pool '%s'.", memberID, poolID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Remove member '%s' from VIP pool '%s'", memberID, poolID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		removeError := apiClient.RemoveVIPPoolMember(memberID)
 		if compute.IsResourceBusyError(removeError) {
 			context.Retry()

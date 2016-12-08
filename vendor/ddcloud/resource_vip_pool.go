@@ -203,7 +203,6 @@ func resourceVIPPoolUpdate(data *schema.ResourceData, provider interface{}) erro
 	configuration := &compute.EditVIPPoolConfiguration{}
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	propertyHelper := propertyHelper(data)
@@ -240,7 +239,7 @@ func resourceVIPPoolUpdate(data *schema.ResourceData, provider interface{}) erro
 	}
 
 	operationDescription := fmt.Sprintf("Edit VIP pool '%s'", id)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		editError := apiClient.EditVIPPool(id, *configuration)
 		if compute.IsResourceBusyError(editError) {
 			context.Retry()
@@ -263,11 +262,10 @@ func resourceVIPPoolDelete(data *schema.ResourceData, provider interface{}) erro
 	log.Printf("Delete VIP pool '%s' ('%s') from network domain '%s'...", name, id, networkDomainID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Delete VIP pool '%s'", id)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		deleteError := apiClient.DeleteVIPPool(id)
 		if compute.IsResourceBusyError(deleteError) {
 			context.Retry()

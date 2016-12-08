@@ -76,7 +76,6 @@ func resourceNetworkAdapterCreate(data *schema.ResourceData, provider interface{
 	log.Printf("Configure additional nics for server '%s'...", serverID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	server, err := apiClient.GetServer(serverID)
@@ -99,7 +98,7 @@ func resourceNetworkAdapterCreate(data *schema.ResourceData, provider interface{
 
 	var networkAdapterID string
 	operationDescription := fmt.Sprintf("Add network adapter to server '%s'", serverID)
-	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
@@ -275,7 +274,6 @@ func resourceNetworkAdapterDelete(data *schema.ResourceData, provider interface{
 	serverID := data.Get(resourceKeyNetworkAdapterServerID).(string)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	log.Printf("Removing network adapter '%s' from server '%s'...", networkAdapterID, serverID)
@@ -297,7 +295,7 @@ func resourceNetworkAdapterDelete(data *schema.ResourceData, provider interface{
 	}
 
 	operationDescription := fmt.Sprintf("Remove network adapter '%s' from server '%s'", networkAdapterID, serverID)
-	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
@@ -349,11 +347,10 @@ func resourceNetworkAdapterDelete(data *schema.ResourceData, provider interface{
 func updateNetworkAdapterIPAddress(providerState *providerState, serverID string, networkAdapterID string, primaryIPv4 *string) error {
 	log.Printf("Update IP address for network adapter '%s'...", networkAdapterID)
 
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Update IP address for network adapter '%s'", networkAdapterID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()

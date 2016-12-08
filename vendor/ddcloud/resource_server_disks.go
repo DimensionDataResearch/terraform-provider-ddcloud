@@ -191,7 +191,6 @@ func processAddDisks(addDisks models.Disks, data *schema.ResourceData, providerS
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	for index := range addDisks {
@@ -201,7 +200,7 @@ func processAddDisks(addDisks models.Disks, data *schema.ResourceData, providerS
 			addDisk.SCSIUnitID,
 			serverID,
 		)
-		err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 			defer asyncLock.Release()
 
@@ -267,7 +266,6 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	server, err := apiClient.GetServer(serverID)
@@ -309,7 +307,7 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 			)
 
 			operationDescription := fmt.Sprintf("Expand disk '%s' in server '%s'", modifyDisk.ID, serverID)
-			err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+			err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 				defer asyncLock.Release()
 
@@ -380,7 +378,7 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 			)
 
 			operationDescription := fmt.Sprintf("Change speed of disk '%s' in server '%s'", modifyDisk.ID, serverID)
-			err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+			err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 				defer asyncLock.Release()
 
@@ -441,7 +439,6 @@ func processRemoveDisks(removeDisks models.Disks, data *schema.ResourceData, pro
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	server, err := apiClient.GetServer(serverID)
@@ -462,7 +459,7 @@ func processRemoveDisks(removeDisks models.Disks, data *schema.ResourceData, pro
 		)
 
 		operationDescription := fmt.Sprintf("Remove disk '%s' from server '%s'", removeDisk.ID, serverID)
-		err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+		err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 			defer asyncLock.Release()
 

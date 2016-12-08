@@ -235,7 +235,6 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Create server '%s' in network domain '%s' (description = '%s').", name, networkDomainID, description)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	networkDomain, err := apiClient.GetNetworkDomain(networkDomainID)
@@ -350,7 +349,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	var serverID string
 	operationDescription := fmt.Sprintf("Deploy server '%s'", name)
-	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
@@ -626,7 +625,6 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Delete server '%s' ('%s') in network domain '%s'.", id, name, networkDomainID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	server, err := apiClient.GetServer(id)
@@ -648,7 +646,7 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	}
 
 	operationDescription := fmt.Sprintf("Delete server '%s'", id)
-	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
@@ -749,7 +747,7 @@ func serverStart(providerState *providerState, serverID string) error {
 	}
 
 	operationDescription := fmt.Sprintf("Start server '%s'", serverID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
@@ -786,7 +784,7 @@ func serverShutdown(providerState *providerState, serverID string) error {
 	}
 
 	operationDescription := fmt.Sprintf("Shut down server '%s'", serverID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
@@ -815,11 +813,10 @@ func serverShutdown(providerState *providerState, serverID string) error {
 //
 // Does not respect providerSettings.AllowServerReboots.
 func serverPowerOff(providerState *providerState, serverID string) error {
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Power off server '%s'", serverID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
