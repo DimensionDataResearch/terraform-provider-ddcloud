@@ -92,7 +92,8 @@ If not specified, the `MCP_PASSWORD` environment variable will be used instead.
 * `retry_timeout` - (Optional) The time (in seconds) to wait before before retrying an operation due to a `RESOURCE_BUSY` response from CloudControl times out.    
 Default is 10 minutes.
 * `retry_delay` - (Optional) The time (in seconds) to delay between operation retries due to `RESOURCE_BUSY` responses from CloudControl.  
-Default is 30 seconds.
+Default is 30 seconds.  
+Note - this delay is shared across _all_ operations, so it is effectively the _maximum_ delay before retry.
 * `allow_server_reboot` - (Optional) Allow servers to be rebooted due to configuration changes?  
   If `false`, then the provider will fail any operation (except deletion) that requires a server to be rebooted.  
   Default is `true`.

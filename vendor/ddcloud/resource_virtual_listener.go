@@ -176,12 +176,10 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 	networkDomainID := data.Get(resourceKeyVirtualListenerNetworkDomainID).(string)
 	name := data.Get(resourceKeyVirtualListenerName).(string)
 	description := data.Get(resourceKeyVirtualListenerDescription).(string)
-	listenerIPAddress := data.Get(resourceKeyVirtualListenerIPv4Address).(string)
 
 	log.Printf("Create virtual listener '%s' ('%s') in network domain '%s'.", name, description, networkDomainID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	propertyHelper := propertyHelper(data)
@@ -189,7 +187,7 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 	var virtualListenerID string
 
 	operationDescription := fmt.Sprintf("Create virtual listener '%s' ", name)
-	operationError := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	operationError := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// Map from names to Ids, as required.
 		persistenceProfileID, err := propertyHelper.GetVirtualListenerPersistenceProfileID(apiClient)
 		if err != nil {
@@ -205,58 +203,8 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 			return
 		}
 
-		if len(listenerIPAddress) == 0 {
-			var freeIPs map[string]string
-			freeIPs, err = apiClient.GetAvailablePublicIPAddresses(networkDomainID)
-			if err != nil {
-				context.Fail(err)
-			}
-
-			if len(freeIPs) == 0 {
-				log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
-
-				// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-				defer asyncLock.Release() // Released at the end of the current attempt.
-
-				var blockID string
-				blockID, err = apiClient.AddPublicIPBlock(networkDomainID)
-				if err != nil {
-					if compute.IsResourceBusyError(err) {
-						context.Retry()
-					} else {
-						context.Fail(err)
-					}
-
-					return
-				}
-
-				asyncLock.Release()
-
-				var block *compute.PublicIPBlock
-				block, err = apiClient.GetPublicIPBlock(blockID)
-				if err != nil {
-					context.Fail(err)
-
-					return
-				}
-
-				if block == nil {
-					context.Fail(
-						fmt.Errorf("Cannot find newly-added public IPv4 address block '%s'.", blockID),
-					)
-
-					return
-				}
-
-				log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').", block.ID, block.Size, block.BaseIP)
-			}
-
-		}
-
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-		defer asyncLock.Release() // Released at the end of the current attempt.
+		defer asyncLock.Release()
 
 		virtualListenerID, err = apiClient.CreateVirtualListener(compute.NewVirtualListenerConfiguration{
 			Name:                   name,
@@ -278,12 +226,24 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 		if err != nil {
 			if compute.IsResourceBusyError(err) {
 				context.Retry()
+			} else if compute.IsNoIPAddressAvailableError(err) {
+				log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
+
+				publicIPBlock, err := addPublicIPBlock(networkDomainID, apiClient)
+				if err != nil {
+					context.Fail(err)
+
+					return
+				}
+				log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').",
+					publicIPBlock.ID, publicIPBlock.Size, publicIPBlock.BaseIP,
+				)
+
+				context.Retry() // We'll use the new block next time around.
 			} else {
 				context.Fail(err)
 			}
 		}
-
-		asyncLock.Release()
 	})
 	if operationError != nil {
 		return operationError
@@ -423,12 +383,11 @@ func resourceVirtualListenerDelete(data *schema.ResourceData, provider interface
 	log.Printf("Delete virtual listener '%s' ('%s') from network domain '%s'...", name, id, networkDomainID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Delete virtual listener '%s", id)
 
-	return providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	return providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release() // Released at the end of the current attempt.

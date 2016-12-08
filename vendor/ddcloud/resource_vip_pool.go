@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -198,9 +199,12 @@ func resourceVIPPoolRead(data *schema.ResourceData, provider interface{}) error 
 func resourceVIPPoolUpdate(data *schema.ResourceData, provider interface{}) error {
 	id := data.Id()
 	log.Printf("Update VIP pool '%s'...", id)
+
 	configuration := &compute.EditVIPPoolConfiguration{}
+
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
+
 	propertyHelper := propertyHelper(data)
 	if data.HasChange(resourceKeyVIPPoolDescription) {
 		configuration.Description = propertyHelper.GetOptionalString(resourceKeyVIPPoolDescription, true)
@@ -234,7 +238,20 @@ func resourceVIPPoolUpdate(data *schema.ResourceData, provider interface{}) erro
 		configuration.SlowRampTime = propertyHelper.GetOptionalInt(resourceKeyVIPPoolSlowRampTime, false)
 	}
 
-	return apiClient.EditVIPPool(id, *configuration)
+	operationDescription := fmt.Sprintf("Edit VIP pool '%s'", id)
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+		editError := apiClient.EditVIPPool(id, *configuration)
+		if compute.IsResourceBusyError(editError) {
+			context.Retry()
+		} else if editError != nil {
+			context.Fail(editError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func resourceVIPPoolDelete(data *schema.ResourceData, provider interface{}) error {
@@ -247,7 +264,20 @@ func resourceVIPPoolDelete(data *schema.ResourceData, provider interface{}) erro
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	return apiClient.DeleteVIPPool(id)
+	operationDescription := fmt.Sprintf("Delete VIP pool '%s'", id)
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+		deleteError := apiClient.DeleteVIPPool(id)
+		if compute.IsResourceBusyError(deleteError) {
+			context.Retry()
+		} else if deleteError != nil {
+			context.Fail(deleteError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getHealthMonitorIDsByName(networkDomainID string, apiClient *compute.Client) (map[string]string, error) {

@@ -236,7 +236,6 @@ func resourceFirewallRuleCreate(data *schema.ResourceData, provider interface{})
 	log.Printf("Firewall rule configuration: '%#v'", configuration)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	var (
@@ -244,7 +243,7 @@ func resourceFirewallRuleCreate(data *schema.ResourceData, provider interface{})
 		createError error
 	)
 	operationDescription := fmt.Sprintf("Create firewall rule '%s'", configuration.Name)
-	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
@@ -335,12 +334,11 @@ func resourceFirewallRuleDelete(data *schema.ResourceData, provider interface{})
 	log.Printf("Delete firewall rule '%s' in network domain '%s'.", id, networkDomainID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	var deleteError error
 	operationDescription := fmt.Sprintf("Delete firewall rule '%s'", id)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release() // Released at the end of the current attempt.

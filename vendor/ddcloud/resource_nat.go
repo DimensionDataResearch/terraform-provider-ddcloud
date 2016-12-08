@@ -90,7 +90,6 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 	log.Printf("Create NAT rule (from public IP '%s' to private IP '%s') in network domain '%s'.", publicIPDescription, privateIP, networkDomainID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	var (
@@ -99,67 +98,32 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 	)
 
 	operationDescription := fmt.Sprintf("Create NAT rule (from public IP '%s' to private IP '%s')", publicIPDescription, privateIP)
-	err = providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
-		var freeIPs map[string]string
-		freeIPs, createError = apiClient.GetAvailablePublicIPAddresses(networkDomainID)
-		if createError != nil {
-			context.Fail(createError)
-		}
-
-		if len(freeIPs) == 0 {
-			log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
-
-			// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-			defer asyncLock.Release() // Released at the end of the current attempt.
-
-			var blockID string
-			blockID, createError = apiClient.AddPublicIPBlock(networkDomainID)
-			if createError != nil {
-				if compute.IsResourceBusyError(createError) {
-					context.Retry()
-				} else {
-					context.Fail(createError)
-				}
-
-				return
-			}
-
-			asyncLock.Release()
-
-			var block *compute.PublicIPBlock
-			block, createError = apiClient.GetPublicIPBlock(blockID)
-			if createError != nil {
-				context.Fail(createError)
-
-				return
-			}
-
-			if block == nil {
-				context.Fail(
-					fmt.Errorf("Cannot find newly-added public IPv4 address block '%s'.", blockID),
-				)
-
-				return
-			}
-
-			log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').", block.ID, block.Size, block.BaseIP)
-		}
-
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-		defer asyncLock.Release() // Released at the end of the current attempt.
+		defer asyncLock.Release()
 
 		natRuleID, createError = apiClient.AddNATRule(networkDomainID, privateIP, publicIP)
 		if createError != nil {
 			if compute.IsResourceBusyError(createError) {
 				context.Retry()
+			} else if compute.IsNoIPAddressAvailableError(createError) {
+				log.Printf("There are no free public IPv4 addresses in network domain '%s'; requesting allocation of a new address block...", networkDomainID)
+
+				publicIPBlock, addBlockError := addPublicIPBlock(networkDomainID, apiClient)
+				if addBlockError != nil {
+					context.Fail(addBlockError)
+
+					return
+				}
+				log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').",
+					publicIPBlock.ID, publicIPBlock.Size, publicIPBlock.BaseIP,
+				)
+
+				context.Retry() // We'll use the new block next time around.
 			} else {
 				context.Fail(createError)
 			}
 		}
-
-		asyncLock.Release()
 	})
 	if err != nil {
 		return err
@@ -228,12 +192,11 @@ func resourceNATDelete(data *schema.ResourceData, provider interface{}) error {
 	log.Printf("Delete NAT '%s' (private IP = '%s', public IP = '%s') in network domain '%s'.", id, privateIP, publicIP, networkDomainID)
 
 	providerState := provider.(*providerState)
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Delete NAT '%s", id)
 
-	return providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	return providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release() // Released at the end of the current attempt.
@@ -246,8 +209,6 @@ func resourceNATDelete(data *schema.ResourceData, provider interface{}) error {
 				context.Fail(err)
 			}
 		}
-
-		asyncLock.Release()
 	})
 }
 

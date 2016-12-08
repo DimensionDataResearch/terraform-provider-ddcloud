@@ -347,7 +347,26 @@ func (helper resourcePropertyHelper) GetDisks() (disks models.Disks) {
 	if !ok {
 		return
 	}
-	serverDisks := value.([]interface{})
+	serverDisks, ok := value.([]interface{})
+	if !ok {
+		return
+	}
+
+	disks = models.NewDisksFromStateData(serverDisks)
+
+	return
+}
+
+func (helper resourcePropertyHelper) GetOldDisks() (disks models.Disks) {
+	if !helper.data.HasChange(resourceKeyServerDisk) {
+		return helper.GetDisks()
+	}
+
+	oldValue, _ := helper.data.GetChange(resourceKeyServerDisk)
+	serverDisks, ok := oldValue.([]interface{})
+	if !ok {
+		return
+	}
 
 	disks = models.NewDisksFromStateData(serverDisks)
 

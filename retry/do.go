@@ -10,12 +10,12 @@ import (
 type Do interface {
 	// GetRetryPeriod retrieves the Do's currently-configured retry period.
 	//
-	// This determines how often the Do will retry operations.
+	// This determines the *maximum* period that the Do will wait between retries.
 	GetRetryPeriod() time.Duration
 
 	// SetRetryPeriod configures the Do's retry period.
 	//
-	// This determines how long the Do will wait between retries operations.
+	// This determines the *maximum* period that the Do will wait between retries.
 	SetRetryPeriod(retryPeriod time.Duration)
 
 	// DoAction performs the specified action until it succeeds or times out.
@@ -45,7 +45,7 @@ var _ Do = &doWithRetry{}
 
 // GetRetryPeriod retrieves the Do's currently-configured retry period.
 //
-// This determines how often the Do will retry operations.
+// This determines the *maximum* period that the Do will wait between retries.
 func (do *doWithRetry) GetRetryPeriod() time.Duration {
 	log.Printf("Do.GetRetryPeriod - stateLock.Lock()")
 	do.stateLock.Lock()
@@ -57,7 +57,7 @@ func (do *doWithRetry) GetRetryPeriod() time.Duration {
 
 // SetRetryPeriod configures the Do's retry period.
 //
-// This determines how long the Do will wait between retries operations.
+// This determines the *maximum* period that the Do will wait between retries.
 func (do *doWithRetry) SetRetryPeriod(retryPeriod time.Duration) {
 	log.Printf("Do.SetRetryPeriod - stateLock.Lock()")
 	do.stateLock.Lock()
@@ -70,7 +70,7 @@ func (do *doWithRetry) SetRetryPeriod(retryPeriod time.Duration) {
 // DoAction performs the specified action until it succeeds or times out.
 //
 // description is a short description of the function used for logging.
-// timeout is the period of time before the process
+// timeout is the period of time before the action fails automatically
 // action is the action function to invoke
 //
 // Returns the error (if any) passed to Context.Fail or caused by the operation timing out.

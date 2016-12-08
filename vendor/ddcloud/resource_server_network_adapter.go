@@ -96,11 +96,10 @@ func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
 func addServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
 	log.Printf("Add network adapter to server '%s'", serverID)
 
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Add network adapter to server '%s'", serverID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
@@ -150,11 +149,10 @@ func addServerNetworkAdapter(providerState *providerState, serverID string, netw
 func modifyServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
 	log.Printf("Update IP address(es) for network adapter '%s'.", networkAdapter.ID)
 
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	operationDescription := fmt.Sprintf("Update IP address info for network adapter '%s'", networkAdapter.ID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
@@ -182,12 +180,11 @@ func modifyServerNetworkAdapter(providerState *providerState, serverID string, n
 func removeServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
 	log.Printf("Remove network adapter '%s'.", networkAdapter.ID)
 
-	providerSettings := providerState.Settings()
 	apiClient := providerState.Client()
 
 	removingAdapter := true
 	operationDescription := fmt.Sprintf("Remove network adapter '%s'", networkAdapter.ID)
-	err := providerState.Retry().Action(operationDescription, providerSettings.RetryTimeout, func(context retry.Context) {
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 

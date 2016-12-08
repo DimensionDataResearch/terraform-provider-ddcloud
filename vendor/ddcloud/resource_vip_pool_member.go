@@ -2,10 +2,12 @@ package ddcloud
 
 import (
 	"fmt"
-	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
 	"log"
 	"strconv"
+
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 const (
@@ -72,7 +74,17 @@ func resourceVIPPoolMemberCreate(data *schema.ResourceData, provider interface{}
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	memberID, err := apiClient.AddVIPPoolMember(poolID, nodeID, status, port)
+	var memberID string
+	operationDescription := fmt.Sprintf("Add node '%s' to VIP pool '%s'", nodeID, poolID)
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+		var addError error
+		memberID, addError = apiClient.AddVIPPoolMember(poolID, nodeID, status, port)
+		if compute.IsResourceBusyError(addError) {
+			context.Retry()
+		} else if addError != nil {
+			context.Fail(addError)
+		}
+	})
 	if err != nil {
 		return err
 	}
@@ -145,28 +157,54 @@ func resourceVIPPoolMemberUpdate(data *schema.ResourceData, provider interface{}
 	id := data.Id()
 	log.Printf("Update VIP pool member '%s'...", id)
 
-	providerState := provider.(*providerState)
-	apiClient := providerState.Client()
-
 	if !data.HasChange(resourceKeyVIPPoolMemberStatus) {
 		return nil
 	}
 
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
 	status := data.Get(resourceKeyVIPPoolMemberStatus).(string)
 
-	return apiClient.EditVIPPoolMember(id, status)
+	operationDescription := fmt.Sprintf("Edit VIP pool member '%s'", id)
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+		editError := apiClient.EditVIPPoolMember(id, status)
+		if compute.IsResourceBusyError(editError) {
+			context.Retry()
+		} else if editError != nil {
+			context.Fail(editError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func resourceVIPPoolMemberDelete(data *schema.ResourceData, provider interface{}) error {
-	id := data.Id()
+	memberID := data.Id()
 	poolID := data.Get(resourceKeyVIPPoolMemberPoolID).(string)
 
-	log.Printf("Delete member '%s' from VIP pool '%s'.", id, poolID)
+	log.Printf("Delete member '%s' from VIP pool '%s'.", memberID, poolID)
 
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	return apiClient.RemoveVIPPoolMember(id)
+	operationDescription := fmt.Sprintf("Remove member '%s' from VIP pool '%s'", memberID, poolID)
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+		removeError := apiClient.RemoveVIPPoolMember(memberID)
+		if compute.IsResourceBusyError(removeError) {
+			context.Retry()
+		} else if removeError != nil {
+			context.Fail(removeError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func hashVIPPoolMember(item interface{}) int {
