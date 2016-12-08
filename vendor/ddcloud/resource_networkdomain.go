@@ -318,6 +318,7 @@ func resourceNetworkDomainImport(data *schema.ResourceData, provider interface{}
 	data.Set(resourceKeyNetworkDomainDescription, networkDomain.Description)
 	data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
 	data.Set(resourceKeyNetworkDomainPlan, networkDomain.Type)
+	data.Set(resourceKeyNetworkDomainDataCenter, networkDomain.DatacenterID)
 
 	importedData = []*schema.ResourceData{data}
 
