@@ -57,3 +57,13 @@ The following arguments are supported:
 The following attributes are exported:
 
 * `nat_ipv4_address` - The IPv4 address for the network domain's IPv6->IPv4 Source Network Address Translation (SNAT). This is the IPv4 address of the network domain's IPv4 egress.
+
+## Import
+
+Once declared in configuration, `ddcloud_networkdomain` instances can be imported using the Id.
+
+For example:
+
+```bash
+$ terraform import ddcloud_networkdomain.my-domain 37a37623-5382-495b-9637-5fe75ffb1e01
+```
