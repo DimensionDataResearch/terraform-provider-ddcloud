@@ -28,6 +28,9 @@ func resourceNetworkDomain() *schema.Resource {
 		Read:   resourceNetworkDomainRead,
 		Update: resourceNetworkDomainUpdate,
 		Delete: resourceNetworkDomainDelete,
+		Importer: &schema.ResourceImporter{
+			State: resourceNetworkDomainImport,
+		},
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyNetworkDomainName: &schema.Schema{
@@ -292,4 +295,33 @@ func deleteAllPublicIPBlocks(networkDomainID string, providerState *providerStat
 	}
 
 	return nil
+}
+
+// Import data for an existing network domain.
+func resourceNetworkDomainImport(data *schema.ResourceData, provider interface{}) (importedData []*schema.ResourceData, err error) {
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	networkDomainID := data.Id()
+	log.Printf("Import network domain '%s'.", networkDomainID)
+
+	var networkDomain *compute.NetworkDomain
+	networkDomain, err = apiClient.GetNetworkDomain(networkDomainID)
+	if err != nil {
+		return
+	}
+	if networkDomain == nil {
+		err = fmt.Errorf("Network domain '%s' not found", networkDomainID)
+
+		return
+	}
+
+	data.Set(resourceKeyNetworkDomainName, networkDomain.Name)
+	data.Set(resourceKeyNetworkDomainDescription, networkDomain.Description)
+	data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
+	data.Set(resourceKeyNetworkDomainPlan, networkDomain.Type)
+
+	importedData = []*schema.ResourceData{data}
+
+	return
 }
