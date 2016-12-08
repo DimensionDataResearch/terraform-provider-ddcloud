@@ -251,7 +251,6 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 
 				log.Printf("Allocated a new public IPv4 address block '%s' (%d addresses, starting at '%s').", block.ID, block.Size, block.BaseIP)
 			}
-
 		}
 
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
