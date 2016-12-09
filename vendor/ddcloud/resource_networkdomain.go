@@ -12,14 +12,15 @@ import (
 )
 
 const (
-	resourceKeyNetworkDomainName           = "name"
-	resourceKeyNetworkDomainDescription    = "description"
-	resourceKeyNetworkDomainPlan           = "plan"
-	resourceKeyNetworkDomainDataCenter     = "datacenter"
-	resourceKeyNetworkDomainNatIPv4Address = "nat_ipv4_address"
-	resourceKeyNetworkDomainFirewallRule   = "default_firewall_rule"
-	resourceCreateTimeoutNetworkDomain     = 5 * time.Minute
-	resourceDeleteTimeoutNetworkDomain     = 5 * time.Minute
+	resourceKeyNetworkDomainName                     = "name"
+	resourceKeyNetworkDomainDescription              = "description"
+	resourceKeyNetworkDomainPlan                     = "plan"
+	resourceKeyNetworkDomainDataCenter               = "datacenter"
+	resourceKeyNetworkDomainNatIPv4Address           = "nat_ipv4_address"
+	resourceKeyNetworkDomainOutsideTransitIPv4Subnet = "outside_transit_ipv4_subnet"
+	resourceKeyNetworkDomainFirewallRule             = "default_firewall_rule"
+	resourceCreateTimeoutNetworkDomain               = 5 * time.Minute
+	resourceDeleteTimeoutNetworkDomain               = 5 * time.Minute
 )
 
 func resourceNetworkDomain() *schema.Resource {
@@ -65,6 +66,11 @@ func resourceNetworkDomain() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The IPv4 address for the network domain's IPv6->IPv4 Source Network Address Translation (SNAT). This is the IPv4 address of the network domain's IPv4 egress",
+			},
+			resourceKeyNetworkDomainOutsideTransitIPv4Subnet: &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The IPv4 subnet for transit outside of the network domain",
 			},
 			resourceKeyNetworkDomainFirewallRule: schemaNetworkDomainFirewallRule(),
 		},
@@ -122,6 +128,13 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 	data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
 	data.SetPartial(resourceKeyNetworkDomainNatIPv4Address)
 
+	data.Set(resourceKeyNetworkDomainOutsideTransitIPv4Subnet, fmt.Sprintf(
+		"%s/%d",
+		networkDomain.OutsideTransitVLANIPv4Subnet.BaseAddress,
+		networkDomain.OutsideTransitVLANIPv4Subnet.PrefixSize,
+	))
+	data.SetPartial(resourceKeyNetworkDomainOutsideTransitIPv4Subnet)
+
 	err = applyNetworkDomainDefaultFirewallRules(data, apiClient)
 	if err != nil {
 		return err
@@ -164,6 +177,12 @@ func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) 
 		data.SetPartial(resourceKeyNetworkDomainDataCenter)
 		data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
 		data.SetPartial(resourceKeyNetworkDomainNatIPv4Address)
+		data.Set(resourceKeyNetworkDomainOutsideTransitIPv4Subnet, fmt.Sprintf(
+			"%s/%d",
+			networkDomain.OutsideTransitVLANIPv4Subnet.BaseAddress,
+			networkDomain.OutsideTransitVLANIPv4Subnet.PrefixSize,
+		))
+		data.SetPartial(resourceKeyNetworkDomainOutsideTransitIPv4Subnet)
 	} else {
 		data.SetId("") // Mark resource as deleted.
 	}

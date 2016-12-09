@@ -128,6 +128,8 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	// Log provider version (for diagnostic purposes).
 	log.Print("ddcloud provider version is " + ProviderVersion)
 
+	log.Printf("ProviderSettings = %#v", providerSettings)
+
 	region := strings.ToLower(
 		providerSettings.Get("region").(string),
 	)

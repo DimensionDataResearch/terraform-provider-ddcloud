@@ -1,8 +1,10 @@
 package ddcloud
 
 import (
-	"github.com/hashicorp/terraform/helper/schema"
+	"fmt"
 	"log"
+
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 func dataSourceNetworkDomain() *schema.Resource {
@@ -35,6 +37,11 @@ func dataSourceNetworkDomain() *schema.Resource {
 				Computed:    true,
 				Description: "The IPv4 address for the network domain's IPv6->IPv4 Source Network Address Translation (SNAT). This is the IPv4 address of the network domain's IPv4 egress",
 			},
+			resourceKeyNetworkDomainOutsideTransitIPv4Subnet: &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The IPv4 subnet for transit outside of the network domain",
+			},
 		},
 	}
 }
@@ -58,6 +65,11 @@ func dataSourceNetworkDomainRead(data *schema.ResourceData, provider interface{}
 		data.Set(resourceKeyNetworkDomainDescription, networkDomain.Description)
 		data.Set(resourceKeyNetworkDomainPlan, networkDomain.Type)
 		data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
+		data.Set(resourceKeyNetworkDomainOutsideTransitIPv4Subnet, fmt.Sprintf(
+			"%s/%d",
+			networkDomain.OutsideTransitVLANIPv4Subnet.BaseAddress,
+			networkDomain.OutsideTransitVLANIPv4Subnet.PrefixSize,
+		))
 	} else {
 		data.SetId("") // Mark resource as deleted.
 	}

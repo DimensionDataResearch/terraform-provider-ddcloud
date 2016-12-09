@@ -57,6 +57,7 @@ The following arguments are supported:
 The following attributes are exported:
 
 * `nat_ipv4_address` - The IPv4 address for the network domain's IPv6->IPv4 Source Network Address Translation (SNAT). This is the IPv4 address of the network domain's IPv4 egress.
+* `outside_transit_ipv4_subnet` - The IPv4 subnet for transit outside the network domain (CIDR format).
 
 ## Import
 
