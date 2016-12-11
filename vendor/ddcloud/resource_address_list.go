@@ -1,9 +1,10 @@
 package ddcloud
 
 import (
+	"log"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
-	"log"
 )
 
 const (
@@ -263,7 +264,7 @@ func resourceAddressListUpdate(data *schema.ResourceData, provider interface{}) 
 		editRequest.ChildListIDs = propertyHelper.GetStringSetItems(resourceKeyAddressListChildIDs)
 	}
 
-	err = client.EditIPAddressList(addressListID, editRequest)
+	err = client.EditIPAddressList(editRequest)
 	if err != nil {
 		return err
 	}

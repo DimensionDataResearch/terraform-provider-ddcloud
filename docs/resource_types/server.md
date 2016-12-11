@@ -96,6 +96,8 @@ If not specified, Google DNS (`8.8.4.4`) is used.
 
 ## Attribute Reference
 
+* `os_type` - The server operating system type (e.g. `CENTOS7/64`).
+* `os_family` - The server operating system family (e.g. `UNIX`, `WINDOWS`).
 * `primary_adapter_ipv4` - The IPv4 address of the server's primary network adapter.
 * `primary_adapter_ipv6` - The IPv6 address of the server's primary network adapter.
 * `primary_adapter_vlan` - The Id of the VLAN to which the server's primary network adapter is attached. Calculated if `primary_adapter_ipv4` is specified.

@@ -18,6 +18,8 @@ const (
 	resourceKeyServerAdminPassword      = "admin_password"
 	resourceKeyServerImage              = "image"
 	resourceKeyServerImageType          = "image_type"
+	resourceKeyServerOSType             = "os_type"
+	resourceKeyServerOSFamily           = "os_family"
 	resourceKeyServerNetworkDomainID    = "networkdomain"
 	resourceKeyServerMemoryGB           = "memory_gb"
 	resourceKeyServerCPUCount           = "cpu_count"
@@ -126,6 +128,16 @@ func resourceServer() *schema.Resource {
 
 					return
 				},
+			},
+			resourceKeyServerOSType: &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The server operating system type",
+			},
+			resourceKeyServerOSFamily: &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The server operating system family",
 			},
 			resourceKeyServerDisk: schemaDisk(),
 			resourceKeyServerNetworkDomainID: &schema.Schema{
@@ -284,6 +296,12 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		return err
 	}
 	image.ApplyTo(&deploymentConfiguration)
+
+	operatingSystem := image.GetOS()
+	data.Set(resourceKeyServerOSType, operatingSystem.DisplayName)
+	data.SetPartial(resourceKeyServerOSType)
+	data.Set(resourceKeyServerOSFamily, operatingSystem.Family)
+	data.SetPartial(resourceKeyServerOSFamily)
 
 	// Validate disk configuration.
 	configuredDisks := propertyHelper.GetDisks()
