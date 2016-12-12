@@ -81,7 +81,6 @@ func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
 					Optional: true,
 					Computed: true,
 					Default:  nil,
-					ForceNew: true,
 					Description: fmt.Sprintf("The type of network adapter (%s or %s)",
 						compute.NetworkAdapterTypeE1000,
 						compute.NetworkAdapterTypeVMXNET3,
@@ -146,7 +145,7 @@ func addServerNetworkAdapter(providerState *providerState, serverID string, netw
 	return nil
 }
 
-func modifyServerNetworkAdapter(providerState *providerState, serverID string, networkAdapter *models.NetworkAdapter) error {
+func modifyServerNetworkAdapterIP(providerState *providerState, serverID string, networkAdapter models.NetworkAdapter) error {
 	log.Printf("Update IP address(es) for network adapter '%s'.", networkAdapter.ID)
 
 	apiClient := providerState.Client()
@@ -173,6 +172,40 @@ func modifyServerNetworkAdapter(providerState *providerState, serverID string, n
 	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
 
 	log.Printf("Updated IP address(es) for network adapter '%s'.", networkAdapter.ID)
+
+	return err
+}
+
+func modifyServerNetworkAdapterType(providerState *providerState, serverID string, networkAdapter models.NetworkAdapter) error {
+	log.Printf("Change type of network adapter '%s' to '%s'.",
+		networkAdapter.ID,
+		networkAdapter.AdapterType,
+	)
+
+	apiClient := providerState.Client()
+
+	operationDescription := fmt.Sprintf("Change type of network adapter '%s'", networkAdapter.ID)
+	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
+		changeTypeError := apiClient.ChangeNetworkAdapterType(networkAdapter.ID, networkAdapter.AdapterType)
+		if compute.IsResourceBusyError(changeTypeError) {
+			context.Retry()
+		} else if changeTypeError != nil {
+			context.Fail(changeTypeError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Changing type of network adapter '%s'...", networkAdapter.ID)
+
+	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
+	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Change type", resourceUpdateTimeoutServer)
+
+	log.Printf("Changed type of network adapter '%s'.", networkAdapter.ID)
 
 	return err
 }

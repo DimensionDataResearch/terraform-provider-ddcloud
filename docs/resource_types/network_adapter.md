@@ -23,10 +23,10 @@ The following arguments are supported:
 At least one of `ipv4` or `vlan` must be specified.
 * `vlan` - (Optional) VLAN ID of the new network adapter.  
 At least one of `ipv4` or `vlan` must be specified.  
+**Note**: Changing this property will result in the adapter being destroyed and re-created.
 `vlan` is ignored if `ipv4` is also specified.  
 It's still useful to supply both, though, since it sets up a dependency between the NIC and the VLAN.
-* `type` - (Optional) The type of network adapter (`E1000` or `VMXNET3`).  
-**Note**: Changing this property will result in the adapter being destroyed and re-created.
+* `type` - (Optional) The type of network adapter (`E1000` or `VMXNET3`).
 
 ## Attribute Reference
 

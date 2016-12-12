@@ -56,7 +56,6 @@ func resourceNetworkAdapter() *schema.Resource {
 			resourceKeyNetworkAdapterType: &schema.Schema{
 				Type:         schema.TypeString,
 				Optional:     true,
-				ForceNew:     true,
 				Default:      nil,
 				Description:  "The type of network adapter (E1000 or VMXNET3)",
 				ValidateFunc: validateNetworkAdapterAdapterType,
@@ -251,19 +250,41 @@ func resourceNetworkAdapterRead(data *schema.ResourceData, provider interface{})
 
 func resourceNetworkAdapterUpdate(data *schema.ResourceData, provider interface{}) error {
 	propertyHelper := propertyHelper(data)
-	nicID := data.Id()
+	configuredNetworkAdapter := propertyHelper.GetNetworkAdapter()
 	serverID := data.Get(resourceKeyNetworkAdapterServerID).(string)
-	privateIPV4 := propertyHelper.GetOptionalString(resourceKeyNetworkAdapterPrivateIPV4, true)
 
 	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		return fmt.Errorf("Server not found with Id '%s'", serverID)
+	}
+
+	actualNetworkAdapter := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network).GetByID(configuredNetworkAdapter.ID)
+	if actualNetworkAdapter == nil {
+		log.Printf("Network adapter '%s' not found in server '%s'; will treat as deleted.",
+			configuredNetworkAdapter.ID,
+			serverID,
+		)
+		data.SetId("")
+
+		return nil
+	}
 
 	if data.HasChange(resourceKeyNetworkAdapterPrivateIPV4) {
-		log.Printf("changing the ip address of the nic with the id %s to %s", nicID, *privateIPV4)
-		err := updateNetworkAdapterIPAddress(providerState, serverID, nicID, privateIPV4)
+		err := modifyServerNetworkAdapterIP(providerState, serverID, configuredNetworkAdapter)
 		if err != nil {
 			return err
 		}
-		log.Printf("IP address of the nic with the id %s changed to %s", nicID, *privateIPV4)
+	}
+	if data.HasChange(resourceKeyNetworkAdapterType) {
+		err := modifyServerNetworkAdapterType(providerState, serverID, configuredNetworkAdapter)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -341,35 +362,6 @@ func resourceNetworkAdapterDelete(data *schema.ResourceData, provider interface{
 	}
 
 	return nil
-}
-
-// Notify the CloudControl infrastructure that a network adapter's IP address has changed.
-func updateNetworkAdapterIPAddress(providerState *providerState, serverID string, networkAdapterID string, primaryIPv4 *string) error {
-	log.Printf("Update IP address for network adapter '%s'...", networkAdapterID)
-
-	apiClient := providerState.Client()
-
-	operationDescription := fmt.Sprintf("Update IP address for network adapter '%s'", networkAdapterID)
-	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
-		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-		defer asyncLock.Release()
-
-		notifyError := apiClient.NotifyServerIPAddressChange(networkAdapterID, primaryIPv4, nil)
-		if compute.IsResourceBusyError(notifyError) {
-			context.Retry()
-		} else if notifyError != nil {
-			context.Fail(notifyError)
-		}
-	})
-	if err != nil {
-		return err
-	}
-
-	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapterID)
-	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
-
-	return err
 }
 
 func validateNetworkAdapterAdapterType(value interface{}, propertyName string) (messages []string, errors []error) {

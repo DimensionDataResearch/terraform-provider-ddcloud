@@ -580,9 +580,18 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		log.Printf("Configured primary network adapter = %#v", configuredPrimaryNetworkAdapter)
 		log.Printf("Actual primary network adapter     = %#v", actualPrimaryNetworkAdapter)
 
-		err = modifyServerNetworkAdapter(providerState, serverID, configuredPrimaryNetworkAdapter)
-		if err != nil {
-			return err
+		if configuredPrimaryNetworkAdapter.PrivateIPv4Address != actualPrimaryNetworkAdapter.PrivateIPv4Address {
+			err = modifyServerNetworkAdapterIP(providerState, serverID, *configuredPrimaryNetworkAdapter)
+			if err != nil {
+				return err
+			}
+		}
+
+		if configuredPrimaryNetworkAdapter.AdapterType != actualPrimaryNetworkAdapter.AdapterType {
+			err = modifyServerNetworkAdapterType(providerState, serverID, *configuredPrimaryNetworkAdapter)
+			if err != nil {
+				return err
+			}
 		}
 
 		// Capture updated public IPv4 address (if any).
