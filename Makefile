@@ -1,6 +1,6 @@
 PROVIDER_NAME = ddcloud
 
-VERSION = 1.2.0-beta1
+VERSION = 1.2.0-beta2
 VERSION_INFO_FILE = ./vendor/$(PROVIDER_NAME)/version-info.go
 
 BIN_DIRECTORY   = _bin

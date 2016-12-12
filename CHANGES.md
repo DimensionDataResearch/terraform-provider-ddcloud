@@ -1,5 +1,11 @@
 # Changes
 
+# v1.2.0-beta2
+
+Enhancements:
+
+* Enable changing of adapter type for existing network adapters, where supported (#80).
+
 ## v1.2.0-beta1
 
 Enhancements:
