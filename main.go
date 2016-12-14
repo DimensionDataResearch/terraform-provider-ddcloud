@@ -1,11 +1,11 @@
 package main
 
 import (
-	"ddcloud"
 	"fmt"
 	"os"
 	"path"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/ddcloud"
 	"github.com/hashicorp/terraform/plugin"
 )
 

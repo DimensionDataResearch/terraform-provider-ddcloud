@@ -1,7 +1,7 @@
 PROVIDER_NAME = ddcloud
 
 VERSION = 1.2.0-beta2
-VERSION_INFO_FILE = ./vendor/$(PROVIDER_NAME)/version-info.go
+VERSION_INFO_FILE = ./$(PROVIDER_NAME)/version-info.go
 
 BIN_DIRECTORY   = _bin
 EXECUTABLE_NAME = terraform-provider-$(PROVIDER_NAME)
@@ -9,8 +9,8 @@ DIST_ZIP_PREFIX = $(EXECUTABLE_NAME).v$(VERSION)
 
 REPO_BASE     = github.com/DimensionDataResearch
 REPO_ROOT     = $(REPO_BASE)/dd-cloud-compute-terraform
+PROVIDER_ROOT = $(REPO_ROOT)/$(PROVIDER_NAME)
 VENDOR_ROOT   = $(REPO_ROOT)/vendor
-PROVIDER_ROOT = $(VENDOR_ROOT)/$(PROVIDER_NAME)
 
 default: fmt build test
 
