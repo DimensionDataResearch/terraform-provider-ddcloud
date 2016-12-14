@@ -115,4 +115,4 @@ Must specify at least one address, or one child list Id.
 
 ## Attribute Reference
 
-There are currently no additional attributes for `ddcloud_port_list`.
+There are currently no additional attributes for `ddcloud_address_list`.
