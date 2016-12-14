@@ -107,6 +107,9 @@ func Provider() terraform.ResourceProvider {
 
 			// A virtual listener is the top-level entity for load-balancing functionality.
 			"ddcloud_virtual_listener": resourceVirtualListener(),
+
+			// A reserved IPv6 or private IPv4 address on a VLAN.
+			"ddcloud_ip_address_reservation": resourceIPAddressReservation(),
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{

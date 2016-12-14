@@ -24,7 +24,7 @@
             "remotePath": "",
             "port": 2345,
             "host": "127.0.0.1",
-            "program": "github.com/DimensionDataResearch/dd-cloud-compute-terraform/vendor/ddcloud",
+            "program": "github.com/DimensionDataResearch/dd-cloud-compute-terraform/ddcloud",
             "env": {},
             "args": [
                 "Test"
