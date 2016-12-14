@@ -1,5 +1,12 @@
 # Changes
 
+# v1.2.0-beta3
+
+Enhancements:
+
+* Add new (experimental) `ddcloud_ip_address_reservation` resource type.  
+This resource type allows specific IP addresses to be reserved on VLANs. It is only intended to support advanced usage scenarios.
+
 # v1.2.0-beta2
 
 Enhancements:
