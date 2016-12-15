@@ -30,3 +30,7 @@ And the following data-source types:
 
 * [ddcloud_networkdomain](datasource_types/networkdomain.md) - A CloudControl network domain (lookup by name and data centre).
 * [ddcloud_vlan](datasource_types/vlan.md) - A CloudControl Virtual LAN (VLAN) (lookup by name and network domain).
+
+## Migration
+
+For information about migrating from v1.0 or v1.1 to v1.2, see the [v1.2 migration docs](migrating/v1.1-v1.2.md).
