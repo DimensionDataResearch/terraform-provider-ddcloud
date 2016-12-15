@@ -13,13 +13,14 @@ Currently, the following resource types are supported:
 * `ddcloud_firewall_rule`: A firewall rule
 * `ddcloud_address_list`: A network address list
 * `ddcloud_port_list`: A network port list
-* `ddcloud_vip_node`: A Virtual IP (VIP) node.
-* `ddcloud_vip_pool`: A Virtual IP (VIP) pool.
-* `ddcloud_vip_pool_member`: A Virtual IP (VIP) pool membership (node -> pool).
+* `ddcloud_vip_node`: A Virtual IP (VIP) node
+* `ddcloud_vip_pool`: A Virtual IP (VIP) pool
+* `ddcloud_vip_pool_member`: A Virtual IP (VIP) pool membership (node -> pool)
 
 And the following data-source types are supported:
 
-* `ddcloud_networkdomain`: A network domain (lookup by name and data centre).
+* `ddcloud_networkdomain`: A network domain (lookup by name and data centre)
+* `ddcloud_vlan`: A VLAN (lookup by name and network domain)
 
 For more information, see the [provider documentation](docs/).
 
