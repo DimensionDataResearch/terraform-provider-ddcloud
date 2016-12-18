@@ -2,13 +2,120 @@ package ddcloud
 
 import (
 	"fmt"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
 	"strings"
 	"testing"
+
+	"math/rand"
+
+	"github.com/hashicorp/terraform/helper/resource"
+	"github.com/hashicorp/terraform/terraform"
 )
 
-// Aggregate test helpers for resources.
+/*
+ * Common resource definitions for acceptance tests.
+ */
+
+const (
+	testAccTargetRegion              = "AU"
+	testAccResourceRandomName        = "acc_test"
+	testAccResourceNetworkDomainName = "acc_test_domain"
+	testAccResourceVLANName          = "acc_test_vlan"
+
+	testAccResourceRandomByteLength        = 2
+	testAccResourceNetworkDomainDatacenter = "AU9"
+	testAccResourceVLANNetworkAddress      = "10.0.0.1/24"
+)
+
+// The default provider configuration for acceptance test runs.
+func testAccProviderConfig() string {
+	return testAccProviderConfigCustom(testAccTargetRegion)
+}
+
+// Custom provider configuration for acceptance test runs.
+func testAccProviderConfigCustom(region string) string {
+	return fmt.Sprintf(`
+		provider "ddcloud" {
+			region = "%s"
+		}
+	`, region)
+}
+
+// Resource to provide the default random number for acceptance test runs.
+func testAccResourceRandom() string {
+	return testAccResourceRandomCustom(
+		testAccResourceRandomByteLength,
+		testAccResourceRandomName,
+	)
+}
+
+// Resource to provide a custom random number for acceptance test runs.
+func testAccResourceRandomCustom(byteLength int, resourceName string) string {
+	return fmt.Sprintf(`
+		resource "random" "%s" {
+			byte_length = %d
+		}
+	`, resourceName, byteLength)
+}
+
+// Resource representing the default network domain for acceptance tests.
+func testAccResourceNetworkDomain() string {
+	return testAccResourceNetworkDomainCustom(
+		testAccResourceNetworkDomainDatacenter,
+		testAccResourceRandomName,
+		testAccResourceNetworkDomainName,
+	)
+}
+
+// Resource representing a custom network domain for acceptance tests.
+func testAccResourceNetworkDomainCustom(datacenter string, randomResourceName string, resourceName string) string {
+	return fmt.Sprintf(`
+		resource "ddcloud_networkdomain" "%s" {
+			name        = "tf_acc_test_domain_${random.%s.b64}"
+			description = "Network domain for Terraform acceptance test."
+			datacenter  = "%s"
+		}
+	`, resourceName, randomResourceName, datacenter)
+}
+
+// Resource representing the default VLAN for acceptance tests.
+func testAccResourceVLAN() string {
+	return testAccResourceVLANCustom(
+		testAccResourceVLANNetworkAddress,
+		testAccResourceVLANName,
+		testAccResourceRandomName,
+		testAccResourceNetworkDomainName,
+	)
+}
+
+// Resource representing a custom VLAN for acceptance tests.
+func testAccResourceVLANCustom(ipv4Network string, networkDomainResourceName string, randomResourceName string, resourceName string) string {
+	ipv4NetworkComponents := strings.Split(ipv4Network, "/")
+
+	return fmt.Sprintf(`
+		resource "ddcloud_vlan" "%s" {
+			name				= "tf_acc_test_vlan_${random.%s.b64}"
+			description			= "VLAN for Terraform acceptance test."
+
+			ipv4_base_address	= "%s"
+			ipv4_prefix_size	= %s
+			
+			networkdomain		= "%s"
+		}
+	`, resourceName, randomResourceName, networkDomainResourceName, ipv4NetworkComponents[0], ipv4NetworkComponents[1])
+}
+
+/*
+ * Random numbers for acceptance tests.
+ */
+
+// Make a name unique by appending "-x", where x is a random number.
+func testAccMakeUniqueName(name string) string {
+	return fmt.Sprintf("%s-%d", name, rand.Int())
+}
+
+/*
+ * Aggregate test helpers for resources.
+ */
 
 // Data structure that holds resource data for use between test steps.
 type testAccResourceData struct {
