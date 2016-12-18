@@ -45,13 +45,17 @@ func testAccDDCloudAntiAffinityRuleBasic() string {
 			memory_gb				= 8
 
 			networkdomain 			= "${ddcloud_networkdomain.acc_test_domain.id}"
-			primary_adapter_vlan	= "${ddcloud_vlan.acc_test_vlan.id}"
-			primary_adapter_ipv4	= "192.168.17.${count.index + 6}"
+
+			primary_adapter {
+				vlan				= "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4				= "192.168.17.${count.index + 6}"
+			}
+			
 
 			dns_primary				= "8.8.8.8"
 			dns_secondary			= "8.8.4.4"
 
-			os_image_name			= "CentOS 7 64-bit 2 CPU"
+			image					= "CentOS 7 64-bit 2 CPU"
 
 			auto_start				= false
 
