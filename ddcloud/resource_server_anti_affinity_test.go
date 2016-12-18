@@ -46,7 +46,7 @@ func testAccDDCloudAntiAffinityRuleBasic() string {
 
 			networkdomain 			= "${ddcloud_networkdomain.acc_test_domain.id}"
 
-			primary_adapter {
+			primary_network_adapter {
 				vlan				= "${ddcloud_vlan.acc_test_vlan.id}"
 				ipv4				= "192.168.17.${count.index + 6}"
 			}
