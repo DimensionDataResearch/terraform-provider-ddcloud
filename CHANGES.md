@@ -1,5 +1,9 @@
 # Changes
 
+# v1.2.0-rc1
+
+* Fix broken acceptance tests for `ddcloud_server_anti_affinity`.
+
 # v1.2.0-beta3
 
 Enhancements:
