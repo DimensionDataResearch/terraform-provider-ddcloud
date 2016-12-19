@@ -32,6 +32,9 @@ func resourceServerMigrateState(schemaVersion int, instanceState *terraform.Inst
 		case 2:
 			log.Println("Found Server state v2; migrating to v3")
 			migratedState, err = migrateServerStateV2toV3(instanceState)
+		case 3:
+			log.Println("Found Server state v3; migrating to v4")
+			migratedState, err = migrateServerStateV3toV4(instanceState)
 		default:
 			err = fmt.Errorf("Unexpected schema version: %d", schemaVersion)
 		}
@@ -195,7 +198,62 @@ func migrateServerStateV2toV3(instanceState *terraform.InstanceState) (migratedS
 		}
 	}
 
-	log.Printf("Server attributes after migration from v1 to v2: %#v",
+	log.Printf("Server attributes after migration from v2 to v3: %#v",
+		migratedState.Attributes,
+	)
+
+	return
+}
+
+// Migrate state for ddcloud_server (v3 to v4).
+//
+// From:
+// primary_adapter_ipv4 = "xxx"
+// primary_adapter_vlan = "yyy"
+// primary_adapter_type = "zzz"
+//
+// To:
+// primary_network_adapter {
+//     ipv4 = "xxx"
+//     vlan = "yyy"
+//     type = "zzz"
+// }
+func migrateServerStateV3toV4(instanceState *terraform.InstanceState) (migratedState *terraform.InstanceState, err error) {
+	setPrimaryAdapterProperty := func(key string, value string) {
+		if key != "#" { // Count
+			key = "0." + key // First element of list
+		}
+		migratedState.Attributes[resourceKeyServerPrimaryNetworkAdapter+"."+key] = value
+	}
+
+	migratedState = instanceState
+
+	var primaryAdapterIPv4, primaryAdapterVLAN, primaryAdapterType string
+	for key := range migratedState.Attributes {
+		switch key {
+		case resourceKeyServerPrimaryAdapterIPv4:
+			primaryAdapterIPv4 = migratedState.Attributes[key]
+		case resourceKeyServerPrimaryAdapterVLAN:
+			primaryAdapterVLAN = migratedState.Attributes[key]
+		case resourceKeyServerPrimaryAdapterType:
+			primaryAdapterType = migratedState.Attributes[key]
+		}
+	}
+
+	if primaryAdapterIPv4 != "" || primaryAdapterVLAN != "" || primaryAdapterType != "" {
+		setPrimaryAdapterProperty("#", "1")
+	}
+	if primaryAdapterIPv4 != "" {
+		setPrimaryAdapterProperty(resourceKeyServerNetworkAdapterIPV4, primaryAdapterIPv4)
+	}
+	if primaryAdapterVLAN != "" {
+		setPrimaryAdapterProperty(resourceKeyServerNetworkAdapterVLANID, primaryAdapterVLAN)
+	}
+	if primaryAdapterType != "" {
+		setPrimaryAdapterProperty(resourceKeyServerNetworkAdapterType, primaryAdapterType)
+	}
+
+	log.Printf("Server attributes after migration from v3 to v4: %#v",
 		migratedState.Attributes,
 	)
 

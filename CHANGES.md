@@ -1,5 +1,9 @@
 # Changes
 
+# v1.2.0-rc2
+
+* Migrate properties for `ddcloud_server.primary_network_adapter`.
+
 # v1.2.0-rc1
 
 * Fix broken acceptance tests for `ddcloud_server_anti_affinity`.
