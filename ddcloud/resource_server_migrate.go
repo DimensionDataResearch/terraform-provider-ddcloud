@@ -244,13 +244,13 @@ func migrateServerStateV3toV4(instanceState *terraform.InstanceState) (migratedS
 		setPrimaryAdapterProperty("#", "1")
 	}
 	if primaryAdapterIPv4 != "" {
-		setPrimaryAdapterProperty(resourceKeyServerNetworkAdapterIPV4, primaryAdapterIPv4)
+		setPrimaryAdapterProperty(resourceKeyServerPrimaryAdapterIPv4, primaryAdapterIPv4)
 	}
 	if primaryAdapterVLAN != "" {
-		setPrimaryAdapterProperty(resourceKeyServerNetworkAdapterVLANID, primaryAdapterVLAN)
+		setPrimaryAdapterProperty(resourceKeyServerPrimaryAdapterVLAN, primaryAdapterVLAN)
 	}
 	if primaryAdapterType != "" {
-		setPrimaryAdapterProperty(resourceKeyServerNetworkAdapterType, primaryAdapterType)
+		setPrimaryAdapterProperty(resourceKeyServerPrimaryAdapterType, primaryAdapterType)
 	}
 
 	log.Printf("Server attributes after migration from v3 to v4: %#v",
