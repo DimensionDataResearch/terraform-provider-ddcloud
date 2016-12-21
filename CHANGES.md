@@ -1,5 +1,9 @@
 # Changes
 
+# v1.2.0
+
+Final (RTM) release of v1.2.0.
+
 # v1.2.0-rc2
 
 * Migrate properties for `ddcloud_server.primary_network_adapter`.
