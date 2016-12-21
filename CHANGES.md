@@ -1,5 +1,7 @@
 # Changes
 
+# v1.3.0-alpha1
+
 # v1.2.0
 
 Final (RTM) release of v1.2.0.
