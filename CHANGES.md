@@ -2,6 +2,10 @@
 
 # v1.3.0-alpha1
 
+## Breaking changes
+
+* Switch to Terraform v0.8.2 (_only_ works with v0.8+ now).
+
 # v1.2.0
 
 Final (RTM) release of v1.2.0.
