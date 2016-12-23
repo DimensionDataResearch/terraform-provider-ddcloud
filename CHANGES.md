@@ -1,6 +1,6 @@
 # Changes
 
-# v1.3.0-alpha1
+# v1.3.0-preview1
 
 ## Breaking changes
 
