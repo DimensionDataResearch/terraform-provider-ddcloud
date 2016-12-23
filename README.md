@@ -26,7 +26,7 @@ For more information, see the [provider documentation](docs/).
 
 ## Installing the provider
 
-Download the [latest release](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/releases) and place the provider executable in the same directory as the main Terraform executable.
+Download the [latest release](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/releases/latest) and place the provider executable in the same directory as the main Terraform executable.
 
 ### Docker
 
