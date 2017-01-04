@@ -87,7 +87,11 @@ resource "ddcloud_server" "my-server" {
   cpu_count            = 2
 
   networkdomain        = "${ddcloud_networkdomain.my-domain.id}"
-  primary_adapter_ipv4 = "192.168.17.10"
+
+  primary_network_adapter = {
+    ipv4               = "192.168.17.10"
+  }
+
   dns_primary          = "8.8.8.8"
   dns_secondary        = "8.8.4.4"
 
