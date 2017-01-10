@@ -847,11 +847,11 @@ func serverPowerOff(providerState *providerState, serverID string) error {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
-		shutdownError := apiClient.ShutdownServer(serverID)
-		if compute.IsResourceBusyError(shutdownError) {
+		powerOffError := apiClient.PowerOffServer(serverID)
+		if compute.IsResourceBusyError(powerOffError) {
 			context.Retry()
-		} else if shutdownError != nil {
-			context.Fail(shutdownError)
+		} else if powerOffError != nil {
+			context.Fail(powerOffError)
 		}
 	})
 	if err != nil {
