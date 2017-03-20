@@ -5,3 +5,6 @@ go:
 
 install:
   - go get github.com/hashicorp/terraform
+  - pushd $GOPATH/src/github.com/hashicorp/terraform
+  - git checkout v0.8.8
+  - popd
