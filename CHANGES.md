@@ -1,5 +1,9 @@
 # Changes
 
+# v1.3.0-preview2
+
+* Improvements to behaviour of `ddcloud_network_adapter` (matching up resources with corresponding server network adapters by Id).
+
 # v1.3.0-preview1
 
 ## Breaking changes
