@@ -203,9 +203,7 @@ func resourceNetworkAdapterExists(data *schema.ResourceData, provider interface{
 }
 
 func resourceNetworkAdapterRead(data *schema.ResourceData, provider interface{}) error {
-
-	id := data.Id()
-
+	networkAdapterID := data.Id()
 	serverID := data.Get(resourceKeyNetworkAdapterServerID).(string)
 
 	log.Printf("Get the server with the ID %s", serverID)
@@ -216,30 +214,21 @@ func resourceNetworkAdapterRead(data *schema.ResourceData, provider interface{})
 	if err != nil {
 		return err
 	}
-
 	if server == nil {
-		log.Printf("server with the id %s cannot be found", serverID)
+		return fmt.Errorf("Server '%s' not found", serverID)
 	}
 
-	serverNetworkAdapters := server.Network.AdditionalNetworkAdapters
+	serverNetworkAdapter := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network).GetByID(networkAdapterID)
+	if serverNetworkAdapter == nil {
+		log.Printf("Network adapter with Id '%s' was not found in server %s (will treat as deleted).",
+			networkAdapterID,
+			serverID,
+		)
+		data.SetId("") // Deleted.
 
-	var serverNetworkAdapter compute.VirtualMachineNetworkAdapter
-	for _, nic := range serverNetworkAdapters {
-		if *nic.ID == id {
-			serverNetworkAdapter = nic
-			break
-		}
-	}
-
-	if serverNetworkAdapter.ID == nil {
-		log.Printf("NetworkAdapter with the id %s doesn't exists", id)
-		data.SetId("") // NetworkAdapter deleted
 		return nil
 	}
 
-	if err != nil {
-		return err
-	}
 	data.Set(resourceKeyNetworkAdapterPrivateIPV4, serverNetworkAdapter.PrivateIPv4Address)
 	data.Set(resourceKeyNetworkAdapterVLANID, serverNetworkAdapter.VLANID)
 	data.Set(resourceKeyNetworkAdapterPrivateIPV6, serverNetworkAdapter.PrivateIPv6Address)
@@ -249,8 +238,7 @@ func resourceNetworkAdapterRead(data *schema.ResourceData, provider interface{})
 }
 
 func resourceNetworkAdapterUpdate(data *schema.ResourceData, provider interface{}) error {
-	propertyHelper := propertyHelper(data)
-	configuredNetworkAdapter := propertyHelper.GetNetworkAdapter()
+	networkAdapterID := data.Id()
 	serverID := data.Get(resourceKeyNetworkAdapterServerID).(string)
 
 	providerState := provider.(*providerState)
@@ -260,13 +248,13 @@ func resourceNetworkAdapterUpdate(data *schema.ResourceData, provider interface{
 		return err
 	}
 	if server == nil {
-		return fmt.Errorf("Server not found with Id '%s'", serverID)
+		return fmt.Errorf("Server '%s' not found", serverID)
 	}
 
-	actualNetworkAdapter := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network).GetByID(configuredNetworkAdapter.ID)
-	if actualNetworkAdapter == nil {
+	serverNetworkAdapter := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network).GetByID(networkAdapterID)
+	if serverNetworkAdapter == nil {
 		log.Printf("Network adapter '%s' not found in server '%s'; will treat as deleted.",
-			configuredNetworkAdapter.ID,
+			networkAdapterID,
 			serverID,
 		)
 		data.SetId("")
@@ -274,6 +262,7 @@ func resourceNetworkAdapterUpdate(data *schema.ResourceData, provider interface{
 		return nil
 	}
 
+	configuredNetworkAdapter := propertyHelper(data).GetNetworkAdapter()
 	if data.HasChange(resourceKeyNetworkAdapterPrivateIPV4) {
 		err := modifyServerNetworkAdapterIP(providerState, serverID, configuredNetworkAdapter)
 		if err != nil {
@@ -297,7 +286,7 @@ func resourceNetworkAdapterDelete(data *schema.ResourceData, provider interface{
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	log.Printf("Removing network adapter '%s' from server '%s'...", networkAdapterID, serverID)
+	log.Printf("Remove network adapter '%s' from server '%s'.", networkAdapterID, serverID)
 
 	server, err := apiClient.GetServer(serverID)
 	if err != nil {
@@ -305,6 +294,16 @@ func resourceNetworkAdapterDelete(data *schema.ResourceData, provider interface{
 	}
 	if server == nil {
 		return fmt.Errorf("Cannot find server '%s'", serverID)
+	}
+
+	serverNetworkAdapter := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network).GetByID(networkAdapterID)
+	if serverNetworkAdapter == nil {
+		log.Printf("Network adapter '%s' not found in server '%s' (will treat as deleted).",
+			networkAdapterID,
+			serverID,
+		)
+
+		return nil
 	}
 
 	isStarted := server.Started
@@ -333,7 +332,7 @@ func resourceNetworkAdapterDelete(data *schema.ResourceData, provider interface{
 		return err
 	}
 
-	log.Printf("Removing network adapter with ID %s from server '%s'...",
+	log.Printf("Removing network adapter '%s' from server '%s'...",
 		networkAdapterID,
 		serverID,
 	)
@@ -349,7 +348,7 @@ func resourceNetworkAdapterDelete(data *schema.ResourceData, provider interface{
 
 	data.SetId("") // Resource deleted.
 
-	log.Printf("Removed network adapter with ID %s from server '%s'.",
+	log.Printf("Removed network adapter '%s' from server '%s'.",
 		networkAdapterID,
 		serverID,
 	)
