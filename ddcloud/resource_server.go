@@ -33,7 +33,7 @@ const (
 	resourceKeyServerSecondaryDNS       = "dns_secondary"
 	resourceKeyServerAutoStart          = "auto_start"
 
-	// Obsolete propertirs
+	// Obsolete properties
 	resourceKeyServerOSImageID          = "os_image_id"
 	resourceKeyServerOSImageName        = "os_image_name"
 	resourceKeyServerCustomerImageID    = "customer_image_id"
