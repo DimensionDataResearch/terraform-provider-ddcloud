@@ -43,11 +43,12 @@ func schemaDisk() *schema.Schema {
 					Description: "The size (in GB) of the disk",
 				},
 				resourceKeyServerDiskSpeed: &schema.Schema{
-					Type:        schema.TypeString,
-					Optional:    true,
-					Default:     "STANDARD",
-					StateFunc:   normalizeSpeed,
-					Description: "The disk speed",
+					Type:         schema.TypeString,
+					Optional:     true,
+					Default:      "STANDARD",
+					StateFunc:    normalizeSpeed,
+					Description:  "The disk speed",
+					ValidateFunc: validateDiskSpeed,
 				},
 			},
 		},
@@ -532,4 +533,32 @@ func validateDisks(disks models.Disks) error {
 	}
 
 	return nil
+}
+
+func validateDiskSpeed(value interface{}, propertyName string) (messages []string, errors []error) {
+	if value == nil {
+		return
+	}
+
+	adapterType, ok := value.(string)
+	if !ok {
+		errors = append(errors,
+			fmt.Errorf("Unexpected value type '%v'", value),
+		)
+
+		return
+	}
+
+	switch adapterType {
+	case compute.ServerDiskSpeedEcomony:
+	case compute.ServerDiskSpeedStandard:
+	case compute.ServerDiskSpeedHighPerformance:
+		break
+	default:
+		errors = append(errors,
+			fmt.Errorf("Invalid disk speed '%s'", value),
+		)
+	}
+
+	return
 }

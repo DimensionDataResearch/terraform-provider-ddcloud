@@ -1,5 +1,9 @@
 # Changes
 
+# v1.3.0-alpha1
+
+* Support for additional disk storage tier (`ECONOMY`) and network adapter types (`E1000E`, `ENHANCED_VMXNET2`, and `FLEXIBLE_PCNET32`).
+
 # v1.3.0-preview2
 
 * Improvements to behaviour of `ddcloud_network_adapter` (matching up resources with corresponding server network adapters by Id).
