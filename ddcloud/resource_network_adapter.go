@@ -380,8 +380,8 @@ func validateNetworkAdapterAdapterType(value interface{}, propertyName string) (
 	switch adapterType {
 	case compute.NetworkAdapterTypeE1000:
 	case compute.NetworkAdapterTypeE1000E:
-	case compute.NetworkAdapterTypeENHANCED_VMXNET2:
-	case compute.NetworkAdapterTypeFLEXIBLE_PCNET32:
+	case compute.NetworkAdapterTypeEnhancedVMXNET2:
+	case compute.NetworkAdapterTypeFlexiblePCNET32:
 	case compute.NetworkAdapterTypeVMXNET3:
 		break
 	default:

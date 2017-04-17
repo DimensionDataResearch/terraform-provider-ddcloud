@@ -1,6 +1,7 @@
 package ddcloud
 
 import (
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -24,4 +25,12 @@ func stringToPtr(value string) *string {
 
 func isEmpty(value string) bool {
 	return len(value) == 0
+}
+
+func diskCount(scsiControllers []compute.VirtualMachineSCSIController) (count int) {
+	for _, scsiController := range scsiControllers {
+		count += len(scsiController.Disks)
+	}
+
+	return
 }

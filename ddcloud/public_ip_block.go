@@ -17,7 +17,7 @@ func addPublicIPBlock(networkDomainID string, apiClient *compute.Client) (*compu
 		return nil, err
 	}
 	if publicIPBlock == nil {
-		return nil, fmt.Errorf("Cannot find newly-added public IPv4 address block '%s'.", blockID)
+		return nil, fmt.Errorf("cannot find newly-added public IPv4 address block '%s'", blockID)
 	}
 
 	return publicIPBlock, nil

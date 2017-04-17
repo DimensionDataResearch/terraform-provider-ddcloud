@@ -42,6 +42,19 @@ func (disks Disks) ByUnitID() map[int]Disk {
 	return disksByUnitID
 }
 
+// ByBusNumber creates a map of Disk keyed by SCSI bus number.
+func (disks Disks) ByBusNumber() map[int][]Disk {
+	disksByBusNumber := make(map[int][]Disk)
+	for _, disk := range disks {
+		disksForBusNumber, _ := disksByBusNumber[disk.SCSIBusNumber]
+		disksForBusNumber = append(disksForBusNumber, disk)
+
+		disksByBusNumber[disk.SCSIBusNumber] = disksForBusNumber
+	}
+
+	return disksByBusNumber
+}
+
 // CaptureIDs updates the Disk Ids from the actual disks.
 func (disks Disks) CaptureIDs(actualDisks Disks) {
 	actualDisksByUnitID := actualDisks.ByUnitID()
@@ -159,10 +172,31 @@ func NewDisksFromMaps(diskPropertyList []map[string]interface{}) Disks {
 }
 
 // NewDisksFromVirtualMachineDisks creates Disks from an array of compute.VirtualMachineDisk.
+//
+// AF: Broken by SCSI controller changes
+//
 func NewDisksFromVirtualMachineDisks(virtualMachineDisks []compute.VirtualMachineDisk) Disks {
 	disks := make(Disks, len(virtualMachineDisks))
 	for index, virtualMachineDisk := range virtualMachineDisks {
 		disks[index] = NewDiskFromVirtualMachineDisk(virtualMachineDisk)
+	}
+
+	return disks
+}
+
+// NewDisksFromVirtualMachineSCSIControllers creates Disks from an array of compute.VirtualMachineSCSIController.
+//
+// Populates the SCSI bus number for each disk from its containing controller.
+func NewDisksFromVirtualMachineSCSIControllers(virtualMachineSCSIControllers []compute.VirtualMachineSCSIController) Disks {
+	var disks Disks
+
+	for _, virtualMachineSCSIController := range virtualMachineSCSIControllers {
+		for _, virtualMachineDisk := range virtualMachineSCSIController.Disks {
+			disk := NewDiskFromVirtualMachineDisk(virtualMachineDisk)
+			disk.SCSIBusNumber = virtualMachineSCSIController.BusNumber
+
+			disks = append(disks, disk)
+		}
 	}
 
 	return disks

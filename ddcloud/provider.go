@@ -138,14 +138,14 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	)
 	customEndPoint := providerSettings.Get("cloudcontrol_endpoint").(string)
 	if region == "" && customEndPoint == "" {
-		return nil, fmt.Errorf("Neither the 'region' nor the 'cloudcontrol_endpoint' provider properties were specified (the 'ddcloud' provider requires exactly one of these properties to be configured).")
+		return nil, fmt.Errorf("neither the 'region' nor the 'cloudcontrol_endpoint' provider properties were specified (the 'ddcloud' provider requires exactly one of these properties to be configured)")
 	}
 
 	username := providerSettings.Get("username").(string)
 	if isEmpty(username) {
 		username = os.Getenv("MCP_USER")
 		if isEmpty(username) {
-			return nil, fmt.Errorf("The 'username' property was not specified for the 'ddcloud' provider, and the 'MCP_USER' environment variable is not present. Please supply either one of these to configure the user name used to authenticate to Dimension Data CloudControl.")
+			return nil, fmt.Errorf("the 'username' property was not specified for the 'ddcloud' provider, and the 'MCP_USER' environment variable is not present. Please supply either one of these to configure the user name used to authenticate to Dimension Data CloudControl")
 		}
 	}
 
@@ -153,7 +153,7 @@ func configureProvider(providerSettings *schema.ResourceData) (interface{}, erro
 	if isEmpty(password) {
 		password = os.Getenv("MCP_PASSWORD")
 		if isEmpty(password) {
-			return nil, fmt.Errorf("The 'password' property was not specified for the 'ddcloud' provider, and the 'MCP_PASSWORD' environment variable is not present. Please supply either one of these to configure the password used to authenticate to Dimension Data CloudControl.")
+			return nil, fmt.Errorf("the 'password' property was not specified for the 'ddcloud' provider, and the 'MCP_PASSWORD' environment variable is not present. Please supply either one of these to configure the password used to authenticate to Dimension Data CloudControl")
 		}
 	}
 

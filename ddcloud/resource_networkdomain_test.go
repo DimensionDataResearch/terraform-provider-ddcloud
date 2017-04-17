@@ -2,10 +2,11 @@ package ddcloud
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"testing"
 )
 
 /*
@@ -119,12 +120,12 @@ func testCheckDDCloudNetworkDomainExists(name string, exists bool) resource.Test
 		client := testAccProvider.Meta().(*providerState).Client()
 		networkDomain, err := client.GetNetworkDomain(networkDomainID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get network domain: %s", err)
+			return fmt.Errorf("bad: Get network domain: %s", err)
 		}
 		if exists && networkDomain == nil {
-			return fmt.Errorf("Bad: Network domain not found with Id '%s'.", networkDomainID)
+			return fmt.Errorf("bad: Network domain not found with Id '%s'", networkDomainID)
 		} else if !exists && networkDomain != nil {
-			return fmt.Errorf("Bad: Network domain still exists with Id '%s'.", networkDomainID)
+			return fmt.Errorf("bad: Network domain still exists with Id '%s'", networkDomainID)
 		}
 
 		return nil
@@ -147,18 +148,18 @@ func testCheckDDCloudNetworkDomainMatches(name string, expected compute.NetworkD
 		client := testAccProvider.Meta().(*providerState).Client()
 		networkDomain, err := client.GetNetworkDomain(networkDomainID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get network domain: %s", err)
+			return fmt.Errorf("bad: Get network domain: %s", err)
 		}
 		if networkDomain == nil {
-			return fmt.Errorf("Bad: Network domain not found with Id '%s'.", networkDomainID)
+			return fmt.Errorf("bad: Network domain not found with Id '%s'", networkDomainID)
 		}
 
 		if networkDomain.Name != expected.Name {
-			return fmt.Errorf("Bad: Network domain '%s' has name '%s' (expected '%s').", networkDomainID, networkDomain.Name, expected.Name)
+			return fmt.Errorf("bad: Network domain '%s' has name '%s' (expected '%s')", networkDomainID, networkDomain.Name, expected.Name)
 		}
 
 		if networkDomain.Description != expected.Description {
-			return fmt.Errorf("Bad: Network domain '%s' has name '%s' (expected '%s').", networkDomainID, networkDomain.Description, expected.Description)
+			return fmt.Errorf("bad: Network domain '%s' has name '%s' (expected '%s')", networkDomainID, networkDomain.Description, expected.Description)
 		}
 
 		return nil
@@ -182,7 +183,7 @@ func testCheckDDCloudNetworkDomainDestroy(state *terraform.State) error {
 			return nil
 		}
 		if networkDomain != nil {
-			return fmt.Errorf("Network domain '%s' still exists.", networkDomainID)
+			return fmt.Errorf("network domain '%s' still exists", networkDomainID)
 		}
 	}
 

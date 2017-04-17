@@ -125,7 +125,7 @@ func resourceAntiAffinityRuleCreate(data *schema.ResourceData, provider interfac
 
 	antiAffinityRule := resource.(*compute.ServerAntiAffinityRule)
 	if antiAffinityRule == nil {
-		return fmt.Errorf("Cannot find newly-created server anti-affinity rule '%s' in network domain '%s'.", ruleID, networkDomainID)
+		return fmt.Errorf("cannot find newly-created server anti-affinity rule '%s' in network domain '%s'", ruleID, networkDomainID)
 	}
 
 	log.Printf("Created server anti-affinity rule '%s'.", ruleID)
@@ -138,12 +138,12 @@ func resourceAntiAffinityRuleCreate(data *schema.ResourceData, provider interfac
 
 	targetServer1, ok := serversByID[server1ID]
 	if !ok {
-		return fmt.Errorf("Anti-affinity rule '%s' targets unexpected server ('%s')", ruleID, server1ID)
+		return fmt.Errorf("anti-affinity rule '%s' targets unexpected server ('%s')", ruleID, server1ID)
 	}
 
 	targetServer2, ok := serversByID[server2ID]
 	if !ok {
-		return fmt.Errorf("Anti-affinity rule '%s' targets unexpected server ('%s')", ruleID, server2ID)
+		return fmt.Errorf("anti-affinity rule '%s' targets unexpected server ('%s')", ruleID, server2ID)
 	}
 
 	data.Set(resourceKeyAntiAffinityRuleServer1Name, targetServer1.Name)
@@ -171,7 +171,7 @@ func resourceAntiAffinityRuleRead(data *schema.ResourceData, provider interface{
 
 	if antiAffinityRule != nil {
 		if len(antiAffinityRule.Servers) != 2 {
-			return fmt.Errorf("Anti-affinity rule relates to unexpected number of servers (%d).",
+			return fmt.Errorf("anti-affinity rule relates to unexpected number of servers (%d)",
 				len(antiAffinityRule.Servers),
 			)
 		}

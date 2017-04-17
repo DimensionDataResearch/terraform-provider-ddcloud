@@ -2,10 +2,11 @@ package ddcloud
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"testing"
 )
 
 /*
@@ -145,12 +146,12 @@ func testCheckDDCloudVLANExists(name string, exists bool) resource.TestCheckFunc
 		client := testAccProvider.Meta().(*providerState).Client()
 		vlan, err := client.GetVLAN(vlanID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get VLAN: %s", err)
+			return fmt.Errorf("bad: Get VLAN: %s", err)
 		}
 		if exists && vlan == nil {
-			return fmt.Errorf("Bad: VLAN not found with Id '%s'.", vlanID)
+			return fmt.Errorf("bad: VLAN not found with Id '%s'", vlanID)
 		} else if !exists && vlan != nil {
-			return fmt.Errorf("Bad: VLAN still exists with Id '%s'.", vlanID)
+			return fmt.Errorf("bad: VLAN still exists with Id '%s'", vlanID)
 		}
 
 		return nil
@@ -172,30 +173,30 @@ func testCheckDDCloudVLANMatches(name string, expected compute.VLAN) resource.Te
 		client := testAccProvider.Meta().(*providerState).Client()
 		vlan, err := client.GetVLAN(vlanID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get VLAN: %s", err)
+			return fmt.Errorf("bad: Get VLAN: %s", err)
 		}
 		if vlan == nil {
-			return fmt.Errorf("Bad: VLAN not found with Id '%s'.", vlanID)
+			return fmt.Errorf("bad: VLAN not found with Id '%s'", vlanID)
 		}
 
 		if vlan.Name != expected.Name {
-			return fmt.Errorf("Bad: VLAN '%s' has name '%s' (expected '%s').", vlanID, vlan.Name, expected.Name)
+			return fmt.Errorf("bad: VLAN '%s' has name '%s' (expected '%s')", vlanID, vlan.Name, expected.Name)
 		}
 
 		if vlan.Description != expected.Description {
-			return fmt.Errorf("Bad: VLAN '%s' has name '%s' (expected '%s').", vlanID, vlan.Description, expected.Description)
+			return fmt.Errorf("bad: VLAN '%s' has name '%s' (expected '%s')", vlanID, vlan.Description, expected.Description)
 		}
 
 		if vlan.IPv4Range.BaseAddress != expected.IPv4Range.BaseAddress {
-			return fmt.Errorf("Bad: VLAN '%s' has IPv4 base address '%s' (expected '%s').", vlanID, vlan.IPv4Range.BaseAddress, expected.IPv4Range.BaseAddress)
+			return fmt.Errorf("bad: VLAN '%s' has IPv4 base address '%s' (expected '%s')", vlanID, vlan.IPv4Range.BaseAddress, expected.IPv4Range.BaseAddress)
 		}
 
 		if vlan.IPv4Range.PrefixSize != expected.IPv4Range.PrefixSize {
-			return fmt.Errorf("Bad: VLAN '%s' has IPv4 prefix size '%d' (expected '%d').", vlanID, vlan.IPv4Range.PrefixSize, expected.IPv4Range.PrefixSize)
+			return fmt.Errorf("bad: VLAN '%s' has IPv4 prefix size '%d' (expected '%d')", vlanID, vlan.IPv4Range.PrefixSize, expected.IPv4Range.PrefixSize)
 		}
 
 		if vlan.NetworkDomain.Name != expected.NetworkDomain.Name {
-			return fmt.Errorf("Bad: VLAN '%s' has network domain named '%s' (expected '%s').", vlanID, vlan.NetworkDomain.Name, expected.NetworkDomain.Name)
+			return fmt.Errorf("bad: VLAN '%s' has network domain named '%s' (expected '%s')", vlanID, vlan.NetworkDomain.Name, expected.NetworkDomain.Name)
 		}
 
 		return nil

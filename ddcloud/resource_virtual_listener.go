@@ -58,7 +58,7 @@ func resourceVirtualListener() *schema.Resource {
 					case compute.VirtualListenerTypePerformanceLayer4:
 						return
 					default:
-						errors = append(errors, fmt.Errorf("Invalid virtual listener type '%s'.", listenerType))
+						errors = append(errors, fmt.Errorf("invalid virtual listener type '%s'", listenerType))
 					}
 
 					return
@@ -97,7 +97,7 @@ func resourceVirtualListener() *schema.Resource {
 					}
 
 					errors = append(errors,
-						fmt.Errorf("Connection rate ('%s') must be greater than 0.", fieldName),
+						fmt.Errorf("connection rate ('%s') must be greater than 0", fieldName),
 					)
 
 					return
@@ -114,7 +114,7 @@ func resourceVirtualListener() *schema.Resource {
 					}
 
 					errors = append(errors,
-						fmt.Errorf("Connection rate limit ('%s') must be greater than 0.", fieldName),
+						fmt.Errorf("connection rate limit ('%s') must be greater than 0", fieldName),
 					)
 
 					return
@@ -258,7 +258,7 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 		return err
 	}
 	if virtualListener == nil {
-		return fmt.Errorf("Cannot find newly-created virtual listener with Id '%s'.", virtualListenerID)
+		return fmt.Errorf("cannot find newly-created virtual listener with Id '%s'", virtualListenerID)
 	}
 
 	data.Set(resourceKeyVirtualListenerIPv4Address, virtualListener.ListenerIPAddress)

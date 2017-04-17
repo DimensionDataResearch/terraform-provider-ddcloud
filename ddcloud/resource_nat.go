@@ -138,7 +138,7 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 	}
 
 	if natRule == nil {
-		return fmt.Errorf("Cannot find newly-added NAT rule '%s'.", natRuleID)
+		return fmt.Errorf("cannot find newly-added NAT rule '%s'", natRuleID)
 	}
 
 	data.Set(resourceKeyNATPublicAddress, natRule.ExternalIPAddress)
@@ -217,7 +217,7 @@ func calculateBlockAddresses(block compute.PublicIPBlock) ([]string, error) {
 
 	baseAddressComponents := strings.Split(block.BaseIP, ".")
 	if len(baseAddressComponents) != 4 {
-		return addresses, fmt.Errorf("Invalid base IP address '%s'.", block.BaseIP)
+		return addresses, fmt.Errorf("invalid base IP address '%s'", block.BaseIP)
 	}
 	baseOctet, err := strconv.Atoi(baseAddressComponents[3])
 	if err != nil {

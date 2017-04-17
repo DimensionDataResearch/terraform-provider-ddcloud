@@ -476,12 +476,12 @@ func testCheckDDCloudServerExists(name string, exists bool) resource.TestCheckFu
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get server: %s", err)
+			return fmt.Errorf("bad: Get server: %s", err)
 		}
 		if exists && server == nil {
-			return fmt.Errorf("Bad: Server not found with Id '%s'.", serverID)
+			return fmt.Errorf("bad: Server not found with Id '%s'", serverID)
 		} else if !exists && server != nil {
-			return fmt.Errorf("Bad: Server still exists with Id '%s'.", serverID)
+			return fmt.Errorf("bad: Server still exists with Id '%s'", serverID)
 		}
 
 		return nil
@@ -503,38 +503,38 @@ func testCheckDDCloudServerMatches(name string, networkDomainName string, expect
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get server: %s", err)
+			return fmt.Errorf("bad: Get server: %s", err)
 		}
 		if server == nil {
-			return fmt.Errorf("Bad: Server not found with Id '%s'", serverID)
+			return fmt.Errorf("bad: Server not found with Id '%s'", serverID)
 		}
 
 		if server.Name != expected.Name {
-			return fmt.Errorf("Bad: Server '%s' has name '%s' (expected '%s')", serverID, server.Name, expected.Name)
+			return fmt.Errorf("bad: Server '%s' has name '%s' (expected '%s')", serverID, server.Name, expected.Name)
 		}
 
 		if server.Description != expected.Description {
-			return fmt.Errorf("Bad: Server '%s' has name '%s' (expected '%s')", serverID, server.Description, expected.Description)
+			return fmt.Errorf("bad: Server '%s' has name '%s' (expected '%s')", serverID, server.Description, expected.Description)
 		}
 
 		if server.MemoryGB != expected.MemoryGB {
-			return fmt.Errorf("Bad: Server '%s' has been allocated %dGB of memory (expected %dGB)", serverID, server.MemoryGB, expected.MemoryGB)
+			return fmt.Errorf("bad: Server '%s' has been allocated %dGB of memory (expected %dGB)", serverID, server.MemoryGB, expected.MemoryGB)
 		}
 
 		expectedPrimaryIPv4 := *expected.Network.PrimaryAdapter.PrivateIPv4Address
 		actualPrimaryIPv4 := *server.Network.PrimaryAdapter.PrivateIPv4Address
 		if actualPrimaryIPv4 != expectedPrimaryIPv4 {
-			return fmt.Errorf("Bad: Primary network adapter for server '%s' has IPv4 address '%s' (expected '%s')", serverID, actualPrimaryIPv4, expectedPrimaryIPv4)
+			return fmt.Errorf("bad: Primary network adapter for server '%s' has IPv4 address '%s' (expected '%s')", serverID, actualPrimaryIPv4, expectedPrimaryIPv4)
 		}
 
 		expectedPrimaryIPv6, ok := serverResource.Primary.Attributes[resourceKeyServerPrimaryAdapterIPv6]
 		if !ok {
-			return fmt.Errorf("Bad: %s.%s is missing '%s' attribute.", serverResource.Type, name, resourceKeyServerPrimaryAdapterIPv6)
+			return fmt.Errorf("bad: %s.%s is missing '%s' attribute", serverResource.Type, name, resourceKeyServerPrimaryAdapterIPv6)
 		}
 
 		actualPrimaryIPv6 := *server.Network.PrimaryAdapter.PrivateIPv6Address
 		if actualPrimaryIPv6 != expectedPrimaryIPv6 {
-			return fmt.Errorf("Bad: Primary network adapter for server '%s' has IPv6 address '%s' (expected '%s')", serverID, actualPrimaryIPv6, expectedPrimaryIPv6)
+			return fmt.Errorf("bad: Primary network adapter for server '%s' has IPv6 address '%s' (expected '%s')", serverID, actualPrimaryIPv6, expectedPrimaryIPv6)
 		}
 
 		networkDomainResource := state.RootModule().Resources[networkDomainName]
@@ -544,7 +544,7 @@ func testCheckDDCloudServerMatches(name string, networkDomainName string, expect
 
 		expectedNetworkDomainID := networkDomainResource.Primary.ID
 		if server.Network.NetworkDomainID != expectedNetworkDomainID {
-			return fmt.Errorf("Bad: Server '%s' is part of network domain '%s' (expected '%s')", serverID, server.Network.NetworkDomainID, expectedNetworkDomainID)
+			return fmt.Errorf("bad: Server '%s' is part of network domain '%s' (expected '%s')", serverID, server.Network.NetworkDomainID, expectedNetworkDomainID)
 		}
 
 		return nil
@@ -566,45 +566,47 @@ func testCheckDDCloudDiskMatches(name string, expected ...models.Disk) resource.
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get server: %s", err)
+			return fmt.Errorf("bad: Get server: %s", err)
 		}
 		if server == nil {
-			return fmt.Errorf("Bad: Server not found with Id '%s'", serverID)
+			return fmt.Errorf("bad: Server not found with Id '%s'", serverID)
 		}
 
 		var validationMessages []string
 		expectedDisksByUnitID := models.Disks(expected).ByUnitID()
-		for _, actualDisk := range server.Disks {
-			expectedDisk, ok := expectedDisksByUnitID[actualDisk.SCSIUnitID]
-			if !ok {
-				validationMessages = append(validationMessages, fmt.Sprintf(
-					"found unexpected server disk '%s' with SCSI unit ID %d.",
-					*actualDisk.ID,
-					actualDisk.SCSIUnitID,
-				))
+		for _, actualSCSIController := range server.SCSIControllers {
+			for _, actualDisk := range actualSCSIController.Disks {
+				expectedDisk, ok := expectedDisksByUnitID[actualDisk.SCSIUnitID]
+				if !ok {
+					validationMessages = append(validationMessages, fmt.Sprintf(
+						"found unexpected server disk '%s' with SCSI unit ID %d.",
+						actualDisk.ID,
+						actualDisk.SCSIUnitID,
+					))
 
-				continue
-			}
-			delete(expectedDisksByUnitID, actualDisk.SCSIUnitID)
+					continue
+				}
+				delete(expectedDisksByUnitID, actualDisk.SCSIUnitID)
 
-			if actualDisk.SizeGB != expectedDisk.SizeGB {
-				validationMessages = append(validationMessages, fmt.Sprintf(
-					"server disk '%s' with SCSI unit ID %d has size %dGB (expected %dGB).",
-					*actualDisk.ID,
-					actualDisk.SCSIUnitID,
-					actualDisk.SizeGB,
-					expectedDisk.SizeGB,
-				))
-			}
+				if actualDisk.SizeGB != expectedDisk.SizeGB {
+					validationMessages = append(validationMessages, fmt.Sprintf(
+						"server disk '%s' with SCSI unit ID %d has size %dGB (expected %dGB).",
+						actualDisk.ID,
+						actualDisk.SCSIUnitID,
+						actualDisk.SizeGB,
+						expectedDisk.SizeGB,
+					))
+				}
 
-			if actualDisk.Speed != expectedDisk.Speed {
-				validationMessages = append(validationMessages, fmt.Sprintf(
-					"server disk '%s' with SCSI unit ID %d has speed '%s' (expected '%s').",
-					*actualDisk.ID,
-					actualDisk.SCSIUnitID,
-					actualDisk.Speed,
-					expectedDisk.Speed,
-				))
+				if actualDisk.Speed != expectedDisk.Speed {
+					validationMessages = append(validationMessages, fmt.Sprintf(
+						"server disk '%s' with SCSI unit ID %d has speed '%s' (expected '%s').",
+						actualDisk.ID,
+						actualDisk.SCSIUnitID,
+						actualDisk.Speed,
+						expectedDisk.Speed,
+					))
+				}
 			}
 		}
 
@@ -618,7 +620,7 @@ func testCheckDDCloudDiskMatches(name string, expected ...models.Disk) resource.
 		}
 
 		if len(validationMessages) > 0 {
-			return fmt.Errorf("Bad: %s", strings.Join(validationMessages, ", "))
+			return fmt.Errorf("bad: %s", strings.Join(validationMessages, ", "))
 		}
 
 		return nil
@@ -640,7 +642,7 @@ func testCheckDDCloudServerTagMatches(name string, expected map[string]string) r
 		client := testAccProvider.Meta().(*providerState).Client()
 		tags, err := client.GetAssetTags(serverID, compute.AssetTypeServer, nil)
 		if err != nil {
-			return fmt.Errorf("Bad: Get server: %s", err)
+			return fmt.Errorf("bad: Get server: %s", err)
 		}
 
 		expectedTags := make(map[string]string)
@@ -686,7 +688,7 @@ func testCheckDDCloudServerTagMatches(name string, expected map[string]string) r
 		}
 
 		if len(validationMessages) > 0 {
-			return fmt.Errorf("Bad: %s", strings.Join(validationMessages, ", "))
+			return fmt.Errorf("bad: %s", strings.Join(validationMessages, ", "))
 		}
 
 		return nil

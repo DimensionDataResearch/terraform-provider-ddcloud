@@ -231,12 +231,12 @@ func testCheckDDCloudVIPPoolExists(name string, exists bool) resource.TestCheckF
 		client := testAccProvider.Meta().(*providerState).Client()
 		vipPool, err := client.GetVIPPool(vipPoolID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get VIP pool: %s", err)
+			return fmt.Errorf("bad: Get VIP pool: %s", err)
 		}
 		if exists && vipPool == nil {
-			return fmt.Errorf("Bad: VIP pool not found with Id '%s'.", vipPoolID)
+			return fmt.Errorf("bad: VIP pool not found with Id '%s'", vipPoolID)
 		} else if !exists && vipPool != nil {
-			return fmt.Errorf("Bad: VIP pool still exists with Id '%s'.", vipPoolID)
+			return fmt.Errorf("bad: VIP pool still exists with Id '%s'", vipPoolID)
 		}
 
 		return nil
@@ -260,30 +260,30 @@ func testCheckDDCloudVIPPoolMatches(name string, expected compute.VIPPool) resou
 		client := testAccProvider.Meta().(*providerState).Client()
 		vipPool, err := client.GetVIPPool(vipPoolID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get VIP pool: %s", err)
+			return fmt.Errorf("bad: Get VIP pool: %s", err)
 		}
 		if vipPool == nil {
-			return fmt.Errorf("Bad: VIP pool not found with Id '%s'", vipPoolID)
+			return fmt.Errorf("bad: VIP pool not found with Id '%s'", vipPoolID)
 		}
 
 		if vipPool.Name != expected.Name {
-			return fmt.Errorf("Bad: VIP pool '%s' has name '%s' (expected '%s')", vipPoolID, vipPool.Name, expected.Name)
+			return fmt.Errorf("bad: VIP pool '%s' has name '%s' (expected '%s')", vipPoolID, vipPool.Name, expected.Name)
 		}
 
 		if vipPool.LoadBalanceMethod != expected.LoadBalanceMethod {
-			return fmt.Errorf("Bad: VIP pool '%s' has load-balancing method '%s' (expected '%s')", vipPoolID, vipPool.LoadBalanceMethod, expected.LoadBalanceMethod)
+			return fmt.Errorf("bad: VIP pool '%s' has load-balancing method '%s' (expected '%s')", vipPoolID, vipPool.LoadBalanceMethod, expected.LoadBalanceMethod)
 		}
 
 		if vipPool.ServiceDownAction != expected.ServiceDownAction {
-			return fmt.Errorf("Bad: VIP pool '%s' has service-down action '%s' (expected '%s')", vipPoolID, vipPool.ServiceDownAction, expected.ServiceDownAction)
+			return fmt.Errorf("bad: VIP pool '%s' has service-down action '%s' (expected '%s')", vipPoolID, vipPool.ServiceDownAction, expected.ServiceDownAction)
 		}
 
 		if vipPool.SlowRampTime != expected.SlowRampTime {
-			return fmt.Errorf("Bad: VIP pool '%s' has slow-ramp time '%d' (expected '%d')", vipPoolID, vipPool.SlowRampTime, expected.SlowRampTime)
+			return fmt.Errorf("bad: VIP pool '%s' has slow-ramp time '%d' (expected '%d')", vipPoolID, vipPool.SlowRampTime, expected.SlowRampTime)
 		}
 
 		if len(vipPool.HealthMonitors) != len(expected.HealthMonitors) {
-			return fmt.Errorf("Bad: VIP pool '%s' has health mointors count '%d' (expected '%d')", vipPoolID, len(vipPool.HealthMonitors), len(expected.HealthMonitors))
+			return fmt.Errorf("bad: VIP pool '%s' has health mointors count '%d' (expected '%d')", vipPoolID, len(vipPool.HealthMonitors), len(expected.HealthMonitors))
 		}
 
 		// TODO: Verify other properties.

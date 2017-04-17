@@ -91,7 +91,7 @@ func testCheckDDCloudNetworkDomainMatchesDataSource(resourceName string, dataSou
 		}
 
 		if res.Primary.ID != ds.Primary.ID {
-			return fmt.Errorf("Bad: Resource '%s' has Id '%s', but data-source '%s' has Id '%s' (expected the IDs to match)",
+			return fmt.Errorf("bad: Resource '%s' has Id '%s', but data-source '%s' has Id '%s' (expected the IDs to match)",
 				resourceName,
 				res.Primary.ID,
 				dataSourceName,
@@ -103,7 +103,7 @@ func testCheckDDCloudNetworkDomainMatchesDataSource(resourceName string, dataSou
 		dsAttributes := ds.Primary.Attributes
 
 		if resAttributes[resourceKeyNetworkDomainDescription] != dsAttributes[resourceKeyNetworkDomainDescription] {
-			return fmt.Errorf("Bad: Resource '%s' has description '%s', but data-source '%s' has description '%s' (expected the plans to match)",
+			return fmt.Errorf("bad: Resource '%s' has description '%s', but data-source '%s' has description '%s' (expected the plans to match)",
 				resourceName,
 				resAttributes[resourceKeyNetworkDomainDescription],
 				dataSourceName,
@@ -112,7 +112,7 @@ func testCheckDDCloudNetworkDomainMatchesDataSource(resourceName string, dataSou
 		}
 
 		if resAttributes[resourceKeyNetworkDomainPlan] != dsAttributes[resourceKeyNetworkDomainPlan] {
-			return fmt.Errorf("Bad: Resource '%s' has plan '%s', but data-source '%s' has plan '%s' (expected the plans to match)",
+			return fmt.Errorf("bad: Resource '%s' has plan '%s', but data-source '%s' has plan '%s' (expected the plans to match)",
 				resourceName,
 				resAttributes[resourceKeyNetworkDomainPlan],
 				dataSourceName,
@@ -121,7 +121,7 @@ func testCheckDDCloudNetworkDomainMatchesDataSource(resourceName string, dataSou
 		}
 
 		if res.Primary.Attributes[resourceKeyNetworkDomainNatIPv4Address] != ds.Primary.Attributes[resourceKeyNetworkDomainNatIPv4Address] {
-			return fmt.Errorf("Bad: Resource '%s' has S/NAT address '%s', but data-source '%s' has S/NAT address '%s' (expected the addresses to match)",
+			return fmt.Errorf("bad: Resource '%s' has S/NAT address '%s', but data-source '%s' has S/NAT address '%s' (expected the addresses to match)",
 				resourceName,
 				resAttributes[resourceKeyNetworkDomainNatIPv4Address],
 				dataSourceName,

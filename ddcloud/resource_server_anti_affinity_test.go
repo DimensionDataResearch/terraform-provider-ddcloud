@@ -119,12 +119,12 @@ func testCheckDDCloudAntiAffinityRuleExists(name string, exists bool) resource.T
 		client := testAccProvider.Meta().(*providerState).Client()
 		networkDomain, err := client.GetServerAntiAffinityRule(ruleID, networkDomainID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get server anti-affinity rule: %s", err.Error())
+			return fmt.Errorf("bad: Get server anti-affinity rule: %s", err.Error())
 		}
 		if exists && networkDomain == nil {
-			return fmt.Errorf("Bad: Server anti-affinity rule not found with Id '%s' in network domain '%s'", ruleID, networkDomainID)
+			return fmt.Errorf("bad: Server anti-affinity rule not found with Id '%s' in network domain '%s'", ruleID, networkDomainID)
 		} else if !exists && networkDomain != nil {
-			return fmt.Errorf("Bad: Server anti-affinity rule still exists with Id '%s' in network domain '%s'", ruleID, networkDomainID)
+			return fmt.Errorf("bad: Server anti-affinity rule still exists with Id '%s' in network domain '%s'", ruleID, networkDomainID)
 		}
 
 		return nil

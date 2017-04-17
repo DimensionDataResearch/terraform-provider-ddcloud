@@ -98,7 +98,7 @@ func resourceVIPPoolMemberCreate(data *schema.ResourceData, provider interface{}
 		return err
 	}
 	if member == nil {
-		return fmt.Errorf("Unable to find newly-created pool member '%s'.", memberID)
+		return fmt.Errorf("unable to find newly-created pool member '%s'", memberID)
 	}
 
 	data.Set(resourceKeyVIPPoolMemberNodeName, member.Node.Name)

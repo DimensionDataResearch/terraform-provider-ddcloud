@@ -78,7 +78,7 @@ func resourceVIPPool() *schema.Resource {
 					case compute.ServiceDownActionReselect:
 						return
 					default:
-						errors = append(errors, fmt.Errorf("Invalid VIP service-down action '%s'.", status))
+						errors = append(errors, fmt.Errorf("invalid VIP service-down action '%s'", status))
 					}
 
 					return

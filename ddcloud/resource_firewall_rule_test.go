@@ -2,11 +2,12 @@ package ddcloud
 
 import (
 	"fmt"
+	"strings"
+	"testing"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"strings"
-	"testing"
 )
 
 // ipv6.internode.on.net (CloudControl does not allow "ANY" as a source address for IPv6 rules)
@@ -605,12 +606,12 @@ func testCheckDDCloudFirewallRuleExists(name string, exists bool) resource.TestC
 		client := testAccProvider.Meta().(*providerState).Client()
 		firewallRule, err := client.GetFirewallRule(firewallRuleID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get firewall rule: %s", err)
+			return fmt.Errorf("bad: Get firewall rule: %s", err)
 		}
 		if exists && firewallRule == nil {
-			return fmt.Errorf("Bad: Firewall rule not found with Id '%s'.", firewallRuleID)
+			return fmt.Errorf("bad: Firewall rule not found with Id '%s'", firewallRuleID)
 		} else if !exists && firewallRule != nil {
-			return fmt.Errorf("Bad: Firewall rule still exists with Id '%s'.", firewallRuleID)
+			return fmt.Errorf("bad: Firewall rule still exists with Id '%s'", firewallRuleID)
 		}
 
 		return nil
@@ -632,27 +633,27 @@ func testCheckDDCloudFirewallRuleMatches(name string, expected compute.FirewallR
 		client := testAccProvider.Meta().(*providerState).Client()
 		firewallRule, err := client.GetFirewallRule(firewallRuleID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get firewall rule: %s", err)
+			return fmt.Errorf("bad: Get firewall rule: %s", err)
 		}
 		if firewallRule == nil {
-			return fmt.Errorf("Bad: Firewall rule not found with Id '%s'", firewallRuleID)
+			return fmt.Errorf("bad: Firewall rule not found with Id '%s'", firewallRuleID)
 		}
 
 		if firewallRule.Name != expected.Name {
-			return fmt.Errorf("Bad: Firewall rule '%s' has name '%s' (expected '%s')", firewallRuleID, firewallRule.Name, expected.Name)
+			return fmt.Errorf("bad: Firewall rule '%s' has name '%s' (expected '%s')", firewallRuleID, firewallRule.Name, expected.Name)
 		}
 
 		if firewallRule.Action != expected.Action {
-			return fmt.Errorf("Bad: Firewall rule '%s' has action '%s' (expected '%s')", firewallRuleID, firewallRule.Action, expected.Action)
+			return fmt.Errorf("bad: Firewall rule '%s' has action '%s' (expected '%s')", firewallRuleID, firewallRule.Action, expected.Action)
 		}
 
 		if firewallRule.Action != expected.Action {
-			return fmt.Errorf("Bad: Firewall rule '%s' has enablement '%t' (expected '%t')", firewallRuleID, firewallRule.Enabled, expected.Enabled)
+			return fmt.Errorf("bad: Firewall rule '%s' has enablement '%t' (expected '%t')", firewallRuleID, firewallRule.Enabled, expected.Enabled)
 		}
 
 		sourceDifferences := firewallRule.Source.Diff(expected.Source)
 		if len(sourceDifferences) > 0 {
-			return fmt.Errorf("Bad: Firewall rule '%s' has unexpected source scope: %s",
+			return fmt.Errorf("bad: Firewall rule '%s' has unexpected source scope: %s",
 				firewallRuleID,
 				strings.Join(sourceDifferences, ", "),
 			)
@@ -660,7 +661,7 @@ func testCheckDDCloudFirewallRuleMatches(name string, expected compute.FirewallR
 
 		destinationDifferences := firewallRule.Destination.Diff(expected.Destination)
 		if len(destinationDifferences) > 0 {
-			return fmt.Errorf("Bad: Firewall rule '%s' has unexpected destination scope: %s",
+			return fmt.Errorf("bad: Firewall rule '%s' has unexpected destination scope: %s",
 				firewallRuleID,
 				strings.Join(destinationDifferences, ", "),
 			)
@@ -687,7 +688,7 @@ func testCheckDDCloudFirewallRuleDestroy(state *terraform.State) error {
 			return nil
 		}
 		if firewallRule != nil {
-			return fmt.Errorf("Firewall rule '%s' still exists.", firewallRuleID)
+			return fmt.Errorf("firewall rule '%s' still exists", firewallRuleID)
 		}
 	}
 

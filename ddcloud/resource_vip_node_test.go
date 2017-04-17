@@ -142,12 +142,12 @@ func testCheckDDCloudVIPNodeExists(name string, exists bool) resource.TestCheckF
 		client := testAccProvider.Meta().(*providerState).Client()
 		vipNode, err := client.GetVIPNode(vipNodeID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get vip node: %s", err)
+			return fmt.Errorf("bad: Get vip node: %s", err)
 		}
 		if exists && vipNode == nil {
-			return fmt.Errorf("Bad: VIP node not found with Id '%s'.", vipNodeID)
+			return fmt.Errorf("bad: VIP node not found with Id '%s'", vipNodeID)
 		} else if !exists && vipNode != nil {
-			return fmt.Errorf("Bad: VIP node still exists with Id '%s'.", vipNodeID)
+			return fmt.Errorf("bad: VIP node still exists with Id '%s'", vipNodeID)
 		}
 
 		return nil
@@ -171,29 +171,29 @@ func testCheckDDCloudVIPNodeMatches(name string, expected compute.VIPNode) resou
 		client := testAccProvider.Meta().(*providerState).Client()
 		vipNode, err := client.GetVIPNode(vipNodeID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get vip node: %s", err)
+			return fmt.Errorf("bad: Get vip node: %s", err)
 		}
 		if vipNode == nil {
-			return fmt.Errorf("Bad: VIP node not found with Id '%s'", vipNodeID)
+			return fmt.Errorf("bad: VIP node not found with Id '%s'", vipNodeID)
 		}
 
 		if vipNode.Name != expected.Name {
-			return fmt.Errorf("Bad: VIP node '%s' has name '%s' (expected '%s')", vipNodeID, vipNode.Name, expected.Name)
+			return fmt.Errorf("bad: VIP node '%s' has name '%s' (expected '%s')", vipNodeID, vipNode.Name, expected.Name)
 		}
 
 		if vipNode.IPv4Address != expected.IPv4Address {
-			return fmt.Errorf("Bad: VIP node '%s' has IPv4 address '%s' (expected '%s')", vipNodeID, vipNode.IPv4Address, expected.IPv4Address)
+			return fmt.Errorf("bad: VIP node '%s' has IPv4 address '%s' (expected '%s')", vipNodeID, vipNode.IPv4Address, expected.IPv4Address)
 		}
 
 		if vipNode.IPv6Address != expected.IPv6Address {
-			return fmt.Errorf("Bad: VIP node '%s' has IPv6 address '%s' (expected '%s')", vipNodeID, vipNode.IPv6Address, expected.IPv6Address)
+			return fmt.Errorf("bad: VIP node '%s' has IPv6 address '%s' (expected '%s')", vipNodeID, vipNode.IPv6Address, expected.IPv6Address)
 		}
 		if vipNode.HealthMonitor.Name != expected.HealthMonitor.Name {
-			return fmt.Errorf("Bad: VIP node '%s' has health monitor '%s' (expected '%s')", vipNodeID, vipNode.HealthMonitor.Name, expected.HealthMonitor.Name)
+			return fmt.Errorf("bad: VIP node '%s' has health monitor '%s' (expected '%s')", vipNodeID, vipNode.HealthMonitor.Name, expected.HealthMonitor.Name)
 		}
 
 		if vipNode.Status != expected.Status {
-			return fmt.Errorf("Bad: VIP node '%s' has status '%s' (expected '%s')", vipNodeID, vipNode.Status, expected.Status)
+			return fmt.Errorf("bad: VIP node '%s' has status '%s' (expected '%s')", vipNodeID, vipNode.Status, expected.Status)
 		}
 
 		// TODO: Verify other properties.

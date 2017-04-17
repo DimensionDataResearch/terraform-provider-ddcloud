@@ -255,7 +255,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	if networkDomain == nil {
-		return fmt.Errorf("No network domain was found with Id '%s'.", networkDomainID)
+		return fmt.Errorf("no network domain was found with Id '%s'", networkDomainID)
 	}
 
 	dataCenterID := networkDomain.DatacenterID
@@ -276,7 +276,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		return err
 	}
 	if image == nil {
-		return fmt.Errorf("An unexpected error occurred while resolving the configured server image.")
+		return fmt.Errorf("an unexpected error occurred while resolving the configured server image")
 	}
 
 	log.Printf("Server will be deployed from %s image '%s' (Id = '%s') in datacenter '%s",
@@ -419,7 +419,12 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 	data.SetPartial(resourceKeyServerTag)
 
-	err = createDisks(server.Disks, data, providerState)
+	var imageDisks []compute.VirtualMachineDisk
+	for _, controller := range server.SCSIControllers {
+		imageDisks = append(imageDisks, controller.Disks...)
+	}
+
+	err = createDisks(imageDisks, data, providerState)
 	if err != nil {
 		return err
 	}
@@ -483,7 +488,7 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	}
 
 	propertyHelper.SetDisks(
-		models.NewDisksFromVirtualMachineDisks(server.Disks),
+		models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
 	)
 
 	return nil
