@@ -170,12 +170,12 @@ func testCheckDDCloudPortListExists(name string, exists bool) resource.TestCheck
 		client := testAccProvider.Meta().(*providerState).Client()
 		portList, err := client.GetPortList(portListID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get port list: %s", err)
+			return fmt.Errorf("bad: Get port list: %s", err)
 		}
 		if exists && portList == nil {
-			return fmt.Errorf("Bad: port list not found with Id '%s'.", portListID)
+			return fmt.Errorf("bad: port list not found with Id '%s'", portListID)
 		} else if !exists && portList != nil {
-			return fmt.Errorf("Bad: port list still exists with Id '%s'.", portListID)
+			return fmt.Errorf("bad: port list still exists with Id '%s'", portListID)
 		}
 
 		return nil
@@ -191,7 +191,7 @@ func testCheckDDCloudPortListMatches(name string, expected compute.PortList) res
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]
 		if !ok {
-			return fmt.Errorf("Not found: %s", name)
+			return fmt.Errorf("not found: %s", name)
 		}
 
 		portListID := res.Primary.ID
@@ -199,22 +199,22 @@ func testCheckDDCloudPortListMatches(name string, expected compute.PortList) res
 		client := testAccProvider.Meta().(*providerState).Client()
 		portList, err := client.GetPortList(portListID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get port list: %s", err)
+			return fmt.Errorf("bad: get port list: %s", err)
 		}
 		if portList == nil {
-			return fmt.Errorf("Bad: port list not found with Id '%s'", portListID)
+			return fmt.Errorf("bad: port list not found with Id '%s'", portListID)
 		}
 
 		if portList.Name != expected.Name {
-			return fmt.Errorf("Bad: port list '%s' has name '%s' (expected '%s')", portListID, portList.Name, expected.Name)
+			return fmt.Errorf("bad: port list '%s' has name '%s' (expected '%s')", portListID, portList.Name, expected.Name)
 		}
 
 		if portList.Description != expected.Description {
-			return fmt.Errorf("Bad: port list '%s' has description '%s' (expected '%s')", portListID, portList.Description, expected.Description)
+			return fmt.Errorf("bad: port list '%s' has description '%s' (expected '%s')", portListID, portList.Description, expected.Description)
 		}
 
 		if len(portList.Ports) != len(expected.Ports) {
-			return fmt.Errorf("Bad: port list '%s' has %d ports or port ranges (expected '%d')", portListID, len(portList.Ports), len(expected.Ports))
+			return fmt.Errorf("bad: port list '%s' has %d ports or port ranges (expected '%d')", portListID, len(portList.Ports), len(expected.Ports))
 		}
 
 		err = comparePortListEntries(expected, *portList)
@@ -223,7 +223,7 @@ func testCheckDDCloudPortListMatches(name string, expected compute.PortList) res
 		}
 
 		if len(portList.ChildLists) != len(expected.ChildLists) {
-			return fmt.Errorf("Bad: port list '%s' has %d child lists (expected '%d')", portListID, len(portList.ChildLists), len(expected.ChildLists))
+			return fmt.Errorf("bad: port list '%s' has %d child lists (expected '%d')", portListID, len(portList.ChildLists), len(expected.ChildLists))
 		}
 
 		for index := range portList.ChildLists {
@@ -231,7 +231,7 @@ func testCheckDDCloudPortListMatches(name string, expected compute.PortList) res
 			actualChildListID := portList.ChildLists[index].ID
 
 			if actualChildListID != expectedChildListID {
-				return fmt.Errorf("Bad: port list '%s' has child list at index %d with Id %s (expected '%s')",
+				return fmt.Errorf("bad: port list '%s' has child list at index %d with Id %s (expected '%s')",
 					portListID, index, actualChildListID, expectedChildListID,
 				)
 			}
@@ -273,7 +273,7 @@ func comparePortListEntries(expectedPortList compute.PortList, actualPortList co
 		actualPort := actualPortList.Ports[index]
 
 		if expectedPort.Begin != actualPort.Begin {
-			return fmt.Errorf("Bad: port list '%s' has entry at index %d with begin port %s (expected '%s')",
+			return fmt.Errorf("bad: port list '%s' has entry at index %d with begin port %s (expected '%s')",
 				portListID, index, formatPort(actualPort.Begin), formatPort(expectedPort.Begin),
 			)
 		}
@@ -281,7 +281,7 @@ func comparePortListEntries(expectedPortList compute.PortList, actualPortList co
 		expectedPortEnd := formatPort(expectedPort.End)
 		actualPortEnd := formatPort(actualPort.End)
 		if expectedPortEnd != actualPortEnd {
-			return fmt.Errorf("Bad: port list '%s' has entry at index %d with end port %s (expected %s)",
+			return fmt.Errorf("bad: port list '%s' has entry at index %d with end port %s (expected %s)",
 				portListID, index, actualPortEnd, expectedPortEnd,
 			)
 		}

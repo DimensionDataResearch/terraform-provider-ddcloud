@@ -2,10 +2,11 @@ package ddcloud
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"testing"
 )
 
 /*
@@ -200,12 +201,12 @@ func testCheckDDCloudVirtualListenerExists(name string, exists bool) resource.Te
 		client := testAccProvider.Meta().(*providerState).Client()
 		virtualListener, err := client.GetVirtualListener(virtualListenerID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get VirtualListener: %s", err)
+			return fmt.Errorf("bad: Get VirtualListener: %s", err)
 		}
 		if exists && virtualListener == nil {
-			return fmt.Errorf("Bad: virtual listener not found with Id '%s'.", virtualListenerID)
+			return fmt.Errorf("bad: virtual listener not found with Id '%s'", virtualListenerID)
 		} else if !exists && virtualListener != nil {
-			return fmt.Errorf("Bad: virtual listener still exists with Id '%s'.", virtualListenerID)
+			return fmt.Errorf("bad: virtual listener still exists with Id '%s'", virtualListenerID)
 		}
 
 		return nil
@@ -229,26 +230,26 @@ func testCheckDDCloudVirtualListenerMatches(name string, expected compute.Virtua
 		client := testAccProvider.Meta().(*providerState).Client()
 		virtualListener, err := client.GetVirtualListener(virtualListenerID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get VirtualListener: %s", err)
+			return fmt.Errorf("bad: Get VirtualListener: %s", err)
 		}
 		if virtualListener == nil {
-			return fmt.Errorf("Bad: virtual listener not found with Id '%s'.", virtualListenerID)
+			return fmt.Errorf("bad: virtual listener not found with Id '%s'", virtualListenerID)
 		}
 
 		if virtualListener.Name != expected.Name {
-			return fmt.Errorf("Bad: virtual listener '%s' has name '%s' (expected '%s').", virtualListenerID, virtualListener.Name, expected.Name)
+			return fmt.Errorf("bad: virtual listener '%s' has name '%s' (expected '%s')", virtualListenerID, virtualListener.Name, expected.Name)
 		}
 
 		if virtualListener.Description != expected.Description {
-			return fmt.Errorf("Bad: virtual listener '%s' has name '%s' (expected '%s').", virtualListenerID, virtualListener.Description, expected.Description)
+			return fmt.Errorf("bad: virtual listener '%s' has name '%s' (expected '%s')", virtualListenerID, virtualListener.Description, expected.Description)
 		}
 
 		if virtualListener.ListenerIPAddress != expected.ListenerIPAddress {
-			return fmt.Errorf("Bad: virtual listener '%s' has IPv4 address '%s' (expected '%s').", virtualListenerID, virtualListener.ListenerIPAddress, expected.ListenerIPAddress)
+			return fmt.Errorf("bad: virtual listener '%s' has IPv4 address '%s' (expected '%s')", virtualListenerID, virtualListener.ListenerIPAddress, expected.ListenerIPAddress)
 		}
 
 		if virtualListener.Enabled != expected.Enabled {
-			return fmt.Errorf("Bad: virtual listener '%s' has enablement status '%t' (expected '%t').", virtualListenerID, virtualListener.Enabled, expected.Enabled)
+			return fmt.Errorf("bad: virtual listener '%s' has enablement status '%t' (expected '%t')", virtualListenerID, virtualListener.Enabled, expected.Enabled)
 		}
 
 		return nil

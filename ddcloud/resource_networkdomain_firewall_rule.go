@@ -190,7 +190,7 @@ func validateNetworkDomainFirewallRuleType(value interface{}, propertyName strin
 	ruleType, ok := value.(string)
 	if !ok {
 		errors = append(errors,
-			fmt.Errorf("Invalid data type for '%s' (expected string)", propertyName),
+			fmt.Errorf("invalid data type for '%s' (expected string)", propertyName),
 		)
 
 		return
@@ -203,7 +203,7 @@ func validateNetworkDomainFirewallRuleType(value interface{}, propertyName strin
 	}
 
 	errors = append(errors,
-		fmt.Errorf("Invalid firewall rule type '%s' (expected one of [%s])",
+		fmt.Errorf("invalid firewall rule type '%s' (expected one of [%s])",
 			ruleType,
 			strings.Join(defaultRuleTypes, ","),
 		),

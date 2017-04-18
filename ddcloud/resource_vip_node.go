@@ -91,7 +91,7 @@ func resourceVIPNode() *schema.Resource {
 					}
 
 					errors = append(errors,
-						fmt.Errorf("Connection rate ('%s') must be greater than 0.", fieldName),
+						fmt.Errorf("connection rate ('%s') must be greater than 0", fieldName),
 					)
 
 					return
@@ -109,7 +109,7 @@ func resourceVIPNode() *schema.Resource {
 					}
 
 					errors = append(errors,
-						fmt.Errorf("Connection rate limit ('%s') must be greater than 0.", fieldName),
+						fmt.Errorf("connection rate limit ('%s') must be greater than 0", fieldName),
 					)
 
 					return
@@ -173,7 +173,7 @@ func resourceVIPNodeCreate(data *schema.ResourceData, provider interface{}) erro
 	}
 
 	if vipNode == nil {
-		return fmt.Errorf("Cannot find newly-added VIP node '%s'.", vipNodeID)
+		return fmt.Errorf("cannot find newly-added VIP node '%s'", vipNodeID)
 	}
 
 	data.Set(resourceKeyVIPNodeDescription, vipNode.Description)
@@ -334,7 +334,7 @@ func vipStatusValidator(targetDescription string) schema.SchemaValidateFunc {
 		case compute.VIPNodeStatusForcedOffline:
 			return
 		default:
-			errors = append(errors, fmt.Errorf("Invalid %s status value '%s' for field '%s'.", targetDescription, status, fieldName))
+			errors = append(errors, fmt.Errorf("invalid %s status value '%s' for field '%s'", targetDescription, status, fieldName))
 		}
 
 		return

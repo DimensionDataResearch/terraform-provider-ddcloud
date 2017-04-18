@@ -94,7 +94,7 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 		return err
 	}
 	if server == nil {
-		return fmt.Errorf("Cannot find server with Id '%s'", serverID)
+		return fmt.Errorf("cannot find server with Id '%s'", serverID)
 	}
 
 	// After initial server deployment, we only need to handle disks that were part of the original server image (and of those, only ones we need to modify after the initial deployment completed deployment).
@@ -136,12 +136,13 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 	if server == nil {
 		data.SetId("")
 
-		return fmt.Errorf("Server '%s' has been deleted.", serverID)
+		return fmt.Errorf("server '%s' has been deleted", serverID)
 	}
 	actualDisks := models.NewDisksFromVirtualMachineDisks(server.Disks)
 
 	configuredDisks := propertyHelper.GetDisks()
 	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
+
 	err = validateDisks(configuredDisks)
 	if err != nil {
 		return err
@@ -276,7 +277,7 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 	if server == nil {
 		data.SetId("")
 
-		return fmt.Errorf("Server '%s' has been deleted.", serverID)
+		return fmt.Errorf("server '%s' has been deleted", serverID)
 	}
 	actualDisks := models.NewDisksFromVirtualMachineDisks(server.Disks)
 	actualDisksByUnitID := actualDisks.ByUnitID()
@@ -289,7 +290,7 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 		// Can't shrink disk, only grow it.
 		if modifyDisk.SizeGB < actualImageDisk.SizeGB {
 			return fmt.Errorf(
-				"Cannot resize disk '%s' in server '%s' from %d to GB to %d (for now, disks can only be expanded).",
+				"cannot resize disk '%s' in server '%s' from %d to GB to %d (for now, disks can only be expanded)",
 				modifyDisk.ID,
 				serverID,
 				actualImageDisk.SizeGB,
@@ -449,7 +450,7 @@ func processRemoveDisks(removeDisks models.Disks, data *schema.ResourceData, pro
 	if server == nil {
 		data.SetId("")
 
-		return fmt.Errorf("Server '%s' has been deleted.", serverID)
+		return fmt.Errorf("server '%s' has been deleted", serverID)
 	}
 
 	for _, removeDisk := range removeDisks {
@@ -556,7 +557,7 @@ func validateDiskSpeed(value interface{}, propertyName string) (messages []strin
 		break
 	default:
 		errors = append(errors,
-			fmt.Errorf("Invalid disk speed '%s'", value),
+			fmt.Errorf("invalid disk speed '%s'", value),
 		)
 	}
 

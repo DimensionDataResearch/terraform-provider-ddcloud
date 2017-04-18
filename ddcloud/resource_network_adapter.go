@@ -82,7 +82,7 @@ func resourceNetworkAdapterCreate(data *schema.ResourceData, provider interface{
 		return err
 	}
 	if server == nil {
-		return fmt.Errorf("Cannot find server with '%s'", serverID)
+		return fmt.Errorf("cannot find server with '%s'", serverID)
 	}
 
 	isStarted := server.Started
@@ -148,7 +148,7 @@ func resourceNetworkAdapterCreate(data *schema.ResourceData, provider interface{
 		return err
 	}
 	if server == nil {
-		return fmt.Errorf("Cannot find server '%s'", serverID)
+		return fmt.Errorf("cannot find server '%s'", serverID)
 	}
 
 	serverNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
@@ -293,7 +293,7 @@ func resourceNetworkAdapterDelete(data *schema.ResourceData, provider interface{
 		return err
 	}
 	if server == nil {
-		return fmt.Errorf("Cannot find server '%s'", serverID)
+		return fmt.Errorf("cannot find server '%s'", serverID)
 	}
 
 	serverNetworkAdapter := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network).GetByID(networkAdapterID)
@@ -386,7 +386,7 @@ func validateNetworkAdapterAdapterType(value interface{}, propertyName string) (
 		break
 	default:
 		errors = append(errors,
-			fmt.Errorf("Invalid network adapter type '%s'", value),
+			fmt.Errorf("invalid network adapter type '%s'", value),
 		)
 	}
 

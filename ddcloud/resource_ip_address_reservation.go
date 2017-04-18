@@ -110,7 +110,7 @@ func resourceIPAddressReservationCreate(data *schema.ResourceData, provider inte
 	case addressTypeIPv6:
 		err = apiClient.ReserveIPv6Address(vlanID, address)
 	default:
-		err = fmt.Errorf("Invalid address type '%s'", addressType)
+		err = fmt.Errorf("invalid address type '%s'", addressType)
 	}
 
 	if err != nil {
@@ -156,7 +156,7 @@ func resourceIPAddressReservationDelete(data *schema.ResourceData, provider inte
 	case addressTypeIPv6:
 		err = apiClient.UnreserveIPv6Address(vlanID, address)
 	default:
-		err = fmt.Errorf("Invalid address type '%s'", addressType)
+		err = fmt.Errorf("invalid address type '%s'", addressType)
 	}
 
 	if err != nil {
@@ -175,7 +175,7 @@ func getReservedIPAddresses(vlanID string, addressType string, providerState *pr
 	case addressTypeIPv6:
 		return getReservedIPv6Addresses(vlanID, providerState)
 	default:
-		return nil, fmt.Errorf("Invalid address type '%s'", addressType)
+		return nil, fmt.Errorf("invalid address type '%s'", addressType)
 	}
 }
 

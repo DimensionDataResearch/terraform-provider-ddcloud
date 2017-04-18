@@ -219,17 +219,17 @@ func testCheckResourceUpdatedInPlace(name string, testData *testAccResourceData)
 
 		capturedResourceID, ok := testData.NamesToResourceIDs[name]
 		if !ok {
-			return fmt.Errorf("No Id has been captured for resource '%s'.", name)
+			return fmt.Errorf("no Id has been captured for resource '%s'", name)
 		}
 
 		res, ok := state.RootModule().Resources[name]
 		if !ok {
-			return fmt.Errorf("Not found: %s", name)
+			return fmt.Errorf("not found: %s", name)
 		}
 
 		currentResourceID := res.Primary.ID
 		if currentResourceID != capturedResourceID {
-			return fmt.Errorf("Bad: The update was expected to be performed in-place but the Id for %s has changed (was: %s, now: %s) which indicates that the resource was destroyed and re-created", resourceType, capturedResourceID, currentResourceID)
+			return fmt.Errorf("bad: The update was expected to be performed in-place but the Id for %s has changed (was: %s, now: %s) which indicates that the resource was destroyed and re-created", resourceType, capturedResourceID, currentResourceID)
 		}
 
 		return nil
@@ -248,7 +248,7 @@ func testCheckResourceReplaced(name string, testData *testAccResourceData) resou
 
 		capturedResourceID, ok := testData.NamesToResourceIDs[name]
 		if !ok {
-			return fmt.Errorf("No Id has been captured for resource '%s'.", name)
+			return fmt.Errorf("no Id has been captured for resource '%s'", name)
 		}
 
 		res, ok := state.RootModule().Resources[name]
@@ -258,7 +258,7 @@ func testCheckResourceReplaced(name string, testData *testAccResourceData) resou
 
 		currentResourceID := res.Primary.ID
 		if currentResourceID == capturedResourceID {
-			return fmt.Errorf("Bad: The update was expected to be performed by destroying and re-creating %s but its Id has not changed (still %s) which indicates that the resource was performed in-place", resourceType, currentResourceID)
+			return fmt.Errorf("bad: the update was expected to be performed by destroying and re-creating %s but its Id has not changed (still %s) which indicates that the resource was performed in-place", resourceType, currentResourceID)
 		}
 
 		return nil
@@ -268,7 +268,7 @@ func testCheckResourceReplaced(name string, testData *testAccResourceData) resou
 func getResourceTypeFromName(name string) (string, error) {
 	resourceNameComponents := strings.SplitN(name, ".", 2)
 	if len(resourceNameComponents) != 2 {
-		return "", fmt.Errorf("Invalid resource name: '%s' (should be 'resource_type.resource_name')", name)
+		return "", fmt.Errorf("invalid resource name: '%s' (should be 'resource_type.resource_name')", name)
 	}
 
 	return resourceNameComponents[0], nil

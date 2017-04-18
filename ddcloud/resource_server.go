@@ -122,7 +122,7 @@ func resourceServer() *schema.Resource {
 						return
 					default:
 						errors = append(errors,
-							fmt.Errorf("Invalid image type '%s'", imageType),
+							fmt.Errorf("invalid image type '%s'", imageType),
 						)
 					}
 
@@ -255,7 +255,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	if networkDomain == nil {
-		return fmt.Errorf("No network domain was found with Id '%s'.", networkDomainID)
+		return fmt.Errorf("no network domain was found with Id '%s'", networkDomainID)
 	}
 
 	dataCenterID := networkDomain.DatacenterID
@@ -276,7 +276,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		return err
 	}
 	if image == nil {
-		return fmt.Errorf("An unexpected error occurred while resolving the configured server image.")
+		return fmt.Errorf("an unexpected error occurred while resolving the configured server image")
 	}
 
 	log.Printf("Server will be deployed from %s image '%s' (Id = '%s') in datacenter '%s",
@@ -615,7 +615,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 			return err
 		}
 		if server == nil {
-			return fmt.Errorf("Cannot find server with Id '%s'", serverID)
+			return fmt.Errorf("cannot find server with Id '%s'", serverID)
 		}
 
 		actualNetworkAdapters = models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
@@ -729,7 +729,7 @@ func validateAdminPassword(adminPassword string, image compute.Image) error {
 
 		// Admin password cannot be supplied for Linux customer images.
 		if imageOS.Family == "UNIX" && adminPassword != "" {
-			return fmt.Errorf("Cannot specify an initial admin password when deploying a Linux OS image")
+			return fmt.Errorf("cannot specify an initial admin password when deploying a Linux OS image")
 		}
 
 		// Admin password is only mandatory for some types of Windows images
@@ -770,7 +770,7 @@ func serverStart(providerState *providerState, serverID string) error {
 	apiClient := providerState.Client()
 
 	if !providerSettings.AllowServerReboots {
-		return fmt.Errorf("Cannot start server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
+		return fmt.Errorf("cannot start server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
 	}
 
 	operationDescription := fmt.Sprintf("Start server '%s'", serverID)
@@ -807,7 +807,7 @@ func serverShutdown(providerState *providerState, serverID string) error {
 	apiClient := providerState.Client()
 
 	if !providerSettings.AllowServerReboots {
-		return fmt.Errorf("Cannot shut down server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
+		return fmt.Errorf("cannot shut down server '%s' because server reboots have not been enabled via the 'allow_server_reboot' provider setting or 'DDCLOUD_ALLOW_SERVER_REBOOT' environment variable", serverID)
 	}
 
 	operationDescription := fmt.Sprintf("Shut down server '%s'", serverID)

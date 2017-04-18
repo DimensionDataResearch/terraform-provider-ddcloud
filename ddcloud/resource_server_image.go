@@ -55,7 +55,7 @@ func resolveServerImage(imageNameOrID string, imageType string, datacenterID str
 				return
 			}
 
-			err = fmt.Errorf("Cannot find an OS image with Id '%s' in datacenter '%s'",
+			err = fmt.Errorf("cannot find an OS image with Id '%s' in datacenter '%s'",
 				imageNameOrID,
 				datacenterID,
 			)
@@ -72,7 +72,7 @@ func resolveServerImage(imageNameOrID string, imageType string, datacenterID str
 				return
 			}
 
-			err = fmt.Errorf("Cannot find an OS image named '%s' in datacenter '%s'",
+			err = fmt.Errorf("cannot find an OS image named '%s' in datacenter '%s'",
 				imageNameOrID,
 				datacenterID,
 			)
@@ -91,7 +91,7 @@ func resolveServerImage(imageNameOrID string, imageType string, datacenterID str
 				return
 			}
 
-			err = fmt.Errorf("Cannot find a customer image with Id '%s' in datacenter '%s'",
+			err = fmt.Errorf("cannot find a customer image with Id '%s' in datacenter '%s'",
 				imageNameOrID,
 				datacenterID,
 			)
@@ -108,7 +108,7 @@ func resolveServerImage(imageNameOrID string, imageType string, datacenterID str
 				return
 			}
 
-			err = fmt.Errorf("Cannot find a customer image named '%s' in datacenter '%s'",
+			err = fmt.Errorf("cannot find a customer image named '%s' in datacenter '%s'",
 				imageNameOrID,
 				datacenterID,
 			)
@@ -140,7 +140,7 @@ func resolveServerImage(imageNameOrID string, imageType string, datacenterID str
 				return
 			}
 
-			err = fmt.Errorf("Cannot find an OS or customer image with Id '%s' in datacenter '%s'",
+			err = fmt.Errorf("cannot find an OS or customer image with Id '%s' in datacenter '%s'",
 				imageNameOrID,
 				datacenterID,
 			)
@@ -170,13 +170,13 @@ func resolveServerImage(imageNameOrID string, imageType string, datacenterID str
 				return
 			}
 
-			err = fmt.Errorf("Cannot find an OS or customer image named '%s' in datacenter '%s'",
+			err = fmt.Errorf("cannot find an OS or customer image named '%s' in datacenter '%s'",
 				imageNameOrID,
 				datacenterID,
 			)
 		}
 	default:
-		err = fmt.Errorf("Invalid image type '%s'", imageType)
+		err = fmt.Errorf("invalid image type '%s'", imageType)
 
 		return
 	}

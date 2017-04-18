@@ -174,12 +174,12 @@ func testCheckDDCloudAddressListExists(name string, exists bool) resource.TestCh
 		client := testAccProvider.Meta().(*providerState).Client()
 		addressList, err := client.GetIPAddressList(addressListID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get address list: %s", err)
+			return fmt.Errorf("bad: Get address list: %s", err)
 		}
 		if exists && addressList == nil {
-			return fmt.Errorf("Bad: address list not found with Id '%s'.", addressListID)
+			return fmt.Errorf("bad: address list not found with Id '%s'", addressListID)
 		} else if !exists && addressList != nil {
-			return fmt.Errorf("Bad: address list still exists with Id '%s'.", addressListID)
+			return fmt.Errorf("bad: address list still exists with Id '%s'", addressListID)
 		}
 
 		return nil
@@ -203,22 +203,22 @@ func testCheckDDCloudAddressListMatches(name string, expected compute.IPAddressL
 		client := testAccProvider.Meta().(*providerState).Client()
 		addressList, err := client.GetIPAddressList(addressListID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get address list: %s", err)
+			return fmt.Errorf("bad: Get address list: %s", err)
 		}
 		if addressList == nil {
-			return fmt.Errorf("Bad: address list not found with Id '%s'", addressListID)
+			return fmt.Errorf("bad: address list not found with Id '%s'", addressListID)
 		}
 
 		if addressList.Name != expected.Name {
-			return fmt.Errorf("Bad: address list '%s' has name '%s' (expected '%s')", addressListID, addressList.Name, expected.Name)
+			return fmt.Errorf("bad: address list '%s' has name '%s' (expected '%s')", addressListID, addressList.Name, expected.Name)
 		}
 
 		if addressList.Description != expected.Description {
-			return fmt.Errorf("Bad: address list '%s' has description '%s' (expected '%s')", addressListID, addressList.Description, expected.Description)
+			return fmt.Errorf("bad: address list '%s' has description '%s' (expected '%s')", addressListID, addressList.Description, expected.Description)
 		}
 
 		if len(addressList.Addresses) != len(expected.Addresses) {
-			return fmt.Errorf("Bad: address list '%s' has %d addresses or address-ranges (expected '%d')", addressListID, len(addressList.Addresses), len(expected.Addresses))
+			return fmt.Errorf("bad: address list '%s' has %d addresses or address-ranges (expected '%d')", addressListID, len(addressList.Addresses), len(expected.Addresses))
 		}
 
 		err = compareAddressListEntries(expected, *addressList)
@@ -227,7 +227,7 @@ func testCheckDDCloudAddressListMatches(name string, expected compute.IPAddressL
 		}
 
 		if len(addressList.ChildLists) != len(expected.ChildLists) {
-			return fmt.Errorf("Bad: address list '%s' has %d child lists (expected '%d')", addressListID, len(addressList.ChildLists), len(expected.ChildLists))
+			return fmt.Errorf("bad: address list '%s' has %d child lists (expected '%d')", addressListID, len(addressList.ChildLists), len(expected.ChildLists))
 		}
 
 		for index := range addressList.ChildLists {
@@ -235,7 +235,7 @@ func testCheckDDCloudAddressListMatches(name string, expected compute.IPAddressL
 			actualChildListID := addressList.ChildLists[index].ID
 
 			if actualChildListID != expectedChildListID {
-				return fmt.Errorf("Bad: address list '%s' has child list at index %d with Id %s (expected '%s')",
+				return fmt.Errorf("bad: address list '%s' has child list at index %d with Id %s (expected '%s')",
 					addressListID, index, actualChildListID, expectedChildListID,
 				)
 			}
@@ -277,7 +277,7 @@ func compareAddressListEntries(expectedAddressList compute.IPAddressList, actual
 		actualAddress := actualAddressList.Addresses[index]
 
 		if expectedAddress.Begin != actualAddress.Begin {
-			return fmt.Errorf("Bad: address list '%s' has entry at index %d with begin address %s (expected '%s')",
+			return fmt.Errorf("bad: address list '%s' has entry at index %d with begin address %s (expected '%s')",
 				addressListID, index, formatAddress(actualAddress.Begin), formatAddress(expectedAddress.Begin),
 			)
 		}
@@ -285,7 +285,7 @@ func compareAddressListEntries(expectedAddressList compute.IPAddressList, actual
 		expectedAddressEnd := formatAddress(expectedAddress.End)
 		actualAddressEnd := formatAddress(actualAddress.End)
 		if expectedAddressEnd != actualAddressEnd {
-			return fmt.Errorf("Bad: address list '%s' has entry at index %d with end address %s (expected %s)",
+			return fmt.Errorf("bad: address list '%s' has entry at index %d with end address %s (expected %s)",
 				addressListID, index, actualAddressEnd, expectedAddressEnd,
 			)
 		}

@@ -2,9 +2,10 @@ package ddcloud
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"testing"
 )
 
 /*
@@ -140,12 +141,12 @@ func testCheckDDCloudVIPPoolMemberExists(name string, exists bool) resource.Test
 		client := testAccProvider.Meta().(*providerState).Client()
 		vipPool, err := client.GetVIPPoolMember(vipPoolID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get VIP pool member: %s", err)
+			return fmt.Errorf("bad: get VIP pool member: %s", err)
 		}
 		if exists && vipPool == nil {
-			return fmt.Errorf("Bad: VIP pool member not found with Id '%s'.", vipPoolID)
+			return fmt.Errorf("bad: VIP pool member not found with Id '%s'", vipPoolID)
 		} else if !exists && vipPool != nil {
-			return fmt.Errorf("Bad: VIP pool member still exists with Id '%s'.", vipPoolID)
+			return fmt.Errorf("bad: VIP pool member still exists with Id '%s'", vipPoolID)
 		}
 
 		return nil
@@ -161,7 +162,7 @@ func testCheckDDCloudVIPPoolMemberMatches(name string, expectedPort *int) resour
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]
 		if !ok {
-			return fmt.Errorf("Not found: %s", name)
+			return fmt.Errorf("not found: %s", name)
 		}
 
 		vipPoolMemberID := res.Primary.ID
@@ -169,19 +170,19 @@ func testCheckDDCloudVIPPoolMemberMatches(name string, expectedPort *int) resour
 		client := testAccProvider.Meta().(*providerState).Client()
 		vipPoolMember, err := client.GetVIPPoolMember(vipPoolMemberID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get VIP pool member: %s", err)
+			return fmt.Errorf("bad: get VIP pool member: %s", err)
 		}
 		if vipPoolMember == nil {
-			return fmt.Errorf("Bad: VIP pool member not found with Id '%s'", vipPoolMemberID)
+			return fmt.Errorf("bad: VIP pool member not found with Id '%s'", vipPoolMemberID)
 		}
 
 		if vipPoolMember.Port != nil {
 			if expectedPort == nil {
-				return fmt.Errorf("Bad: VIP pool member '%s' is constrained to port %d (expected no port constraint)", vipPoolMemberID, *vipPoolMember.Port)
+				return fmt.Errorf("bad: VIP pool member '%s' is constrained to port %d (expected no port constraint)", vipPoolMemberID, *vipPoolMember.Port)
 			}
 		} else if expectedPort != nil {
 			if vipPoolMember.Port == nil {
-				return fmt.Errorf("Bad: VIP pool member '%s' has no port constraint (expected it to be constrained to port %d)", vipPoolMemberID, *expectedPort)
+				return fmt.Errorf("bad: VIP pool member '%s' has no port constraint (expected it to be constrained to port %d)", vipPoolMemberID, *expectedPort)
 			}
 		}
 

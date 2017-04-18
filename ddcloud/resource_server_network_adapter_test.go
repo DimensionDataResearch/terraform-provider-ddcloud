@@ -66,14 +66,14 @@ func testCheckDDCloudServerNICMatchesIPV4(serverResourceName string, expected st
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get server: %s", err)
+			return fmt.Errorf("bad: Get server: %s", err)
 		}
 		if server == nil {
-			return fmt.Errorf("Bad: Server not found with Id '%s'", serverID)
+			return fmt.Errorf("bad: Server not found with Id '%s'", serverID)
 		}
 
 		if len(server.Network.AdditionalNetworkAdapters) == 0 {
-			return fmt.Errorf("Bad: Server '%s' has no additional nics", serverID)
+			return fmt.Errorf("bad: Server '%s' has no additional nics", serverID)
 		}
 
 		isNicExists := false
@@ -83,7 +83,7 @@ func testCheckDDCloudServerNICMatchesIPV4(serverResourceName string, expected st
 			}
 		}
 		if !isNicExists {
-			return fmt.Errorf("Bad: Server '%s' doesn't have additional nic with the ip address (expected %s) ", serverID, expected)
+			return fmt.Errorf("bad: Server '%s' doesn't have additional nic with the ip address (expected %s) ", serverID, expected)
 		}
 		return nil
 	}
@@ -110,14 +110,14 @@ func testCheckDDCloudServerNICMatchesVLANID(serverResourceName string, vlanResou
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("Bad: Get server: %s", err)
+			return fmt.Errorf("bad: Get server: %s", err)
 		}
 		if server == nil {
-			return fmt.Errorf("Bad: Server not found with Id '%s'", serverID)
+			return fmt.Errorf("bad: Server not found with Id '%s'", serverID)
 		}
 
 		if len(server.Network.AdditionalNetworkAdapters) == 0 {
-			return fmt.Errorf("Bad: Server '%s' has no additional nics", serverID)
+			return fmt.Errorf("bad: Server '%s' has no additional nics", serverID)
 		}
 		isNicExists := false
 		for _, networkAdapters := range server.Network.AdditionalNetworkAdapters {
@@ -126,7 +126,7 @@ func testCheckDDCloudServerNICMatchesVLANID(serverResourceName string, vlanResou
 			}
 		}
 		if !isNicExists {
-			return fmt.Errorf("Bad: Server '%s' doesn't have additional nic with the vlanID (expected %s) ", serverID, vlanID)
+			return fmt.Errorf("bad: Server '%s' doesn't have additional nic with the vlanID (expected %s) ", serverID, vlanID)
 		}
 		return nil
 	}

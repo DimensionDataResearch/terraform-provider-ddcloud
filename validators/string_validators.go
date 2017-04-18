@@ -20,7 +20,7 @@ func StringIsOneOf(valueDescription string, permittedValues ...string) schema.Sc
 			}
 		}
 
-		errors = append(errors, fmt.Errorf("Invalid %s '%s' (valid values are [%s])",
+		errors = append(errors, fmt.Errorf("invalid %s '%s' (valid values are [%s])",
 			valueDescription,
 			stringValue,
 			permittedValuesDescription,
@@ -49,7 +49,7 @@ func StringIsOneOfCaseInsensitive(valueDescription string, permittedValues ...st
 			}
 		}
 
-		errors = append(errors, fmt.Errorf("Invalid %s '%s' (valid values are [%s])",
+		errors = append(errors, fmt.Errorf("invalid %s '%s' (valid values are [%s])",
 			valueDescription,
 			stringValue,
 			permittedValuesDescription,
