@@ -3,6 +3,11 @@ language: go
 go:
     - 1.8
 
+branches:
+  only:
+    - master
+    - /^development\/v.*$/
+
 install:
   - go get github.com/hashicorp/terraform
   - pushd $GOPATH/src/github.com/hashicorp/terraform
