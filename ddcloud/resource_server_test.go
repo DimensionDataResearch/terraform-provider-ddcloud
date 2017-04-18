@@ -573,46 +573,53 @@ func testCheckDDCloudDiskMatches(name string, expected ...models.Disk) resource.
 		}
 
 		var validationMessages []string
-		expectedDisksByUnitID := models.Disks(expected).ByUnitID()
-		for _, actualDisk := range server.Disks {
-			expectedDisk, ok := expectedDisksByUnitID[actualDisk.SCSIUnitID]
-			if !ok {
-				validationMessages = append(validationMessages, fmt.Sprintf(
-					"found unexpected server disk '%s' with SCSI unit ID %d.",
-					*actualDisk.ID,
-					actualDisk.SCSIUnitID,
-				))
+		expectedDisksBySCSIPath := models.Disks(expected).BySCSIPath()
+		for _, actualSCSIController := range server.SCSIControllers {
+			for _, actualDisk := range actualSCSIController.Disks {
+				scsiPath := models.SCSIPath(actualSCSIController.BusNumber, actualDisk.SCSIUnitID)
+				expectedDisk, ok := expectedDisksBySCSIPath[scsiPath]
+				if !ok {
+					validationMessages = append(validationMessages, fmt.Sprintf(
+						"found unexpected server disk '%s' on SCSI bus %d with SCSI unit ID %d.",
+						actualDisk.ID,
+						actualSCSIController.BusNumber,
+						actualDisk.SCSIUnitID,
+					))
 
-				continue
-			}
-			delete(expectedDisksByUnitID, actualDisk.SCSIUnitID)
+					continue
+				}
+				delete(expectedDisksBySCSIPath, scsiPath)
 
-			if actualDisk.SizeGB != expectedDisk.SizeGB {
-				validationMessages = append(validationMessages, fmt.Sprintf(
-					"server disk '%s' with SCSI unit ID %d has size %dGB (expected %dGB).",
-					*actualDisk.ID,
-					actualDisk.SCSIUnitID,
-					actualDisk.SizeGB,
-					expectedDisk.SizeGB,
-				))
-			}
+				if actualDisk.SizeGB != expectedDisk.SizeGB {
+					validationMessages = append(validationMessages, fmt.Sprintf(
+						"server disk '%s' on SCSI bus %d with SCSI unit ID %d has size %dGB (expected %dGB).",
+						actualDisk.ID,
+						actualSCSIController.BusNumber,
+						actualDisk.SCSIUnitID,
+						actualDisk.SizeGB,
+						expectedDisk.SizeGB,
+					))
+				}
 
-			if actualDisk.Speed != expectedDisk.Speed {
-				validationMessages = append(validationMessages, fmt.Sprintf(
-					"server disk '%s' with SCSI unit ID %d has speed '%s' (expected '%s').",
-					*actualDisk.ID,
-					actualDisk.SCSIUnitID,
-					actualDisk.Speed,
-					expectedDisk.Speed,
-				))
+				if actualDisk.Speed != expectedDisk.Speed {
+					validationMessages = append(validationMessages, fmt.Sprintf(
+						"server disk '%s' on SCSI bus %d with SCSI unit ID %d has speed '%s' (expected '%s').",
+						actualDisk.ID,
+						actualSCSIController.BusNumber,
+						actualDisk.SCSIUnitID,
+						actualDisk.Speed,
+						expectedDisk.Speed,
+					))
+				}
 			}
 		}
 
-		for expectedUnitID := range expectedDisksByUnitID {
-			expectedDisk := expectedDisksByUnitID[expectedUnitID]
+		for expectedSCSIPath := range expectedDisksBySCSIPath {
+			expectedDisk := expectedDisksBySCSIPath[expectedSCSIPath]
 
 			validationMessages = append(validationMessages, fmt.Sprintf(
-				"no server disk was found with SCSI unit ID %d.",
+				"no server disk was found on SCSI bus %d with SCSI unit ID %d.",
+				expectedDisk.SCSIBusNumber,
 				expectedDisk.SCSIUnitID,
 			))
 		}

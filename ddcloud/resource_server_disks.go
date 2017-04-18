@@ -11,11 +11,12 @@ import (
 )
 
 const (
-	resourceKeyServerDisk       = "disk"
-	resourceKeyServerDiskID     = "id"
-	resourceKeyServerDiskUnitID = "scsi_unit_id"
-	resourceKeyServerDiskSizeGB = "size_gb"
-	resourceKeyServerDiskSpeed  = "speed"
+	resourceKeyServerDisk          = "disk"
+	resourceKeyServerDiskID        = "id"
+	resourceKeyServerDiskBusNumber = "scsi_bus_number"
+	resourceKeyServerDiskUnitID    = "scsi_unit_id"
+	resourceKeyServerDiskSizeGB    = "size_gb"
+	resourceKeyServerDiskSpeed     = "speed"
 )
 
 func schemaDisk() *schema.Schema {
@@ -31,6 +32,11 @@ func schemaDisk() *schema.Schema {
 					Type:        schema.TypeString,
 					Computed:    true,
 					Description: "The CloudControl identifier for the virtual disk (computed when the disk is first created)",
+				},
+				resourceKeyServerDiskBusNumber: &schema.Schema{
+					Type:        schema.TypeInt,
+					Computed:    true,
+					Description: "The SCSI bus number for the disk",
 				},
 				resourceKeyServerDiskUnitID: &schema.Schema{
 					Type:        schema.TypeInt,
@@ -56,8 +62,9 @@ func schemaDisk() *schema.Schema {
 }
 
 // When creating a server resource, synchronise the server's disks with its resource data.
-// imageDisks refers to the newly-deployed server's collection of disks (i.e. image disks).
-func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceData, providerState *providerState) error {
+//
+// imageSCSIControllers refers to the newly-deployed server's collection of SCSI controllers and their associated disks.
+func createDisks(imageSCSIControllers compute.VirtualMachineSCSIControllers, data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
@@ -66,16 +73,17 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 	// Since this is the first time, populate image disks.
 	configuredDisks := propertyHelper.GetDisks()
 	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
-	actualDisks := models.NewDisksFromVirtualMachineDisks(imageDisks)
+	actualDisks := models.NewDisksFromVirtualMachineSCSIControllers(imageSCSIControllers)
 	configuredDisks.CaptureIDs(actualDisks)
 
-	err := validateDisks(configuredDisks)
+	err := validateServerDisks(configuredDisks)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
 	if len(configuredDisks) == 0 {
+		log.Printf("Configuration for server '%s' does not specify any disks; the provider will assume all disks are either image-only, or configured via ddcloud_storage_controller.", serverID)
+
 		propertyHelper.SetDisks(actualDisks)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
@@ -83,6 +91,8 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 
 		return nil
 	}
+
+	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
 
 	propertyHelper.SetDisks(configuredDisks)
 	propertyHelper.SetPartial(resourceKeyServerDisk)
@@ -99,7 +109,7 @@ func createDisks(imageDisks []compute.VirtualMachineDisk, data *schema.ResourceD
 
 	// After initial server deployment, we only need to handle disks that were part of the original server image (and of those, only ones we need to modify after the initial deployment completed deployment).
 	log.Printf("Configure image disks for server '%s'...", serverID)
-	actualDisks = models.NewDisksFromVirtualMachineDisks(server.Disks)
+	actualDisks = models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers)
 	addDisks, modifyDisks, _ := configuredDisks.SplitByAction(actualDisks) // Ignore removeDisks since not all disks have been created yet
 	if addDisks.IsEmpty() && modifyDisks.IsEmpty() {
 		log.Printf("No post-deploy changes required for disks of server '%s'.", serverID)
@@ -138,24 +148,22 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 
 		return fmt.Errorf("server '%s' has been deleted", serverID)
 	}
-	actualDisks := models.NewDisksFromVirtualMachineDisks(server.Disks)
+	actualDisks := models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers)
 
 	configuredDisks := propertyHelper.GetDisks()
 	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
 
-	err = validateDisks(configuredDisks)
+	err = validateServerDisks(configuredDisks)
 	if err != nil {
 		return err
 	}
 
 	if configuredDisks.IsEmpty() {
 		// No explicitly-configured disks.
-		propertyHelper.SetDisks(
-			models.NewDisksFromVirtualMachineDisks(server.Disks),
-		)
+		propertyHelper.SetDisks(actualDisks)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
-		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
+		log.Printf("Server '%s' now has %d disks: %#v.", serverID, server.SCSIControllers.GetDiskCount(), server.SCSIControllers)
 
 		return nil
 	}
@@ -243,11 +251,11 @@ func processAddDisks(addDisks models.Disks, data *schema.ResourceData, providerS
 
 		server := resource.(*compute.Server)
 		propertyHelper.SetDisks(
-			models.NewDisksFromVirtualMachineDisks(server.Disks),
+			models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
 		)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
-		log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
+		log.Printf("Server '%s' now has %d disks: %#v.", serverID, server.SCSIControllers.GetDiskCount(), server.SCSIControllers)
 
 		log.Printf("Added disk '%s' with SCSI unit ID %d to server '%s'.",
 			addDisk.ID,
@@ -279,13 +287,13 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 
 		return fmt.Errorf("server '%s' has been deleted", serverID)
 	}
-	actualDisks := models.NewDisksFromVirtualMachineDisks(server.Disks)
-	actualDisksByUnitID := actualDisks.ByUnitID()
+	actualDisks := models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers)
+	actualDisksBySCSIPath := actualDisks.BySCSIPath()
 
 	for index := range modifyDisks {
 		modifyDisk := &modifyDisks[index]
 		log.Printf("modifyDisk = %#v", modifyDisk)
-		actualImageDisk := actualDisksByUnitID[modifyDisk.SCSIUnitID]
+		actualImageDisk := actualDisksBySCSIPath[modifyDisk.SCSIPath()]
 
 		// Can't shrink disk, only grow it.
 		if modifyDisk.SizeGB < actualImageDisk.SizeGB {
@@ -313,16 +321,16 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 				defer asyncLock.Release()
 
-				response, resizeError := apiClient.ResizeServerDisk(serverID, modifyDisk.ID, modifyDisk.SizeGB)
+				response, resizeError := apiClient.ExpandDisk(modifyDisk.ID, modifyDisk.SizeGB)
 				if compute.IsResourceBusyError(resizeError) {
 					context.Retry()
 				} else if resizeError != nil {
 					context.Fail(resizeError)
 				}
-				if response.Result != compute.ResultSuccess {
+				if response.ResponseCode != compute.ResultSuccess {
 					context.Fail(response.ToError(
-						"Unexpected result '%s' when resizing server disk '%s' for server '%s'.",
-						response.Result,
+						"unexpected response code '%s' when resizing server disk '%s' for server '%s'",
+						response.ResponseCode,
 						modifyDisk.ID,
 						serverID,
 					))
@@ -354,11 +362,11 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 
 			server := resource.(*compute.Server)
 			propertyHelper.SetDisks(
-				models.NewDisksFromVirtualMachineDisks(server.Disks),
+				models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
 			)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
-			log.Printf("Server '%s' now has %d disks: %#v.", serverID, len(server.Disks), server.Disks)
+			log.Printf("Server '%s' now has %d disks: %#v.", serverID, server.SCSIControllers.GetDiskCount(), server.SCSIControllers)
 
 			log.Printf(
 				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
@@ -417,7 +425,7 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 
 			server = resource.(*compute.Server)
 			propertyHelper.SetDisks(
-				models.NewDisksFromVirtualMachineDisks(server.Disks),
+				models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
 			)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
@@ -488,7 +496,7 @@ func processRemoveDisks(removeDisks models.Disks, data *schema.ResourceData, pro
 
 		server := resource.(*compute.Server)
 		propertyHelper.SetDisks(
-			models.NewDisksFromVirtualMachineDisks(server.Disks),
+			models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
 		)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
@@ -518,7 +526,7 @@ func hashDiskUnitID(item interface{}) int {
 	return diskData[resourceKeyServerDiskUnitID].(int)
 }
 
-func validateDisks(disks models.Disks) error {
+func validateServerDisks(disks models.Disks) error {
 	if disks.IsEmpty() {
 		return nil
 	}
@@ -527,7 +535,7 @@ func validateDisks(disks models.Disks) error {
 	for _, disk := range disks {
 		_, duplicate := disksByUnitID[disk.SCSIUnitID]
 		if duplicate {
-			return fmt.Errorf("Multiple disks with SCSI unit ID '%d'", disk.SCSIUnitID)
+			return fmt.Errorf("multiple disks with SCSI unit ID '%d'", disk.SCSIUnitID)
 		}
 
 		disksByUnitID[disk.SCSIUnitID] = disk
@@ -551,7 +559,7 @@ func validateDiskSpeed(value interface{}, propertyName string) (messages []strin
 	}
 
 	switch adapterType {
-	case compute.ServerDiskSpeedEcomony:
+	case compute.ServerDiskSpeedEconomy:
 	case compute.ServerDiskSpeedStandard:
 	case compute.ServerDiskSpeedHighPerformance:
 		break
