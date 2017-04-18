@@ -327,9 +327,8 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 				} else if resizeError != nil {
 					context.Fail(resizeError)
 				}
-				if response.ResponseCode != compute.ResultSuccess {
-					context.Fail(response.ToError(
-						"unexpected response code '%s' when resizing server disk '%s' for server '%s'",
+				if response.ResponseCode != compute.ResponseCodeInProgress {
+					context.Fail(response.ToError("unexpected response code '%s' when expanding server disk '%s' for server '%s'",
 						response.ResponseCode,
 						modifyDisk.ID,
 						serverID,
