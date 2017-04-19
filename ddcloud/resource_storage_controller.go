@@ -34,16 +34,19 @@ func resourceStorageController() *schema.Resource {
 			resourceKeyStorageControllerServerID: &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 				Description: "The Id of the server that the controller is attached to",
 			},
 			resourceKeyStorageControllerBusNumber: &schema.Schema{
 				Type:        schema.TypeInt,
 				Required:    true,
+				ForceNew:    true,
 				Description: "The controller's SCSI bus number",
 			},
 			resourceKeyStorageControllerAdapterType: &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
+				ForceNew:    true,
 				Description: "The type of storage adapter used to represent the controller",
 			},
 			resourceKeyStorageControllerDisk: &schema.Schema{
