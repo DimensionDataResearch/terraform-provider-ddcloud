@@ -141,11 +141,11 @@ func resourceStorageControllerCreate(data *schema.ResourceData, provider interfa
 	actualDisks := models.NewDisksFromVirtualMachineSCSIController(*targetController)
 
 	if configuredDisks.IsEmpty() {
-		// No explicitly-configured disks.
+		// No explicitly-configured disks so just populate from current controller state.
 		propertyHelper.SetDisks(actualDisks)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
-		log.Printf("Server '%s' now has %d disks: %#v.", serverID, server.SCSIControllers.GetDiskCount(), server.SCSIControllers)
+		log.Printf("No disks configured; storage controller '%s' now has %d disks: %#v.", serverID, server.SCSIControllers.GetDiskCount(), server.SCSIControllers)
 
 		return nil
 	}
@@ -191,15 +191,20 @@ func resourceStorageControllerRead(data *schema.ResourceData, provider interface
 		server.Name,
 	)
 
-	propertyHelper.SetDisks(
-		models.NewDisksFromVirtualMachineSCSIController(*targetController),
-	)
+	configuredDisks := propertyHelper.GetDisks()
+	log.Printf("Configuration for storage controller '%s' specifies %d disks: %#v.", controllerID, len(configuredDisks), configuredDisks)
+
+	actualDisks := models.NewDisksFromVirtualMachineSCSIController(*targetController)
+	log.Printf("Storage controller '%s' currently has %d disks: %#v.", controllerID, len(actualDisks), actualDisks)
+
+	propertyHelper.SetDisks(actualDisks)
 
 	return nil
 }
 
 // Update a storage controller resource.
 func resourceStorageControllerUpdate(data *schema.ResourceData, provider interface{}) error {
+	propertyHelper := propertyHelper(data)
 	controllerID := data.Id()
 	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
 
@@ -233,6 +238,19 @@ func resourceStorageControllerUpdate(data *schema.ResourceData, provider interfa
 		controllerID,
 		server.Name,
 	)
+
+	configuredDisks := propertyHelper.GetDisks()
+	actualDisks := models.NewDisksFromVirtualMachineSCSIController(*targetController)
+
+	if configuredDisks.IsEmpty() {
+		// No explicitly-configured disks.
+		propertyHelper.SetDisks(actualDisks)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
+
+		log.Printf("No disks configured; storage controller '%s' now has %d disks: %#v.", serverID, server.SCSIControllers.GetDiskCount(), server.SCSIControllers)
+
+		return nil
+	}
 
 	return updateStorageControllerDisks(data, providerState)
 }
@@ -295,7 +313,7 @@ func updateStorageControllerDisks(data *schema.ResourceData, providerState *prov
 	controllerID := data.Id()
 	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
 
-	log.Printf("Configure image disks for storage controller '%s' in server '%s'...", controllerID, serverID)
+	log.Printf("Configure disks for storage controller '%s' in server '%s'...", controllerID, serverID)
 
 	apiClient := providerState.Client()
 	server, err := apiClient.GetServer(serverID)
@@ -319,11 +337,7 @@ func updateStorageControllerDisks(data *schema.ResourceData, providerState *prov
 
 	// Filter disks so we're only looking at ones from this controller.
 	actualDisks := models.NewDisksFromVirtualMachineSCSIController(*targetController)
-
-	log.Printf("Current disks for storage controller '%s': %#v",
-		controllerID,
-		actualDisks,
-	)
+	log.Printf("Storage controller '%s' currently has %d disks: %#v.", controllerID, len(actualDisks), actualDisks)
 
 	configuredDisks := propertyHelper.GetDisks()
 	log.Printf("Configuration for storage controller '%s' specifies %d disks: %#v.", controllerID, len(configuredDisks), configuredDisks)
@@ -333,19 +347,9 @@ func updateStorageControllerDisks(data *schema.ResourceData, providerState *prov
 		return err
 	}
 
-	if configuredDisks.IsEmpty() {
-		// No explicitly-configured disks.
-		propertyHelper.SetDisks(actualDisks)
-		propertyHelper.SetPartial(resourceKeyServerDisk)
-
-		log.Printf("Server '%s' now has %d disks: %#v.", serverID, server.SCSIControllers.GetDiskCount(), server.SCSIControllers)
-
-		return nil
-	}
-
 	addDisks, modifyDisks, removeDisks := configuredDisks.SplitByAction(actualDisks)
 	if addDisks.IsEmpty() && modifyDisks.IsEmpty() && removeDisks.IsEmpty() {
-		log.Printf("No post-deploy changes required for disks of server '%s'.", serverID)
+		log.Printf("No changes required for disks of storage controller '%s' in server '%s'.", controllerID, serverID)
 
 		return nil
 	}
@@ -436,7 +440,7 @@ func processAddStorageControllerDisks(addDisks models.Disks, data *schema.Resour
 		resource, err := apiClient.WaitForChange(
 			compute.ResourceTypeServer,
 			serverID,
-			"Add disk",
+			fmt.Sprintf("Add disk %d/%d", addDisk.SCSIBusNumber, addDisk.SCSIUnitID),
 			resourceUpdateTimeoutServer,
 		)
 		if err != nil {
@@ -444,9 +448,9 @@ func processAddStorageControllerDisks(addDisks models.Disks, data *schema.Resour
 		}
 
 		server := resource.(*compute.Server)
-		targetController := server.SCSIControllers.GetByBusNumber(busNumber)
+		targetController := server.SCSIControllers.GetByID(controllerID)
 		if targetController == nil {
-			return fmt.Errorf("cannot find controller for bus %d in server '%s'", busNumber, serverID)
+			return fmt.Errorf("cannot find controller '%s' in server '%s'", controllerID, serverID)
 		}
 		propertyHelper.SetDisks(
 			models.NewDisksFromVirtualMachineSCSIController(*targetController),
@@ -495,30 +499,30 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 
 	for index := range modifyDisks {
 		modifyDisk := &modifyDisks[index]
-		actualImageDisk := actualDisksBySCSIPath[modifyDisk.SCSIPath()]
+		actualDisk := actualDisksBySCSIPath[modifyDisk.SCSIPath()]
 
 		// Can't shrink disk, only grow it.
-		if modifyDisk.SizeGB < actualImageDisk.SizeGB {
+		if modifyDisk.SizeGB < actualDisk.SizeGB {
 			return fmt.Errorf(
 				"cannot resize disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' from %d to GB to %d (for now, disks can only be expanded)",
 				modifyDisk.ID,
 				targetController.ID,
 				targetController.BusNumber,
 				serverID,
-				actualImageDisk.SizeGB,
+				actualDisk.SizeGB,
 				modifyDisk.SizeGB,
 			)
 		}
 
 		// Do we need to expand the disk?
-		if modifyDisk.SizeGB > actualImageDisk.SizeGB {
+		if modifyDisk.SizeGB > actualDisk.SizeGB {
 			log.Printf(
 				"Expanding disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from %d GB to %d GB)...",
 				modifyDisk.ID,
 				targetController.ID,
 				targetController.BusNumber,
 				serverID,
-				actualImageDisk.SizeGB,
+				actualDisk.SizeGB,
 				modifyDisk.SizeGB,
 			)
 
@@ -551,63 +555,69 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 			}
 
 			log.Printf(
-				"Resizing disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from %d to GB to %d)...",
+				"Expand disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from %d to GB to %d)...",
 				modifyDisk.ID,
 				targetController.ID,
 				targetController.BusNumber,
 				serverID,
-				actualImageDisk.SizeGB,
+				actualDisk.SizeGB,
 				modifyDisk.SizeGB,
 			)
 
 			resource, err := apiClient.WaitForChange(
 				compute.ResourceTypeServer,
 				serverID,
-				"Resize disk",
+				fmt.Sprintf("Expand disk %d/%d", modifyDisk.SCSIBusNumber, modifyDisk.SCSIUnitID),
 				resourceUpdateTimeoutServer,
 			)
 			if err != nil {
 				return err
 			}
 
-			modifyDisk.SizeGB = actualImageDisk.SizeGB
+			modifyDisk.SizeGB = actualDisk.SizeGB
 
 			server := resource.(*compute.Server)
+			targetController = server.SCSIControllers.GetByID(controllerID)
+			if targetController == nil {
+				return fmt.Errorf("cannot find controller '%s' in server '%s'", controllerID, serverID)
+			}
 			propertyHelper.SetDisks(
-				models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
+				models.NewDisksFromVirtualMachineSCSIController(*targetController),
 			)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
 			log.Printf("storage controller '%s' now has %d disks: %#v.", targetController.ID, len(targetController.Disks), targetController)
 
 			log.Printf(
-				"Resized disk '%s' on storage controller '%s' (SCSI bus %d) server '%s' (from %d to GB to %d).",
+				"Expanded disk '%s' on storage controller '%s' (SCSI bus %d) server '%s' (from %d to GB to %d).",
 				modifyDisk.ID,
 				targetController.ID,
 				targetController.BusNumber,
 				serverID,
-				actualImageDisk.SizeGB,
+				actualDisk.SizeGB,
 				modifyDisk.SizeGB,
 			)
 		}
 
 		// Do we need to change the disk speed?
-		if modifyDisk.Speed != actualImageDisk.Speed {
+		if modifyDisk.Speed != actualDisk.Speed {
 			log.Printf(
 				"Changing speed of disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from '%s' to '%s')...",
 				modifyDisk.ID,
 				targetController.ID,
 				targetController.BusNumber,
 				serverID,
-				actualImageDisk.Speed,
+				actualDisk.Speed,
 				modifyDisk.Speed,
 			)
 
-			operationDescription := fmt.Sprintf("Change speed of disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s'",
+			operationDescription := fmt.Sprintf("Change speed of disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from '%s' to '%s')",
 				modifyDisk.ID,
 				targetController.ID,
 				targetController.BusNumber,
 				serverID,
+				actualDisk.Speed,
+				modifyDisk.Speed,
 			)
 			err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
@@ -621,7 +631,7 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 				}
 				if response.Result != compute.ResultSuccess {
 					context.Fail(response.ToError(
-						"Unexpected result '%s' when resizing disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s'.",
+						"Unexpected result '%s' when changing speed of disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s'.",
 						response.Result,
 						modifyDisk.ID,
 						targetController.ID,
@@ -637,28 +647,32 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 			resource, err := apiClient.WaitForChange(
 				compute.ResourceTypeServer,
 				serverID,
-				"Resize disk",
+				fmt.Sprintf("Change speed of disk %d/%d", modifyDisk.SCSIBusNumber, modifyDisk.SCSIUnitID),
 				resourceUpdateTimeoutServer,
 			)
 			if err != nil {
 				return err
 			}
 
-			modifyDisk.Speed = actualImageDisk.Speed
+			modifyDisk.Speed = actualDisk.Speed
 
 			server = resource.(*compute.Server)
+			targetController = server.SCSIControllers.GetByID(controllerID)
+			if targetController == nil {
+				return fmt.Errorf("cannot find controller '%s' in server '%s'", controllerID, serverID)
+			}
 			propertyHelper.SetDisks(
-				models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
+				models.NewDisksFromVirtualMachineSCSIController(*targetController),
 			)
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
-			log.Printf("Resized disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from %d to GB to %d).",
+			log.Printf("Changed speed of disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from '%s' to GB to '%s').",
 				modifyDisk.ID,
 				targetController.ID,
 				targetController.Disks,
 				serverID,
-				actualImageDisk.SizeGB,
-				modifyDisk.SizeGB,
+				actualDisk.Speed,
+				modifyDisk.Speed,
 			)
 		}
 	}
@@ -744,8 +758,12 @@ func processRemoveStorageControllerDisks(removeDisks models.Disks, data *schema.
 		}
 
 		server = resource.(*compute.Server)
+		targetController = server.SCSIControllers.GetByID(controllerID)
+		if targetController == nil {
+			return fmt.Errorf("cannot find controller '%s' in server '%s'", controllerID, serverID)
+		}
 		propertyHelper.SetDisks(
-			models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
+			models.NewDisksFromVirtualMachineSCSIController(*targetController),
 		)
 		propertyHelper.SetPartial(resourceKeyServerDisk)
 
