@@ -31,7 +31,7 @@ func (disk *Disk) ReadMap(diskProperties map[string]interface{}) {
 	reader := maps.NewReader(diskProperties)
 
 	disk.ID = reader.GetString("id")
-	disk.SCSIUnitID = reader.GetInt("scsi_bus_number")
+	disk.SCSIBusNumber = reader.GetInt("scsi_bus_number")
 	disk.SCSIUnitID = reader.GetInt("scsi_unit_id")
 	disk.SizeGB = reader.GetInt("size_gb")
 	disk.Speed = reader.GetString("speed")
@@ -50,7 +50,7 @@ func (disk *Disk) UpdateMap(diskProperties map[string]interface{}) {
 	writer := maps.NewWriter(diskProperties)
 
 	writer.SetString("id", disk.ID)
-	writer.SetInt("scsi_unit_id", disk.SCSIBusNumber)
+	writer.SetInt("scsi_bus_number", disk.SCSIBusNumber)
 	writer.SetInt("scsi_unit_id", disk.SCSIUnitID)
 	writer.SetInt("size_gb", disk.SizeGB)
 	writer.SetString("speed", disk.Speed)

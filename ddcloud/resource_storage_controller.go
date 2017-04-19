@@ -22,6 +22,13 @@ const (
 	resourceKeyStorageControllerDiskSpeed  = "speed"
 )
 
+/*
+ * AF: Note that "terraform plan" produces an incorrect diff when a disk is removed from the ddcloud_storage_controller
+* (no idea why, but I'd say it's probably a bug, and should be reported as such).
+ *
+ * This implementation will still do the correct thing (i.e. remove the disk), but the diff output from "terraform plan" is confusing for the user.
+*/
+
 func resourceStorageController() *schema.Resource {
 	return &schema.Resource{
 		SchemaVersion: 1,
@@ -192,7 +199,11 @@ func resourceStorageControllerRead(data *schema.ResourceData, provider interface
 	)
 
 	configuredDisks := propertyHelper.GetDisks()
-	log.Printf("Configuration for storage controller '%s' specifies %d disks: %#v.", controllerID, len(configuredDisks), configuredDisks)
+	log.Printf("Configuration for storage controller '%s' (bus %d) specifies %d disks: %#v.", controllerID, targetController.BusNumber, len(configuredDisks), configuredDisks)
+
+	oldConfDisks, newConfDisks := data.GetChange(resourceKeyServerDisk)
+	log.Printf("Configuration for storage controller '%s' (bus %d) previously specified: %#v.", controllerID, targetController.BusNumber, oldConfDisks)
+	log.Printf("Configuration for storage controller '%s' (bus %d) now specifies: %#v.", controllerID, targetController.BusNumber, newConfDisks)
 
 	actualDisks := models.NewDisksFromVirtualMachineSCSIController(*targetController)
 	log.Printf("Storage controller '%s' currently has %d disks: %#v.", controllerID, len(actualDisks), actualDisks)
@@ -340,7 +351,7 @@ func updateStorageControllerDisks(data *schema.ResourceData, providerState *prov
 	log.Printf("Storage controller '%s' currently has %d disks: %#v.", controllerID, len(actualDisks), actualDisks)
 
 	configuredDisks := propertyHelper.GetDisks()
-	log.Printf("Configuration for storage controller '%s' specifies %d disks: %#v.", controllerID, len(configuredDisks), configuredDisks)
+	log.Printf("Configuration for storage controller '%s' (bus %d) specifies %d disks: %#v.", controllerID, targetController.BusNumber, len(configuredDisks), configuredDisks)
 
 	err = validateStorageControllerDisks(configuredDisks)
 	if err != nil {
