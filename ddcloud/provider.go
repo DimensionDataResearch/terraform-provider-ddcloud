@@ -78,6 +78,9 @@ func Provider() terraform.ResourceProvider {
 			// A server (virtual machine).
 			"ddcloud_server": resourceServer(),
 
+			// A storage controller (e.g. SCSI controller) in a server
+			"ddcloud_storage_controller": resourceStorageController(),
+
 			// A network adapter.
 			"ddcloud_network_adapter": resourceNetworkAdapter(),
 
