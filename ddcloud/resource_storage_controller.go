@@ -715,16 +715,18 @@ func processRemoveStorageControllerDisks(removeDisks models.Disks, data *schema.
 	}
 
 	for _, removeDisk := range removeDisks {
-		log.Printf("Remove disk '%s' (SCSI unit Id %d) from storage controller '%s' (SCSI bus %d) in server '%s'...",
+		remainingDiskCount := server.SCSIControllers.GetDiskCount()
+		log.Printf("Remove disk '%s' (SCSI unit Id %d) from storage controller '%s' (SCSI bus %d) in server '%s' (%d disks remaining)...",
 			removeDisk.ID,
 			removeDisk.SCSIUnitID,
 			targetController.ID,
 			targetController.BusNumber,
 			serverID,
+			remainingDiskCount,
 		)
 
 		// Can't remove the last disk in a server.
-		if server.SCSIControllers.GetDiskCount() == 1 {
+		if remainingDiskCount == 1 {
 			log.Printf("Not removing disk '%s' (SCSI unit Id %d) from storage controller '%s' (SCSI bus %d) in server '%s' because this is the server's last disk.",
 				removeDisk.ID,
 				removeDisk.SCSIUnitID,
