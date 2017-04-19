@@ -1,6 +1,8 @@
 package models
 
 import (
+	"sort"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 )
 
@@ -12,6 +14,15 @@ type Disks []Disk
 // IsEmpty determines whether the Disk array is empty.
 func (disks Disks) IsEmpty() bool {
 	return len(disks) == 0
+}
+
+// SortBySCSIPath sorts the disks by SCSI bus number and then SCSI unit Id.
+func (disks Disks) SortBySCSIPath() {
+	sorter := &diskSorter{
+		Disks: disks,
+	}
+
+	sort.Sort(sorter)
 }
 
 // ToVirtualMachineDisks converts the Disks to an array of compute.VirtualMachineDisk.
@@ -160,22 +171,13 @@ func NewDisksFromMaps(diskPropertyList []map[string]interface{}) Disks {
 	return disks
 }
 
-// // NewDisksFromVirtualMachineDisks creates Disks from an array of compute.VirtualMachineDisk.
-// func NewDisksFromVirtualMachineDisks(virtualMachineDisks []compute.VirtualMachineDisk) Disks {
-// 	disks := make(Disks, len(virtualMachineDisks))
-// 	for index, virtualMachineDisk := range virtualMachineDisks {
-// 		disks[index] = NewDiskFromVirtualMachineDisk(virtualMachineDisk)
-// 	}
-
-// 	return disks
-// }
-
 // NewDisksFromVirtualMachineSCSIController creates Disks from a compute.VirtualMachineSCSIController.
 func NewDisksFromVirtualMachineSCSIController(virtualMachineSCSIController compute.VirtualMachineSCSIController) (disks Disks) {
 	disks = make(Disks, len(virtualMachineSCSIController.Disks))
 	for index, virtualMachineDisk := range virtualMachineSCSIController.Disks {
 		disks[index] = NewDiskFromVirtualMachineDisk(virtualMachineDisk, virtualMachineSCSIController.BusNumber)
 	}
+	disks.SortBySCSIPath()
 
 	return
 }
@@ -189,6 +191,34 @@ func NewDisksFromVirtualMachineSCSIControllers(virtualMachineSCSIControllers com
 			)
 		}
 	}
+	disks.SortBySCSIPath()
 
 	return
 }
+
+// diskSorter sorts disks by SCSI bus number and then by SCSI unit Id
+type diskSorter struct {
+	Disks Disks
+}
+
+func (sorter diskSorter) Len() int {
+	return len(sorter.Disks)
+}
+
+func (sorter diskSorter) Less(index1 int, index2 int) bool {
+	disk1 := sorter.Disks[index1]
+	disk1SortKey := disk1.SCSIBusNumber*1000 + disk1.SCSIUnitID
+
+	disk2 := sorter.Disks[index2]
+	disk2SortKey := disk2.SCSIBusNumber*1000 + disk2.SCSIUnitID
+
+	return disk1SortKey < disk2SortKey
+}
+
+func (sorter diskSorter) Swap(index1 int, index2 int) {
+	temp := sorter.Disks[index1]
+	sorter.Disks[index1] = sorter.Disks[index2]
+	sorter.Disks[index2] = temp
+}
+
+var _ sort.Interface = &diskSorter{}

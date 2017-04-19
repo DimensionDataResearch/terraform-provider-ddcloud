@@ -25,7 +25,7 @@ func schemaDisk() *schema.Schema {
 		Optional:    true,
 		Computed:    true,
 		Default:     nil,
-		Description: "The set of virtual disks attached to the server",
+		Description: "The set of virtual disks attached to a server or storage controller",
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
 				resourceKeyServerDiskID: &schema.Schema{
@@ -152,6 +152,28 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 
 	configuredDisks := propertyHelper.GetDisks()
 	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
+
+	// Detect switch to / from inline disks.
+	previouslyConfiguredDisks := propertyHelper.GetOldDisks()
+	if previouslyConfiguredDisks.IsEmpty() && !configuredDisks.IsEmpty() {
+		// Switched to inline declaration of server disks.
+		log.Printf("Disks for server '%s' are now configured inline, but were previously unspecified or configured via one or more ddcloud_storage_controllers.",
+			serverID,
+		)
+
+		// Can only switch to inline disks if there is a single (default) SCSI controller.
+		if len(server.SCSIControllers) > 1 {
+			return fmt.Errorf("server '%s' has multiple SCSI controllers, so disks cannot be configured inline",
+				serverID,
+			)
+		}
+	} else if !previouslyConfiguredDisks.IsEmpty() && configuredDisks.IsEmpty() {
+		// Switched to external declaration of server disks.
+
+		log.Printf("Disks for server '%s' are now unspecified or configured via one or more ddcloud_storage_controllers, but were previously configured inline.",
+			serverID,
+		)
+	}
 
 	err = validateServerDisks(configuredDisks)
 	if err != nil {
@@ -525,7 +547,7 @@ func hashDiskUnitID(item interface{}) int {
 	return diskData[resourceKeyServerDiskUnitID].(int)
 }
 
-func validateServerDisks(disks models.Disks) error {
+func validateDisks(disks models.Disks) error {
 	if disks.IsEmpty() {
 		return nil
 	}
@@ -534,10 +556,26 @@ func validateServerDisks(disks models.Disks) error {
 	for _, disk := range disks {
 		_, duplicate := disksByUnitID[disk.SCSIUnitID]
 		if duplicate {
-			return fmt.Errorf("multiple disks with SCSI unit ID '%d'", disk.SCSIUnitID)
+			return fmt.Errorf("multiple disks with SCSI unit ID %d", disk.SCSIUnitID)
 		}
 
 		disksByUnitID[disk.SCSIUnitID] = disk
+	}
+
+	return nil
+}
+
+func validateServerDisks(disks models.Disks) error {
+	err := validateDisks(disks)
+	if err != nil {
+		return err
+	}
+
+	for _, disk := range disks {
+		// Cannot target non-default SCSI controllers if disks are declared directly on the server.
+		if disk.SCSIBusNumber != 0 {
+			return fmt.Errorf("unsupported configuration: disk configured to use non-default SCSI bus %d (declare the disk on a ddcloud_storage controller if targeting a SCSI bus other than 0)", disk.SCSIBusNumber)
+		}
 	}
 
 	return nil

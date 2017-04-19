@@ -716,7 +716,7 @@ func testCheckDDCloudServerDestroy(state *terraform.State) error {
 		if err != nil {
 			return nil
 		}
-		if server != nil {
+		if server == nil {
 			return fmt.Errorf("Server '%s' still exists", serverID)
 		}
 	}

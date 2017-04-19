@@ -45,18 +45,12 @@ func resourceStorageController() *schema.Resource {
 			},
 			resourceKeyStorageControllerAdapterType: &schema.Schema{
 				Type:        schema.TypeString,
-				Required:    true,
+				Optional:    true,
+				Default:     compute.StorageControllerAdapterTypeLSILogicParallel,
 				ForceNew:    true,
 				Description: "The type of storage adapter used to represent the controller",
 			},
-			resourceKeyStorageControllerDisk: &schema.Schema{
-				Type:        schema.TypeList,
-				Optional:    true,
-				Computed:    true,
-				Default:     nil,
-				Description: "The set of virtual disks attached to the storage controller",
-				Elem:        schemaDisk(),
-			},
+			resourceKeyStorageControllerDisk: schemaDisk(),
 		},
 	}
 }
@@ -95,7 +89,7 @@ func resourceStorageControllerCreate(data *schema.ResourceData, provider interfa
 
 		log.Printf("This controller is the default controller; will treat as already-created.")
 	} else {
-		operationDescription := fmt.Sprintf("Add SCSI controller for bus %d to server '%s'",
+		operationDescription := fmt.Sprintf("Add storage controller for bus %d to server '%s'",
 			busNumber,
 			serverID,
 		)
@@ -122,7 +116,7 @@ func resourceStorageControllerCreate(data *schema.ResourceData, provider interfa
 		resource, err := apiClient.WaitForChange(
 			compute.ResourceTypeServer,
 			serverID,
-			"Add SCSI controller",
+			"Add storage controller",
 			resourceUpdateTimeoutServer,
 		)
 		if err != nil {
@@ -136,12 +130,269 @@ func resourceStorageControllerCreate(data *schema.ResourceData, provider interfa
 		}
 	}
 
+	log.Printf("Target storage controller '%s' has configuration: %#v",
+		targetController.ID,
+		targetController,
+	)
+
 	data.SetId(targetController.ID)
+
+	configuredDisks := propertyHelper.GetDisks()
+	actualDisks := models.NewDisksFromVirtualMachineSCSIController(*targetController)
+
+	if configuredDisks.IsEmpty() {
+		// No explicitly-configured disks.
+		propertyHelper.SetDisks(actualDisks)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
+
+		log.Printf("Server '%s' now has %d disks: %#v.", serverID, server.SCSIControllers.GetDiskCount(), server.SCSIControllers)
+
+		return nil
+	}
+
+	return updateStorageControllerDisks(data, providerState)
+}
+
+// Read a storage controller resource.
+func resourceStorageControllerRead(data *schema.ResourceData, provider interface{}) error {
+	propertyHelper := propertyHelper(data)
+
+	controllerID := data.Id()
+	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
+
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		log.Printf("Cannot find server '%s' for controller '%s'.", serverID, controllerID)
+
+		// If the server is deleted, then so is the controller.
+		data.SetId("")
+
+		return nil
+	}
+
+	targetController := server.SCSIControllers.GetByID(controllerID)
+	if targetController == nil {
+		log.Printf("Cannot find controller '%s' in server '%s'.", controllerID, serverID)
+
+		// Mark as deleted.
+		data.SetId("")
+
+		return nil
+	}
+
+	log.Printf("Read storage controller '%s' in server '%s'.",
+		controllerID,
+		server.Name,
+	)
+
 	propertyHelper.SetDisks(
 		models.NewDisksFromVirtualMachineSCSIController(*targetController),
 	)
 
-	addDisks := propertyHelper.GetDisks()
+	return nil
+}
+
+// Update a storage controller resource.
+func resourceStorageControllerUpdate(data *schema.ResourceData, provider interface{}) error {
+	controllerID := data.Id()
+	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
+
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		log.Printf("Cannot find server '%s' for controller '%s'; will treat the controller as deleted.", serverID, controllerID)
+
+		// If the server is deleted, then so is the controller.
+		data.SetId("")
+
+		return nil
+	}
+
+	targetController := server.SCSIControllers.GetByID(controllerID)
+	if targetController == nil {
+		log.Printf("Cannot find controller '%s' in server '%s'; will treat the controller as deleted.", controllerID, serverID)
+
+		// Mark as deleted.
+		data.SetId("")
+
+		return nil
+	}
+
+	log.Printf("Update storage controller '%s' in server '%s'.",
+		controllerID,
+		server.Name,
+	)
+
+	return updateStorageControllerDisks(data, providerState)
+}
+
+// Delete a storage controller resource.
+func resourceStorageControllerDelete(data *schema.ResourceData, provider interface{}) error {
+	controllerID := data.Id()
+	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
+
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		log.Printf("Cannot find server '%s' for controller '%s'; will treat the controller as deleted.", serverID, controllerID)
+
+		// If the server is deleted, then so is the controller.
+		data.SetId("")
+
+		return nil
+	}
+
+	targetController := server.SCSIControllers.GetByID(controllerID)
+	if targetController == nil {
+		log.Printf("Cannot find controller '%s' in server '%s'; will treat the controller as deleted.", controllerID, serverID)
+
+		// Mark as deleted.
+		data.SetId("")
+
+		return nil
+	}
+
+	log.Printf("Delete storage controller '%s' in server '%s'.",
+		controllerID,
+		server.Name,
+	)
+
+	removeDisks := models.NewDisksFromVirtualMachineSCSIController(*targetController)
+	err = processRemoveStorageControllerDisks(removeDisks, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	if targetController.BusNumber == 0 {
+		log.Printf("Controller '%s' is the default adapter; will treat this ddcloud_storage_controller as deleted (but can't actually remove the default adapter).", controllerID)
+		data.SetId("") // Treat as deleted.
+
+		return nil
+	}
+
+	return nil
+}
+
+// When updating a storage controller resource, synchronise the controller's disk attributes with its resource data
+func updateStorageControllerDisks(data *schema.ResourceData, providerState *providerState) error {
+	propertyHelper := propertyHelper(data)
+	controllerID := data.Id()
+	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
+
+	log.Printf("Configure image disks for storage controller '%s' in server '%s'...", controllerID, serverID)
+
+	apiClient := providerState.Client()
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		data.SetId("")
+
+		return fmt.Errorf("server '%s' has been deleted", serverID)
+	}
+	targetController := server.SCSIControllers.GetByID(controllerID)
+	if targetController == nil {
+		return fmt.Errorf("cannot find storage controller '%s' in server '%s'", controllerID, serverID)
+	}
+
+	log.Printf("Current state for storage controller '%s': %#v",
+		controllerID,
+		targetController,
+	)
+
+	// Filter disks so we're only looking at ones from this controller.
+	actualDisks := models.NewDisksFromVirtualMachineSCSIController(*targetController)
+
+	log.Printf("Current disks for storage controller '%s': %#v",
+		controllerID,
+		actualDisks,
+	)
+
+	configuredDisks := propertyHelper.GetDisks()
+	log.Printf("Configuration for storage controller '%s' specifies %d disks: %#v.", controllerID, len(configuredDisks), configuredDisks)
+
+	err = validateStorageControllerDisks(configuredDisks)
+	if err != nil {
+		return err
+	}
+
+	if configuredDisks.IsEmpty() {
+		// No explicitly-configured disks.
+		propertyHelper.SetDisks(actualDisks)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
+
+		log.Printf("Server '%s' now has %d disks: %#v.", serverID, server.SCSIControllers.GetDiskCount(), server.SCSIControllers)
+
+		return nil
+	}
+
+	addDisks, modifyDisks, removeDisks := configuredDisks.SplitByAction(actualDisks)
+	if addDisks.IsEmpty() && modifyDisks.IsEmpty() && removeDisks.IsEmpty() {
+		log.Printf("No post-deploy changes required for disks of server '%s'.", serverID)
+
+		return nil
+	}
+
+	// First remove any disks that are no longer required.
+	err = processRemoveStorageControllerDisks(removeDisks, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	// Then modify existing disks
+	err = processModifyStorageControllerDisks(modifyDisks, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	// Finally, add new disks
+	err = processAddStorageControllerDisks(addDisks, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Process the collection of disks that need to be added to the server.
+func processAddStorageControllerDisks(addDisks models.Disks, data *schema.ResourceData, providerState *providerState) error {
+	propertyHelper := propertyHelper(data)
+	controllerID := data.Id()
+	busNumber := data.Get(resourceKeyStorageControllerBusNumber).(int)
+	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
+
+	apiClient := providerState.Client()
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		data.SetId("")
+
+		return fmt.Errorf("server '%s' has been deleted", serverID)
+	}
+	targetController := server.SCSIControllers.GetByID(controllerID)
+	if targetController == nil {
+		return fmt.Errorf("cannot find storage controller '%s' in server '%s'", controllerID, serverID)
+	}
+
 	for index := range addDisks {
 		addDisk := &addDisks[index]
 
@@ -216,94 +467,301 @@ func resourceStorageControllerCreate(data *schema.ResourceData, provider interfa
 	return nil
 }
 
-// Read a storage controller resource.
-func resourceStorageControllerRead(data *schema.ResourceData, provider interface{}) error {
+// Process the collection of disks whose configuration needs to be modified.
+//
+// Disk Ids must already be populated.
+func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
-
 	controllerID := data.Id()
 	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
 
-	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
-
 	server, err := apiClient.GetServer(serverID)
 	if err != nil {
 		return err
 	}
-	if server != nil {
-		return fmt.Errorf("cannot find server '%s'", serverID)
-	}
+	if server == nil {
+		data.SetId("")
 
+		return fmt.Errorf("server '%s' has been deleted", serverID)
+	}
 	targetController := server.SCSIControllers.GetByID(controllerID)
 	if targetController == nil {
-		return fmt.Errorf("cannot find controller '%s' in server '%s'", controllerID, serverID)
+		return fmt.Errorf("cannot find storage controller '%s' in server '%s'", controllerID, serverID)
 	}
 
-	log.Printf("Read storage controller '%s' in server '%s'.",
-		controllerID,
-		server.Name,
-	)
+	actualDisks := models.NewDisksFromVirtualMachineSCSIController(*targetController)
+	actualDisksBySCSIPath := actualDisks.BySCSIPath()
 
-	propertyHelper.SetDisks(
-		models.NewDisksFromVirtualMachineSCSIController(*targetController),
-	)
+	for index := range modifyDisks {
+		modifyDisk := &modifyDisks[index]
+		actualImageDisk := actualDisksBySCSIPath[modifyDisk.SCSIPath()]
+
+		// Can't shrink disk, only grow it.
+		if modifyDisk.SizeGB < actualImageDisk.SizeGB {
+			return fmt.Errorf(
+				"cannot resize disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' from %d to GB to %d (for now, disks can only be expanded)",
+				modifyDisk.ID,
+				targetController.ID,
+				targetController.BusNumber,
+				serverID,
+				actualImageDisk.SizeGB,
+				modifyDisk.SizeGB,
+			)
+		}
+
+		// Do we need to expand the disk?
+		if modifyDisk.SizeGB > actualImageDisk.SizeGB {
+			log.Printf(
+				"Expanding disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from %d GB to %d GB)...",
+				modifyDisk.ID,
+				targetController.ID,
+				targetController.BusNumber,
+				serverID,
+				actualImageDisk.SizeGB,
+				modifyDisk.SizeGB,
+			)
+
+			operationDescription := fmt.Sprintf("Expand disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s'",
+				modifyDisk.ID,
+				targetController.ID,
+				targetController.BusNumber,
+				serverID,
+			)
+			err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+				defer asyncLock.Release()
+
+				response, resizeError := apiClient.ExpandDisk(modifyDisk.ID, modifyDisk.SizeGB)
+				if compute.IsResourceBusyError(resizeError) {
+					context.Retry()
+				} else if resizeError != nil {
+					context.Fail(resizeError)
+				}
+				if response.ResponseCode != compute.ResponseCodeInProgress {
+					context.Fail(response.ToError("unexpected response code '%s' when expanding server disk '%s' for server '%s'",
+						response.ResponseCode,
+						modifyDisk.ID,
+						serverID,
+					))
+				}
+			})
+			if err != nil {
+				return err
+			}
+
+			log.Printf(
+				"Resizing disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from %d to GB to %d)...",
+				modifyDisk.ID,
+				targetController.ID,
+				targetController.BusNumber,
+				serverID,
+				actualImageDisk.SizeGB,
+				modifyDisk.SizeGB,
+			)
+
+			resource, err := apiClient.WaitForChange(
+				compute.ResourceTypeServer,
+				serverID,
+				"Resize disk",
+				resourceUpdateTimeoutServer,
+			)
+			if err != nil {
+				return err
+			}
+
+			modifyDisk.SizeGB = actualImageDisk.SizeGB
+
+			server := resource.(*compute.Server)
+			propertyHelper.SetDisks(
+				models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
+			)
+			propertyHelper.SetPartial(resourceKeyServerDisk)
+
+			log.Printf("storage controller '%s' now has %d disks: %#v.", targetController.ID, len(targetController.Disks), targetController)
+
+			log.Printf(
+				"Resized disk '%s' on storage controller '%s' (SCSI bus %d) server '%s' (from %d to GB to %d).",
+				modifyDisk.ID,
+				targetController.ID,
+				targetController.BusNumber,
+				serverID,
+				actualImageDisk.SizeGB,
+				modifyDisk.SizeGB,
+			)
+		}
+
+		// Do we need to change the disk speed?
+		if modifyDisk.Speed != actualImageDisk.Speed {
+			log.Printf(
+				"Changing speed of disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from '%s' to '%s')...",
+				modifyDisk.ID,
+				targetController.ID,
+				targetController.BusNumber,
+				serverID,
+				actualImageDisk.Speed,
+				modifyDisk.Speed,
+			)
+
+			operationDescription := fmt.Sprintf("Change speed of disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s'",
+				modifyDisk.ID,
+				targetController.ID,
+				targetController.BusNumber,
+				serverID,
+			)
+			err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+				defer asyncLock.Release()
+
+				response, resizeError := apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed)
+				if compute.IsResourceBusyError(resizeError) {
+					context.Retry()
+				} else if resizeError != nil {
+					context.Fail(resizeError)
+				}
+				if response.Result != compute.ResultSuccess {
+					context.Fail(response.ToError(
+						"Unexpected result '%s' when resizing disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s'.",
+						response.Result,
+						modifyDisk.ID,
+						targetController.ID,
+						targetController.BusNumber,
+						serverID,
+					))
+				}
+			})
+			if err != nil {
+				return err
+			}
+
+			resource, err := apiClient.WaitForChange(
+				compute.ResourceTypeServer,
+				serverID,
+				"Resize disk",
+				resourceUpdateTimeoutServer,
+			)
+			if err != nil {
+				return err
+			}
+
+			modifyDisk.Speed = actualImageDisk.Speed
+
+			server = resource.(*compute.Server)
+			propertyHelper.SetDisks(
+				models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
+			)
+			propertyHelper.SetPartial(resourceKeyServerDisk)
+
+			log.Printf("Resized disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s' (from %d to GB to %d).",
+				modifyDisk.ID,
+				targetController.ID,
+				targetController.Disks,
+				serverID,
+				actualImageDisk.SizeGB,
+				modifyDisk.SizeGB,
+			)
+		}
+	}
 
 	return nil
 }
 
-// Update a storage controller resource.
-func resourceStorageControllerUpdate(data *schema.ResourceData, provider interface{}) error {
+// Process the collection of disks that need to be removed.
+//
+// Disk Ids must already be populated.
+func processRemoveStorageControllerDisks(removeDisks models.Disks, data *schema.ResourceData, providerState *providerState) error {
+	propertyHelper := propertyHelper(data)
 	controllerID := data.Id()
 	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
 
-	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
-
 	server, err := apiClient.GetServer(serverID)
 	if err != nil {
 		return err
 	}
+	if server == nil {
+		data.SetId("")
 
-	log.Printf("Update storage controller '%s' in server '%s'.",
-		controllerID,
-		server.Name,
-	)
-
-	return fmt.Errorf("update not implemented yet for ddcloud_storage_controller")
-}
-
-// Delete a storage controller resource.
-func resourceStorageControllerDelete(data *schema.ResourceData, provider interface{}) error {
-	controllerID := data.Id()
-	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
-
-	providerState := provider.(*providerState)
-	apiClient := providerState.Client()
-
-	var (
-		server *compute.Server
-		err    error
-	)
-	server, err = apiClient.GetServer(serverID)
-	if err != nil {
-		return err
+		return fmt.Errorf("server '%s' has been deleted", serverID)
 	}
-
-	log.Printf("Delete storage controller '%s' in server '%s'.",
-		controllerID,
-		server.Name,
-	)
-
 	targetController := server.SCSIControllers.GetByID(controllerID)
 	if targetController == nil {
-		return fmt.Errorf("cannot find controller '%s' in server '%s'", controllerID, serverID)
-	}
-	if targetController.BusNumber == 0 {
-		log.Printf("Controller '%s' is the default adapter and will not be deleted.", controllerID)
-		data.SetId("") // Treat as deleted.
-
-		return nil
+		return fmt.Errorf("cannot find storage controller '%s' in server '%s'", controllerID, serverID)
 	}
 
-	return fmt.Errorf("delete not implemented yet for ddcloud_storage_controller")
+	for _, removeDisk := range removeDisks {
+		log.Printf("Remove disk '%s' (SCSI unit Id %d) from storage controller '%s' (SCSI bus %d) in server '%s'...",
+			removeDisk.ID,
+			removeDisk.SCSIUnitID,
+			targetController.ID,
+			targetController.BusNumber,
+			serverID,
+		)
+
+		// Can't remove the last disk in a server.
+		if server.SCSIControllers.GetDiskCount() == 1 {
+			log.Printf("Not removing disk '%s' (SCSI unit Id %d) from storage controller '%s' (SCSI bus %d) in server '%s' because this is the server's last disk.",
+				removeDisk.ID,
+				removeDisk.SCSIUnitID,
+				targetController.ID,
+				targetController.BusNumber,
+				serverID,
+			)
+
+			continue
+		}
+
+		operationDescription := fmt.Sprintf("Remove disk '%s' (SCSI unit Id %d) from storage controller '%s' (SCSI bus %d) in server '%s'",
+			removeDisk.ID,
+			removeDisk.SCSIUnitID,
+			targetController.ID,
+			targetController.BusNumber,
+			serverID,
+		)
+		err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+			defer asyncLock.Release()
+
+			removeError := apiClient.RemoveDisk(removeDisk.ID)
+			if compute.IsResourceBusyError(removeError) {
+				context.Retry()
+			} else if removeError != nil {
+				context.Fail(removeError)
+			}
+		})
+		if err != nil {
+			return err
+		}
+
+		resource, err := apiClient.WaitForChange(
+			compute.ResourceTypeServer,
+			serverID,
+			"Remove disk",
+			resourceUpdateTimeoutServer,
+		)
+		if err != nil {
+			return err
+		}
+
+		server = resource.(*compute.Server)
+		propertyHelper.SetDisks(
+			models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
+		)
+		propertyHelper.SetPartial(resourceKeyServerDisk)
+
+		log.Printf(
+			"Removed disk '%s' (SCSI unit Id %d) from storage controller '%s' (SCSI bus %d) in server '%s'.",
+			removeDisk.ID,
+			removeDisk.SCSIUnitID,
+			targetController.ID,
+			targetController.BusNumber,
+			serverID,
+		)
+	}
+
+	return nil
+}
+
+func validateStorageControllerDisks(disks models.Disks) error {
+	return validateDisks(disks)
 }
