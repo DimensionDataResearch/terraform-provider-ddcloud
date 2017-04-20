@@ -87,6 +87,7 @@ func TestAccStorageControllerDefaultWithImageDiskCreate(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
+			testCheckDDCloudStorageControllerDestroy,
 			testCheckDDCloudServerDestroy,
 			testCheckDDCloudVLANDestroy,
 			testCheckDDCloudNetworkDomainDestroy,
