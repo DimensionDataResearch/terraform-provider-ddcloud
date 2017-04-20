@@ -290,26 +290,16 @@ func resourceStorageControllerDelete(data *schema.ResourceData, provider interfa
 		return err
 	}
 
-	// We can't remove the server's last SCSI adapter.
-	server, err := apiClient.GetServer(serverID)
+	// We can't remove the SCSI adapter if it still has a disk (i.e. the last disk in the server).
+	targetController, err = getStorageController(apiClient, data)
 	if err != nil {
 		return err
 	}
-	if server == nil {
-		log.Printf("Server '%s' has been deleted; will treat storage controller '%s' as deleted.", serverID, controllerID)
-
-		return nil
-	}
-	if len(server.SCSIControllers) == 1 {
-		log.Printf("Storage controller '%s' is the only remaining adapter in server '%s'; will treat this ddcloud_storage_controller as deleted (but can't actually remove the default adapter).",
+	if len(targetController.Disks) > 0 {
+		log.Printf("Treating storage controller '%s' in server '%s' as deleted because it still has one or more disks after disk-removal processing; this indicates that the minimum-disk-count-per-server limit has been exceeded.",
 			controllerID,
 			serverID,
 		)
-	}
-
-	targetController = server.SCSIControllers.GetByID(controllerID)
-	if targetController == nil {
-		log.Printf("Storage controller '%s' was not found in server '%s' (will treat as deleted).", controllerID, serverID)
 
 		return nil
 	}
@@ -484,7 +474,7 @@ func processAddStorageControllerDisks(addDisks models.Disks, data *schema.Resour
 		resource, err := apiClient.WaitForChange(
 			compute.ResourceTypeServer,
 			serverID,
-			fmt.Sprintf("Add disk %d/%d", addDisk.SCSIBusNumber, addDisk.SCSIUnitID),
+			fmt.Sprintf("Add disk %d:%d", addDisk.SCSIBusNumber, addDisk.SCSIUnitID),
 			resourceUpdateTimeoutServer,
 		)
 		if err != nil {
@@ -602,7 +592,7 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 			resource, err := apiClient.WaitForChange(
 				compute.ResourceTypeServer,
 				serverID,
-				fmt.Sprintf("Expand disk %d/%d", modifyDisk.SCSIBusNumber, modifyDisk.SCSIUnitID),
+				fmt.Sprintf("Expand disk %d:%d", modifyDisk.SCSIBusNumber, modifyDisk.SCSIUnitID),
 				resourceUpdateTimeoutServer,
 			)
 			if err != nil {
@@ -682,7 +672,7 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 			resource, err := apiClient.WaitForChange(
 				compute.ResourceTypeServer,
 				serverID,
-				fmt.Sprintf("Change speed of disk %d/%d", modifyDisk.SCSIBusNumber, modifyDisk.SCSIUnitID),
+				fmt.Sprintf("Change speed of disk %d:%d", modifyDisk.SCSIBusNumber, modifyDisk.SCSIUnitID),
 				resourceUpdateTimeoutServer,
 			)
 			if err != nil {
@@ -738,6 +728,7 @@ func processRemoveStorageControllerDisks(removeDisks models.Disks, data *schema.
 			serverID,
 		)
 
+		removingDisk := true
 		operationDescription := fmt.Sprintf("Remove disk '%s' (SCSI unit Id %d) from storage controller '%s' (SCSI bus %d) in server '%s'",
 			removeDisk.ID,
 			removeDisk.SCSIUnitID,
@@ -749,30 +740,11 @@ func processRemoveStorageControllerDisks(removeDisks models.Disks, data *schema.
 			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 			defer asyncLock.Release()
 
-			// Can't remove the last disk in a server.
-			//
-			// We do this check inside the async operation lock to reduce the risk of race conditions.
-			serverStorageControllers, err := getServerStorageControllers(apiClient, data)
-			if err != nil {
-				context.Fail(err)
-
-				return
-			}
-			if serverStorageControllers.GetDiskCount() == 1 {
-				log.Printf("Not removing disk '%s' (SCSI unit Id %d) from storage controller '%s' (SCSI bus %d) in server '%s' because this is the server's last disk.",
-					removeDisk.ID,
-					removeDisk.SCSIUnitID,
-					targetController.ID,
-					targetController.BusNumber,
-					serverID,
-				)
-
-				return
-			}
-
 			removeError := apiClient.RemoveDisk(removeDisk.ID)
 			if compute.IsResourceBusyError(removeError) {
 				context.Retry()
+			} else if compute.IsAPIErrorCode(removeError, compute.ResponseCodeExceedsLimit) {
+				removingDisk = false // It's the server's last disk, so we won't actually perform the removal
 			} else if removeError != nil {
 				context.Fail(removeError)
 			}
@@ -781,17 +753,39 @@ func processRemoveStorageControllerDisks(removeDisks models.Disks, data *schema.
 			return err
 		}
 
-		resource, err := apiClient.WaitForChange(
-			compute.ResourceTypeServer,
-			serverID,
-			"Remove disk",
-			resourceUpdateTimeoutServer,
-		)
-		if err != nil {
-			return err
+		var server *compute.Server
+		if removingDisk {
+			resource, err := apiClient.WaitForChange(
+				compute.ResourceTypeServer,
+				serverID,
+				"Remove disk",
+				resourceUpdateTimeoutServer,
+			)
+			if err != nil {
+				return err
+			}
+
+			server = resource.(*compute.Server)
+		} else {
+			log.Printf("Not removing disk '%s' (SCSI unit Id %d) from storage controller '%s' (SCSI bus %d) in server '%s' because this is the server's last disk.",
+				removeDisk.ID,
+				removeDisk.SCSIUnitID,
+				targetController.ID,
+				targetController.BusNumber,
+				serverID,
+			)
+
+			server, err = apiClient.GetServer(serverID)
+			if err != nil {
+				return err
+			}
+			if server == nil {
+				log.Printf("Cannot find server '%s'; will treat storage controller '%s' as deleted.", serverID, controllerID)
+
+				return nil
+			}
 		}
 
-		server := resource.(*compute.Server)
 		targetController := server.SCSIControllers.GetByID(controllerID)
 		if targetController == nil {
 			return fmt.Errorf("cannot find controller '%s' in server '%s'", controllerID, serverID)

@@ -9,7 +9,7 @@ import (
 
 // SCSIPath builds a path representing the specified SCSI bus number and logical unit ID.
 func SCSIPath(busNumber int, unitID int) string {
-	return fmt.Sprintf("%d/%d", busNumber, unitID)
+	return fmt.Sprintf("%d:%d", busNumber, unitID)
 }
 
 // Disk represents the Terraform configuration for a ddcloud_server disk.
@@ -23,7 +23,7 @@ type Disk struct {
 
 // SCSIPath builds a path representing the disk's SCSI bus number and logical unit ID.
 func (disk Disk) SCSIPath() string {
-	return fmt.Sprintf("%d/%d", disk.SCSIBusNumber, disk.SCSIUnitID)
+	return fmt.Sprintf("%d:%d", disk.SCSIBusNumber, disk.SCSIUnitID)
 }
 
 // ReadMap populates the Disk with values from the specified map.

@@ -15,10 +15,10 @@ import (
  * Acceptance-test configurations.
  */
 
-// The default storage controller for a server (and its image disk).
+// A server with a single (default) storage controller (and its image disk).
 //
 // Essentially, this should be a no-op.
-func testAccDDCloudStorageControllerDefaultWithImageDisk() string {
+func testAccDDCloudStorageController1DefaultWithImageDisk() string {
 	return `
 		provider "ddcloud" {
 			region		= "AU"
@@ -76,14 +76,8 @@ func testAccDDCloudStorageControllerDefaultWithImageDisk() string {
 	`
 }
 
-/*
- * Acceptance-test configurations.
- */
-
 // The default storage controller for a server (and its image disk and one additional disk).
-//
-// Essentially, this should be a no-op.
-func testAccDDCloudStorageControllerDefaultWithAdditional1Disk() string {
+func testAccDDCloudStorageController1DefaultWithAdditional1Disk() string {
 	return `
 		provider "ddcloud" {
 			region		= "AU"
@@ -148,6 +142,86 @@ func testAccDDCloudStorageControllerDefaultWithAdditional1Disk() string {
 	`
 }
 
+// A server with 2 storage controllers, each with a single disk.
+//
+// Pass false for withAdditionalController to leave out the second controller.
+func testAccDDCloudStorageController2With1DiskEach(withSecondController bool) string {
+	secondControllerConfiguration := ""
+
+	if withSecondController {
+		secondControllerConfiguration = `
+			resource "ddcloud_storage_controller" "acc_test_server_controller_1" {
+				server				= "${ddcloud_server.acc_test_server.id}"
+				scsi_bus_number		= 1
+				adapter_type		= "LSI_LOGIC_SAS"
+
+				disk {
+					scsi_unit_id    = 0
+					size_gb         = 20
+					speed           = "STANDARD"
+				}
+			}
+		`
+	}
+
+	return fmt.Sprintf(`
+		provider "ddcloud" {
+			region		= "AU"
+		}
+
+		resource "ddcloud_networkdomain" "acc_test_domain" {
+			name		= "acc-test-networkdomain"
+			description	= "Network domain for Terraform acceptance test."
+			datacenter	= "AU9"
+		}
+
+		resource "ddcloud_vlan" "acc_test_vlan" {
+			name				= "acc-test-vlan"
+			description 		= "VLAN for Terraform acceptance test."
+
+			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
+
+			ipv4_base_address	= "192.168.17.0"
+			ipv4_prefix_size	= 24
+		}
+
+		resource "ddcloud_server" "acc_test_server" {
+			name				= "AccTestStorageControllerServer"
+			description 		= "Server for storage controller acceptance test"
+			admin_password		= "snausages!"
+
+			memory_gb			= 8
+
+			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
+			
+			primary_network_adapter {
+				vlan            = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4            = "192.168.17.20"
+			}
+
+			dns_primary			= "8.8.8.8"
+			dns_secondary		= "8.8.4.4"
+
+			image				= "CentOS 7 64-bit 2 CPU"
+
+			auto_start			= false
+		}
+
+		resource "ddcloud_storage_controller" "acc_test_server_controller_0" {
+			server				= "${ddcloud_server.acc_test_server.id}"
+			scsi_bus_number		= 0
+
+			disk {
+				scsi_unit_id    = 0
+				size_gb         = 10
+				speed           = "STANDARD"
+			}
+		}
+
+		%s
+	`, secondControllerConfiguration)
+}
+
 /*
  * Acceptance tests.
  */
@@ -155,7 +229,7 @@ func testAccDDCloudStorageControllerDefaultWithAdditional1Disk() string {
 // Acceptance test for ddcloud_storage_controller (default with image disk):
 //
 // Create the storage controller and verify that it is attached to the server with the correct configuration.
-func TestAccStorageControllerDefaultWithImageDiskCreate(t *testing.T) {
+func TestAccStorageController1DefaultWithImageDiskCreate(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
@@ -166,7 +240,7 @@ func TestAccStorageControllerDefaultWithImageDiskCreate(t *testing.T) {
 		),
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudStorageControllerDefaultWithImageDisk(),
+				Config: testAccDDCloudStorageController1DefaultWithImageDisk(),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_0", true),
 					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_0", compute.VirtualMachineSCSIController{
@@ -174,10 +248,10 @@ func TestAccStorageControllerDefaultWithImageDiskCreate(t *testing.T) {
 						AdapterType: compute.StorageControllerAdapterTypeLSILogicParallel,
 					}),
 					testCheckDDCloudStorageControllerDiskMatches("ddcloud_storage_controller.acc_test_server_controller_0",
-						testDisk(0, 10, "STANDARD"),
+						testDisk(0, 10, compute.ServerDiskSpeedStandard),
 					),
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 10, "STANDARD"),
+						testDisk(0, 10, compute.ServerDiskSpeedStandard),
 					),
 				),
 			},
@@ -188,7 +262,7 @@ func TestAccStorageControllerDefaultWithImageDiskCreate(t *testing.T) {
 // Acceptance test for ddcloud_storage_controller (default with image disk and 1 additional disk):
 //
 // Create the storage controller and verify that it is attached to the server with the correct configuration.
-func TestAccStorageControllerDefaultWithAdditional1DiskCreate(t *testing.T) {
+func TestAccStorageController1DefaultWithAdditional1DiskCreate(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
@@ -199,7 +273,7 @@ func TestAccStorageControllerDefaultWithAdditional1DiskCreate(t *testing.T) {
 		),
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudStorageControllerDefaultWithImageDisk(),
+				Config: testAccDDCloudStorageController1DefaultWithImageDisk(),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_0", true),
 					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_0", compute.VirtualMachineSCSIController{
@@ -207,12 +281,71 @@ func TestAccStorageControllerDefaultWithAdditional1DiskCreate(t *testing.T) {
 						AdapterType: compute.StorageControllerAdapterTypeLSILogicParallel,
 					}),
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 10, "STANDARD"),
-						testDisk(1, 20, "STANDARD"),
+						testDisk(0, 10, compute.ServerDiskSpeedStandard),
+						testDisk(1, 20, compute.ServerDiskSpeedStandard),
 					),
 					testCheckDDCloudStorageControllerDiskMatches("ddcloud_storage_controller.acc_test_server_controller_0",
-						testDisk(0, 10, "STANDARD"),
-						testDisk(1, 20, "STANDARD"),
+						testDisk(0, 10, compute.ServerDiskSpeedStandard),
+						testDisk(1, 20, compute.ServerDiskSpeedStandard),
+					),
+				),
+			},
+		},
+	})
+}
+
+// Acceptance test for ddcloud_storage_controller (server with 2 storage controllers, each with a single disk):
+//
+// Create the storage controllers, the remove one from configuration and verify that it is removed from the server.
+func TestAccStorageController2With1DiskEachRemoveSecondController(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		CheckDestroy: resource.ComposeTestCheckFunc(
+			testCheckDDCloudStorageControllerDestroy,
+			testCheckDDCloudServerDestroy,
+			testCheckDDCloudVLANDestroy,
+			testCheckDDCloudNetworkDomainDestroy,
+		),
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccDDCloudStorageController2With1DiskEach(true /* with second storage controller */),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_0", true),
+					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_0", compute.VirtualMachineSCSIController{
+						BusNumber:   0,
+						AdapterType: compute.StorageControllerAdapterTypeLSILogicParallel,
+					}),
+					testCheckDDCloudStorageControllerDiskMatches("ddcloud_storage_controller.acc_test_server_controller_0",
+						testDisk(0, 10, compute.ServerDiskSpeedStandard),
+					),
+					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_1", true),
+					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_1", compute.VirtualMachineSCSIController{
+						BusNumber:   1,
+						AdapterType: compute.StorageControllerAdapterTypeLSILogicSAS,
+					}),
+					testCheckDDCloudStorageControllerDiskMatches("ddcloud_storage_controller.acc_test_server_controller_1",
+						testDisk(0, 20, compute.ServerDiskSpeedStandard),
+					),
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						testDisk(0, 10, compute.ServerDiskSpeedStandard),
+						testDisk(0, 20, compute.ServerDiskSpeedStandard),
+					),
+				),
+			},
+			resource.TestStep{
+				Config: testAccDDCloudStorageController2With1DiskEach(false /* without second storage controller */),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_0", true),
+					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_0", compute.VirtualMachineSCSIController{
+						BusNumber:   0,
+						AdapterType: compute.StorageControllerAdapterTypeLSILogicParallel,
+					}),
+					testCheckDDCloudStorageControllerDiskMatches("ddcloud_storage_controller.acc_test_server_controller_0",
+						testDisk(0, 10, compute.ServerDiskSpeedStandard),
+					),
+					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_1", false),
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						testDisk(0, 10, compute.ServerDiskSpeedStandard),
 					),
 				),
 			},
