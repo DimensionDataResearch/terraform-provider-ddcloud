@@ -286,7 +286,7 @@ func TestAccServerBasicCreate(t *testing.T) {
 							},
 						},
 					),
-					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(10, "STANDARD"),
 					),
 				),
@@ -311,7 +311,7 @@ func TestAccServerImageDisk1ResizeCreate(t *testing.T) {
 				Config: testAccDDCloudServerImageDisk1(15, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(15, "STANDARD"),
 					),
 				),
@@ -336,7 +336,7 @@ func TestAccServerImageDisk1ResizeUpdate(t *testing.T) {
 				Config: testAccDDCloudServerImageDisk1(10, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(10, "STANDARD"),
 					),
 				),
@@ -345,7 +345,7 @@ func TestAccServerImageDisk1ResizeUpdate(t *testing.T) {
 				Config: testAccDDCloudServerImageDisk1(15, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(15, "STANDARD"),
 					),
 				),
@@ -372,7 +372,7 @@ func TestAccServerAdditionalDisk1Create(t *testing.T) {
 				Config: testAccDDCloudServerAdditionalDisk1(1, 15, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
 						testImageDiskCentOS7(10, "STANDARD"),
 						models.Disk{
 							SCSIUnitID: 1,
@@ -554,7 +554,7 @@ func testCheckDDCloudServerMatches(name string, networkDomainName string, expect
 // Acceptance test check for ddcloud_server:
 //
 // Check if the server's disk configuration matches the expected configuration.
-func testCheckDDCloudDiskMatches(name string, expected ...models.Disk) resource.TestCheckFunc {
+func testCheckDDCloudServerDiskMatches(name string, expected ...models.Disk) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
 		serverResource, ok := state.RootModule().Resources[name]
 		if !ok {
