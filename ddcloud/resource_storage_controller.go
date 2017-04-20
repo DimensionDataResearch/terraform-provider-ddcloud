@@ -274,32 +274,14 @@ func resourceStorageControllerDelete(data *schema.ResourceData, provider interfa
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	server, err := apiClient.GetServer(serverID)
+	targetController, err := getStorageController(apiClient, data)
 	if err != nil {
 		return err
-	}
-	if server == nil {
-		log.Printf("Cannot find server '%s' for controller '%s'; will treat the controller as deleted.", serverID, controllerID)
-
-		// If the server is deleted, then so is the controller.
-		data.SetId("")
-
-		return nil
-	}
-
-	targetController := server.SCSIControllers.GetByID(controllerID)
-	if targetController == nil {
-		log.Printf("Cannot find controller '%s' in server '%s'; will treat the controller as deleted.", controllerID, serverID)
-
-		// Mark as deleted.
-		data.SetId("")
-
-		return nil
 	}
 
 	log.Printf("Delete storage controller '%s' in server '%s'.",
 		controllerID,
-		server.Name,
+		serverID,
 	)
 
 	removeDisks := models.NewDisksFromVirtualMachineSCSIController(*targetController)
@@ -308,12 +290,72 @@ func resourceStorageControllerDelete(data *schema.ResourceData, provider interfa
 		return err
 	}
 
-	if targetController.BusNumber == 0 {
-		log.Printf("Controller '%s' is the default adapter; will treat this ddcloud_storage_controller as deleted (but can't actually remove the default adapter).", controllerID)
-		data.SetId("") // Treat as deleted.
+	// We can't remove the server's last SCSI adapter.
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return err
+	}
+	if server == nil {
+		log.Printf("Server '%s' has been deleted; will treat storage controller '%s' as deleted.", serverID, controllerID)
 
 		return nil
 	}
+	if len(server.SCSIControllers) == 1 {
+		log.Printf("Storage controller '%s' is the only remaining adapter in server '%s'; will treat this ddcloud_storage_controller as deleted (but can't actually remove the default adapter).",
+			controllerID,
+			serverID,
+		)
+	}
+
+	targetController = server.SCSIControllers.GetByID(controllerID)
+	if targetController == nil {
+		log.Printf("Storage controller '%s' was not found in server '%s' (will treat as deleted).", controllerID, serverID)
+
+		return nil
+	}
+
+	operationDescription := fmt.Sprintf("Remove storage controller '%s' (SCSI bus %d) from server '%s'",
+		targetController.ID,
+		targetController.BusNumber,
+		serverID,
+	)
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
+		var removeSCSIControllerError error
+		removeSCSIControllerError = apiClient.RemoveSCSIControllerFromServer(controllerID)
+		if compute.IsResourceBusyError(removeSCSIControllerError) {
+			context.Retry()
+		} else if removeSCSIControllerError != nil {
+			context.Fail(removeSCSIControllerError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Removing storage controller '%s' (SCSI bus %d) from server '%s'...",
+		targetController.ID,
+		targetController.BusNumber,
+		serverID,
+	)
+
+	_, err = apiClient.WaitForChange(
+		compute.ResourceTypeServer,
+		serverID,
+		fmt.Sprintf("Remove SCSI controller '%s' (bus %d)", targetController.ID, targetController.BusNumber),
+		resourceUpdateTimeoutServer,
+	)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Removed storage controller '%s' (SCSI bus %d) from server '%s'.",
+		targetController.ID,
+		targetController.BusNumber,
+		serverID,
+	)
 
 	return nil
 }
