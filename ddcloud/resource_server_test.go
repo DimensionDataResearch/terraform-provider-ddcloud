@@ -554,11 +554,11 @@ func testCheckDDCloudServerMatches(name string, networkDomainName string, expect
 // Acceptance test check for ddcloud_server:
 //
 // Check if the server's disk configuration matches the expected configuration.
-func testCheckDDCloudServerDiskMatches(name string, expected ...models.Disk) resource.TestCheckFunc {
+func testCheckDDCloudServerDiskMatches(resourceName string, expected ...models.Disk) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
-		serverResource, ok := state.RootModule().Resources[name]
+		serverResource, ok := state.RootModule().Resources[resourceName]
 		if !ok {
-			return fmt.Errorf("Not found: %s", name)
+			return fmt.Errorf("resource '%s' not found", resourceName)
 		}
 
 		serverID := serverResource.Primary.ID
@@ -566,10 +566,10 @@ func testCheckDDCloudServerDiskMatches(name string, expected ...models.Disk) res
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("bad: Get server: %s", err)
+			return fmt.Errorf("bad %s: get server: %s", resourceName, err)
 		}
 		if server == nil {
-			return fmt.Errorf("bad: Server not found with Id '%s'", serverID)
+			return fmt.Errorf("bad %s: server not found with Id '%s'", resourceName, serverID)
 		}
 
 		var validationMessages []string
@@ -625,7 +625,7 @@ func testCheckDDCloudServerDiskMatches(name string, expected ...models.Disk) res
 		}
 
 		if len(validationMessages) > 0 {
-			return fmt.Errorf("bad: %s", strings.Join(validationMessages, ", "))
+			return fmt.Errorf("bad %s: %s", resourceName, strings.Join(validationMessages, ", "))
 		}
 
 		return nil
@@ -635,11 +635,11 @@ func testCheckDDCloudServerDiskMatches(name string, expected ...models.Disk) res
 // Acceptance test check for ddcloud_server:
 //
 // Check if the server's tags match the expected tags.
-func testCheckDDCloudServerTagMatches(name string, expected map[string]string) resource.TestCheckFunc {
+func testCheckDDCloudServerTagMatches(resourceName string, expected map[string]string) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
-		serverResource, ok := state.RootModule().Resources[name]
+		serverResource, ok := state.RootModule().Resources[resourceName]
 		if !ok {
-			return fmt.Errorf("Not found: %s", name)
+			return fmt.Errorf("resource '%s' not found", resourceName)
 		}
 
 		serverID := serverResource.Primary.ID
@@ -647,7 +647,7 @@ func testCheckDDCloudServerTagMatches(name string, expected map[string]string) r
 		client := testAccProvider.Meta().(*providerState).Client()
 		tags, err := client.GetAssetTags(serverID, compute.AssetTypeServer, nil)
 		if err != nil {
-			return fmt.Errorf("bad: Get server: %s", err)
+			return fmt.Errorf("bad %s: get server: %s", resourceName, err)
 		}
 
 		expectedTags := make(map[string]string)
@@ -693,7 +693,7 @@ func testCheckDDCloudServerTagMatches(name string, expected map[string]string) r
 		}
 
 		if len(validationMessages) > 0 {
-			return fmt.Errorf("bad: %s", strings.Join(validationMessages, ", "))
+			return fmt.Errorf("bad %s: %s", resourceName, strings.Join(validationMessages, ", "))
 		}
 
 		return nil
@@ -704,12 +704,12 @@ func testCheckDDCloudServerTagMatches(name string, expected map[string]string) r
 //
 // Check all servers specified in the configuration have been destroyed.
 func testCheckDDCloudServerDestroy(state *terraform.State) error {
-	for _, res := range state.RootModule().Resources {
-		if res.Type != "ddcloud_server" {
+	for resourceName, resource := range state.RootModule().Resources {
+		if resource.Type != "ddcloud_server" {
 			continue
 		}
 
-		serverID := res.Primary.ID
+		serverID := resource.Primary.ID
 
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
@@ -717,7 +717,7 @@ func testCheckDDCloudServerDestroy(state *terraform.State) error {
 			return nil
 		}
 		if server != nil {
-			return fmt.Errorf("Server '%s' still exists", serverID)
+			return fmt.Errorf("bad %s: server '%s' still exists", resourceName, serverID)
 		}
 	}
 

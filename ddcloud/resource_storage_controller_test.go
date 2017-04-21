@@ -230,6 +230,8 @@ func testAccDDCloudStorageController2With1DiskEach(withSecondController bool) st
 //
 // Create the storage controller and verify that it is attached to the server with the correct configuration.
 func TestAccStorageController1DefaultWithImageDiskCreate(t *testing.T) {
+	testConfig := testAccDDCloudStorageController1DefaultWithImageDisk()
+
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
@@ -241,7 +243,7 @@ func TestAccStorageController1DefaultWithImageDiskCreate(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create
 			resource.TestStep{
-				Config: testAccDDCloudStorageController1DefaultWithImageDisk(),
+				Config: testConfig,
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_0", true),
 					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_0", compute.VirtualMachineSCSIController{
@@ -261,7 +263,7 @@ func TestAccStorageController1DefaultWithImageDiskCreate(t *testing.T) {
 
 			// Refresh (pick up changed state for computed disks on ddcloud_server)
 			resource.TestStep{
-				Config: testAccDDCloudStorageController1DefaultWithImageDisk(),
+				Config: testConfig,
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
 						models.Disk{
@@ -281,6 +283,8 @@ func TestAccStorageController1DefaultWithImageDiskCreate(t *testing.T) {
 //
 // Create the storage controller and verify that it is attached to the server with the correct configuration.
 func TestAccStorageController1DefaultWithAdditional1DiskCreate(t *testing.T) {
+	testConfig := testAccDDCloudStorageController1DefaultWithAdditional1Disk()
+
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
@@ -292,7 +296,7 @@ func TestAccStorageController1DefaultWithAdditional1DiskCreate(t *testing.T) {
 		Steps: []resource.TestStep{
 			// Create
 			resource.TestStep{
-				Config: testAccDDCloudStorageController1DefaultWithAdditional1Disk(),
+				Config: testConfig,
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_0", true),
 					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_0", compute.VirtualMachineSCSIController{
@@ -318,7 +322,7 @@ func TestAccStorageController1DefaultWithAdditional1DiskCreate(t *testing.T) {
 
 			// Refresh (pick up changed state for computed disks on ddcloud_server)
 			resource.TestStep{
-				Config: testAccDDCloudStorageController1DefaultWithImageDisk(),
+				Config: testConfig,
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
 						models.Disk{
@@ -453,11 +457,11 @@ func TestAccStorageController2With1DiskEachRemoveSecondController(t *testing.T) 
 // Acceptance test check for ddcloud_storage_controller:
 //
 // Check if the storage controller exists.
-func testCheckDDCloudStorageControllerExists(name string, exists bool) resource.TestCheckFunc {
+func testCheckDDCloudStorageControllerExists(resourceName string, exists bool) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
-		res, ok := state.RootModule().Resources[name]
+		res, ok := state.RootModule().Resources[resourceName]
 		if !ok {
-			return fmt.Errorf("resource '%s' not found", name)
+			return fmt.Errorf("resource '%s' not found", resourceName)
 		}
 
 		controllerID := res.Primary.ID
@@ -466,17 +470,17 @@ func testCheckDDCloudStorageControllerExists(name string, exists bool) resource.
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("bad: get server '%s': %s", serverID, err)
+			return fmt.Errorf("bad %s: get server '%s': %s", resourceName, serverID, err)
 		}
 		if exists && server == nil {
-			return fmt.Errorf("bad: server not found with Id '%s'", serverID)
+			return fmt.Errorf("bad %s: server not found with Id '%s'", resourceName, serverID)
 		}
 
 		storageController := server.SCSIControllers.GetByID(controllerID)
 		if exists && storageController == nil {
-			return fmt.Errorf("bad: storage controller '%s' not found in server '%s'", controllerID, serverID)
+			return fmt.Errorf("bad %s: storage controller '%s' not found in server '%s'", resourceName, controllerID, serverID)
 		} else if !exists && storageController != nil {
-			return fmt.Errorf("bad: storage controller '%s' still exists in server '%s'", controllerID, serverID)
+			return fmt.Errorf("bad %s: storage controller '%s' still exists in server '%s'", resourceName, controllerID, serverID)
 		}
 
 		return nil
@@ -490,7 +494,7 @@ func testCheckDDCloudStorageControllerMatches(resourceName string, expected comp
 	return func(state *terraform.State) error {
 		storageControllerResource, ok := state.RootModule().Resources[resourceName]
 		if !ok {
-			return fmt.Errorf("not found: %s", resourceName)
+			return fmt.Errorf("resource not found: %s", resourceName)
 		}
 
 		controllerID := storageControllerResource.Primary.ID
@@ -499,23 +503,23 @@ func testCheckDDCloudStorageControllerMatches(resourceName string, expected comp
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("bad: get server '%s': %s", serverID, err)
+			return fmt.Errorf("bad %s: get server '%s': %s", resourceName, serverID, err)
 		}
 		if server == nil {
-			return fmt.Errorf("bad: server '%s' not found", serverID)
+			return fmt.Errorf("bad %s: server '%s' not found", resourceName, serverID)
 		}
 
 		actual := server.SCSIControllers.GetByID(controllerID)
 		if actual == nil {
-			return fmt.Errorf("bad: storage controller '%s' not found in server '%s'", controllerID, serverID)
+			return fmt.Errorf("bad %s: storage controller '%s' not found in server '%s'", resourceName, controllerID, serverID)
 		}
 
 		if actual.BusNumber != expected.BusNumber {
-			return fmt.Errorf("bad: storage controller '%s' has bus %d (expected %d)", controllerID, actual.BusNumber, expected.BusNumber)
+			return fmt.Errorf("bad %s: storage controller '%s' has bus %d (expected %d)", resourceName, controllerID, actual.BusNumber, expected.BusNumber)
 		}
 
 		if actual.AdapterType != expected.AdapterType {
-			return fmt.Errorf("bad: storage controller '%s' has adapter type '%s' (expected '%s')", controllerID, actual.AdapterType, expected.AdapterType)
+			return fmt.Errorf("bad %s: storage controller '%s' has adapter type '%s' (expected '%s')", resourceName, controllerID, actual.AdapterType, expected.AdapterType)
 		}
 
 		return nil
@@ -538,15 +542,15 @@ func testCheckDDCloudStorageControllerDiskMatches(resourceName string, expected 
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("bad: get server '%s': %s", serverID, err)
+			return fmt.Errorf("bad %s: get server '%s': %s", resourceName, serverID, err)
 		}
 		if server == nil {
-			return fmt.Errorf("bad: server '%s' not found", serverID)
+			return fmt.Errorf("bad: %s server '%s' not found", resourceName, serverID)
 		}
 
 		actualSCSIController := server.SCSIControllers.GetByID(controllerID)
 		if actualSCSIController == nil {
-			return fmt.Errorf("bad: storage controller '%s' not found in server '%s'", controllerID, serverID)
+			return fmt.Errorf("bad %s: storage controller '%s' not found in server '%s'", resourceName, controllerID, serverID)
 		}
 
 		var validationMessages []string
@@ -556,7 +560,7 @@ func testCheckDDCloudStorageControllerDiskMatches(resourceName string, expected 
 			expectedDisk, ok := expectedDisksBySCSIPath[scsiPath]
 			if !ok {
 				validationMessages = append(validationMessages, fmt.Sprintf(
-					"found unexpected disk '%s' on SCSI controller '%s' (bus %d) with SCSI unit ID %d.",
+					"found unexpected disk '%s' on SCSI controller '%s' (bus %d) with SCSI unit ID %d",
 					actualDisk.ID,
 					actualSCSIController.ID,
 					actualSCSIController.BusNumber,
@@ -569,7 +573,7 @@ func testCheckDDCloudStorageControllerDiskMatches(resourceName string, expected 
 
 			if actualDisk.SizeGB != expectedDisk.SizeGB {
 				validationMessages = append(validationMessages, fmt.Sprintf(
-					"disk '%s' on SCSI controller '%s' (bus %d) with SCSI unit ID %d has size %dGB (expected %dGB).",
+					"disk '%s' on SCSI controller '%s' (bus %d) with SCSI unit ID %d has size %dGB (expected %dGB)",
 					actualDisk.ID,
 					actualSCSIController.ID,
 					actualSCSIController.BusNumber,
@@ -581,7 +585,7 @@ func testCheckDDCloudStorageControllerDiskMatches(resourceName string, expected 
 
 			if actualDisk.Speed != expectedDisk.Speed {
 				validationMessages = append(validationMessages, fmt.Sprintf(
-					"disk '%s' on SCSI controller '%s' (bus %d) with SCSI unit ID %d has speed '%s' (expected '%s').",
+					"disk '%s' on SCSI controller '%s' (bus %d) with SCSI unit ID %d has speed '%s' (expected '%s')",
 					actualDisk.ID,
 					actualSCSIController.ID,
 					actualSCSIController.BusNumber,
@@ -596,7 +600,7 @@ func testCheckDDCloudStorageControllerDiskMatches(resourceName string, expected 
 			expectedDisk := expectedDisksBySCSIPath[expectedSCSIPath]
 
 			validationMessages = append(validationMessages, fmt.Sprintf(
-				"no server disk was found on SCSI controller '%s' (bus %d) with SCSI unit ID %d.",
+				"no disk was found on SCSI controller '%s' (bus %d) with SCSI unit ID %d.",
 				actualSCSIController.ID,
 				expectedDisk.SCSIBusNumber,
 				expectedDisk.SCSIUnitID,
@@ -604,7 +608,7 @@ func testCheckDDCloudStorageControllerDiskMatches(resourceName string, expected 
 		}
 
 		if len(validationMessages) > 0 {
-			return fmt.Errorf("bad: %s", strings.Join(validationMessages, ", "))
+			return fmt.Errorf("bad %s: %s", resourceName, strings.Join(validationMessages, ", "))
 		}
 
 		return nil
@@ -615,26 +619,26 @@ func testCheckDDCloudStorageControllerDiskMatches(resourceName string, expected 
 //
 // Check all servers specified in the configuration have been destroyed.
 func testCheckDDCloudStorageControllerDestroy(state *terraform.State) error {
-	for _, res := range state.RootModule().Resources {
-		if res.Type != "ddcloud_storage_controller" {
+	for resourceName, resource := range state.RootModule().Resources {
+		if resource.Type != "ddcloud_storage_controller" {
 			continue
 		}
 
-		controllerID := res.Primary.ID
-		serverID := res.Primary.Attributes[resourceKeyStorageControllerServerID]
+		controllerID := resource.Primary.ID
+		serverID := resource.Primary.Attributes[resourceKeyStorageControllerServerID]
 
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("bad: get server '%s': %s", serverID, err)
+			return fmt.Errorf("bad %s: get server '%s': %s", resourceName, serverID, err)
 		}
 		if server == nil {
-			return nil
+			continue
 		}
 
 		storageController := server.SCSIControllers.GetByID(controllerID)
 		if storageController != nil {
-			return fmt.Errorf("storage controller '%s' still exists in server '%s'", controllerID, serverID)
+			return fmt.Errorf("bad %s: storage controller '%s' still exists in server '%s'", resourceName, controllerID, serverID)
 		}
 	}
 
