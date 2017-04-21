@@ -239,6 +239,7 @@ func TestAccStorageController1DefaultWithImageDiskCreate(t *testing.T) {
 			testCheckDDCloudNetworkDomainDestroy,
 		),
 		Steps: []resource.TestStep{
+			// Create
 			resource.TestStep{
 				Config: testAccDDCloudStorageController1DefaultWithImageDisk(),
 				Check: resource.ComposeTestCheckFunc(
@@ -248,10 +249,27 @@ func TestAccStorageController1DefaultWithImageDiskCreate(t *testing.T) {
 						AdapterType: compute.StorageControllerAdapterTypeLSILogicParallel,
 					}),
 					testCheckDDCloudStorageControllerDiskMatches("ddcloud_storage_controller.acc_test_server_controller_0",
-						testDisk(0, 10, compute.ServerDiskSpeedStandard),
+						models.Disk{
+							SCSIBusNumber: 0,
+							SCSIUnitID:    0,
+							SizeGB:        10,
+							Speed:         compute.ServerDiskSpeedStandard,
+						},
 					),
+				),
+			},
+
+			// Refresh (pick up changed state for computed disks on ddcloud_server)
+			resource.TestStep{
+				Config: testAccDDCloudStorageController1DefaultWithImageDisk(),
+				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 10, compute.ServerDiskSpeedStandard),
+						models.Disk{
+							SCSIBusNumber: 0,
+							SCSIUnitID:    0,
+							SizeGB:        10,
+							Speed:         compute.ServerDiskSpeedStandard,
+						},
 					),
 				),
 			},
@@ -272,21 +290,44 @@ func TestAccStorageController1DefaultWithAdditional1DiskCreate(t *testing.T) {
 			testCheckDDCloudNetworkDomainDestroy,
 		),
 		Steps: []resource.TestStep{
+			// Create
 			resource.TestStep{
-				Config: testAccDDCloudStorageController1DefaultWithImageDisk(),
+				Config: testAccDDCloudStorageController1DefaultWithAdditional1Disk(),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_0", true),
 					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_0", compute.VirtualMachineSCSIController{
 						BusNumber:   0,
 						AdapterType: compute.StorageControllerAdapterTypeLSILogicParallel,
 					}),
-					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 10, compute.ServerDiskSpeedStandard),
-						testDisk(1, 20, compute.ServerDiskSpeedStandard),
-					),
 					testCheckDDCloudStorageControllerDiskMatches("ddcloud_storage_controller.acc_test_server_controller_0",
-						testDisk(0, 10, compute.ServerDiskSpeedStandard),
-						testDisk(1, 20, compute.ServerDiskSpeedStandard),
+						models.Disk{
+							SCSIBusNumber: 0,
+							SCSIUnitID:    0,
+							SizeGB:        10,
+							Speed:         compute.ServerDiskSpeedStandard,
+						},
+						testDisk(0, 1, 20, compute.ServerDiskSpeedStandard),
+					),
+				),
+			},
+
+			// Refresh (pick up changed state for computed disks on ddcloud_server)
+			resource.TestStep{
+				Config: testAccDDCloudStorageController1DefaultWithImageDisk(),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						models.Disk{
+							SCSIBusNumber: 0,
+							SCSIUnitID:    0,
+							SizeGB:        10,
+							Speed:         compute.ServerDiskSpeedStandard,
+						},
+						models.Disk{
+							SCSIBusNumber: 1,
+							SCSIUnitID:    0,
+							SizeGB:        20,
+							Speed:         compute.ServerDiskSpeedStandard,
+						},
 					),
 				),
 			},
@@ -298,6 +339,9 @@ func TestAccStorageController1DefaultWithAdditional1DiskCreate(t *testing.T) {
 //
 // Create the storage controllers, the remove one from configuration and verify that it is removed from the server.
 func TestAccStorageController2With1DiskEachRemoveSecondController(t *testing.T) {
+	configWithSecondStorageController := testAccDDCloudStorageController2With1DiskEach(true)
+	configWithoutSecondStorageController := testAccDDCloudStorageController2With1DiskEach(false)
+
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
@@ -307,8 +351,9 @@ func TestAccStorageController2With1DiskEachRemoveSecondController(t *testing.T) 
 			testCheckDDCloudNetworkDomainDestroy,
 		),
 		Steps: []resource.TestStep{
+			// Create
 			resource.TestStep{
-				Config: testAccDDCloudStorageController2With1DiskEach(true /* with second storage controller */),
+				Config: configWithSecondStorageController,
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_0", true),
 					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_0", compute.VirtualMachineSCSIController{
@@ -316,7 +361,12 @@ func TestAccStorageController2With1DiskEachRemoveSecondController(t *testing.T) 
 						AdapterType: compute.StorageControllerAdapterTypeLSILogicParallel,
 					}),
 					testCheckDDCloudStorageControllerDiskMatches("ddcloud_storage_controller.acc_test_server_controller_0",
-						testDisk(0, 10, compute.ServerDiskSpeedStandard),
+						models.Disk{
+							SCSIBusNumber: 0,
+							SCSIUnitID:    0,
+							SizeGB:        10,
+							Speed:         compute.ServerDiskSpeedStandard,
+						},
 					),
 					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_1", true),
 					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_1", compute.VirtualMachineSCSIController{
@@ -324,16 +374,40 @@ func TestAccStorageController2With1DiskEachRemoveSecondController(t *testing.T) 
 						AdapterType: compute.StorageControllerAdapterTypeLSILogicSAS,
 					}),
 					testCheckDDCloudStorageControllerDiskMatches("ddcloud_storage_controller.acc_test_server_controller_1",
-						testDisk(0, 20, compute.ServerDiskSpeedStandard),
-					),
-					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 10, compute.ServerDiskSpeedStandard),
-						testDisk(0, 20, compute.ServerDiskSpeedStandard),
+						models.Disk{
+							SCSIBusNumber: 1,
+							SCSIUnitID:    0,
+							SizeGB:        20,
+							Speed:         compute.ServerDiskSpeedStandard,
+						},
 					),
 				),
 			},
+
+			// Refresh (pick up changed state for computed disks on ddcloud_server)
 			resource.TestStep{
-				Config: testAccDDCloudStorageController2With1DiskEach(false /* without second storage controller */),
+				Config: configWithSecondStorageController,
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						models.Disk{
+							SCSIBusNumber: 0,
+							SCSIUnitID:    0,
+							SizeGB:        10,
+							Speed:         compute.ServerDiskSpeedStandard,
+						},
+						models.Disk{
+							SCSIBusNumber: 1,
+							SCSIUnitID:    0,
+							SizeGB:        20,
+							Speed:         compute.ServerDiskSpeedStandard,
+						},
+					),
+				),
+			},
+
+			// Update (remove second storage controller)
+			resource.TestStep{
+				Config: configWithoutSecondStorageController,
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_0", true),
 					testCheckDDCloudStorageControllerMatches("ddcloud_storage_controller.acc_test_server_controller_0", compute.VirtualMachineSCSIController{
@@ -341,12 +415,26 @@ func TestAccStorageController2With1DiskEachRemoveSecondController(t *testing.T) 
 						AdapterType: compute.StorageControllerAdapterTypeLSILogicParallel,
 					}),
 					testCheckDDCloudStorageControllerDiskMatches("ddcloud_storage_controller.acc_test_server_controller_0",
-						testDisk(0, 10, compute.ServerDiskSpeedStandard),
+						models.Disk{
+							SCSIBusNumber: 0,
+							SCSIUnitID:    0,
+							SizeGB:        10,
+							Speed:         compute.ServerDiskSpeedStandard,
+						},
 					),
-					testCheckDDCloudStorageControllerExists("ddcloud_storage_controller.acc_test_server_controller_1", false),
-					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 10, compute.ServerDiskSpeedStandard),
-					),
+				),
+			},
+
+			// Refresh (pick up changes to server's disks)
+			resource.TestStep{
+				Config: configWithoutSecondStorageController,
+				Check: testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+					models.Disk{
+						SCSIBusNumber: 0,
+						SCSIUnitID:    0,
+						SizeGB:        10,
+						Speed:         compute.ServerDiskSpeedStandard,
+					},
 				),
 			},
 		},

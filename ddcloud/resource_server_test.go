@@ -287,7 +287,7 @@ func TestAccServerBasicCreate(t *testing.T) {
 						},
 					),
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 10, "STANDARD"),
+						testDisk(0, 0, 10, "STANDARD"),
 					),
 				),
 			},
@@ -312,7 +312,7 @@ func TestAccServerImageDisk1ResizeCreate(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 15, "STANDARD"),
+						testDisk(0, 0, 15, "STANDARD"),
 					),
 				),
 			},
@@ -337,7 +337,7 @@ func TestAccServerImageDisk1ResizeUpdate(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 10, "STANDARD"),
+						testDisk(0, 0, 10, "STANDARD"),
 					),
 				),
 			},
@@ -346,7 +346,7 @@ func TestAccServerImageDisk1ResizeUpdate(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 15, "STANDARD"),
+						testDisk(0, 0, 15, "STANDARD"),
 					),
 				),
 			},
@@ -373,7 +373,7 @@ func TestAccServerAdditionalDisk1Create(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
 					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
-						testDisk(0, 10, "STANDARD"),
+						testDisk(0, 0, 10, "STANDARD"),
 						models.Disk{
 							SCSIUnitID: 1,
 							SizeGB:     15,
@@ -729,10 +729,11 @@ func testCheckDDCloudServerDestroy(state *terraform.State) error {
  */
 
 // A disk definition for comparison in tests.
-func testDisk(scsiUnitID int, sizeGB int, speed string) models.Disk {
+func testDisk(scsiBusNumber int, scsiUnitID int, sizeGB int, speed string) models.Disk {
 	return models.Disk{
-		SCSIUnitID: scsiUnitID,
-		SizeGB:     sizeGB,
-		Speed:      speed,
+		SCSIBusNumber: scsiBusNumber,
+		SCSIUnitID:    scsiUnitID,
+		SizeGB:        sizeGB,
+		Speed:         speed,
 	}
 }
