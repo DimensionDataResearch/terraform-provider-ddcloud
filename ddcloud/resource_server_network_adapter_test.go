@@ -146,7 +146,7 @@ func testCheckDDCloudServerNICDestroy(state *terraform.State) error {
 		if err != nil {
 			return nil
 		}
-		if server != nil {
+		if server == nil {
 			nics := server.Network.AdditionalNetworkAdapters
 			for _, nic := range nics {
 				return fmt.Errorf("Nic '%s' still exists", *nic.ID)

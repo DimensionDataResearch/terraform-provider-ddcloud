@@ -131,12 +131,19 @@ func (networkAdapters NetworkAdapters) UpdateVirtualMachineNetwork(virtualMachin
 	}
 
 	for index, networkAdapter := range networkAdapters {
+		virtualMachineNetworkAdapter := networkAdapter.ToVirtualMachineNetworkAdapter()
+
+		// If both IPv4 and VLAN are specified, only use IPv4 (let CloudControl select VLAN)
+		if virtualMachineNetworkAdapter.PrivateIPv4Address != nil {
+			virtualMachineNetworkAdapter.VLANID = nil
+		}
+
 		if index == 0 {
-			virtualMachineNetwork.PrimaryAdapter = networkAdapter.ToVirtualMachineNetworkAdapter()
+			virtualMachineNetwork.PrimaryAdapter = virtualMachineNetworkAdapter
 		} else {
 			virtualMachineNetwork.AdditionalNetworkAdapters = append(
 				virtualMachineNetwork.AdditionalNetworkAdapters,
-				networkAdapter.ToVirtualMachineNetworkAdapter(),
+				virtualMachineNetworkAdapter,
 			)
 		}
 	}

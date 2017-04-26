@@ -286,8 +286,8 @@ func TestAccServerBasicCreate(t *testing.T) {
 							},
 						},
 					),
-					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
-						testImageDiskCentOS7(10, "STANDARD"),
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						testDisk(0, 0, 10, "STANDARD"),
 					),
 				),
 			},
@@ -311,8 +311,8 @@ func TestAccServerImageDisk1ResizeCreate(t *testing.T) {
 				Config: testAccDDCloudServerImageDisk1(15, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
-						testImageDiskCentOS7(15, "STANDARD"),
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						testDisk(0, 0, 15, "STANDARD"),
 					),
 				),
 			},
@@ -336,8 +336,8 @@ func TestAccServerImageDisk1ResizeUpdate(t *testing.T) {
 				Config: testAccDDCloudServerImageDisk1(10, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
-						testImageDiskCentOS7(10, "STANDARD"),
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						testDisk(0, 0, 10, "STANDARD"),
 					),
 				),
 			},
@@ -345,8 +345,8 @@ func TestAccServerImageDisk1ResizeUpdate(t *testing.T) {
 				Config: testAccDDCloudServerImageDisk1(15, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
-						testImageDiskCentOS7(15, "STANDARD"),
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						testDisk(0, 0, 15, "STANDARD"),
 					),
 				),
 			},
@@ -372,8 +372,8 @@ func TestAccServerAdditionalDisk1Create(t *testing.T) {
 				Config: testAccDDCloudServerAdditionalDisk1(1, 15, "STANDARD"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudDiskMatches("ddcloud_server.acc_test_server",
-						testImageDiskCentOS7(10, "STANDARD"),
+					testCheckDDCloudServerDiskMatches("ddcloud_server.acc_test_server",
+						testDisk(0, 0, 10, "STANDARD"),
 						models.Disk{
 							SCSIUnitID: 1,
 							SizeGB:     15,
@@ -554,11 +554,11 @@ func testCheckDDCloudServerMatches(name string, networkDomainName string, expect
 // Acceptance test check for ddcloud_server:
 //
 // Check if the server's disk configuration matches the expected configuration.
-func testCheckDDCloudDiskMatches(name string, expected ...models.Disk) resource.TestCheckFunc {
+func testCheckDDCloudServerDiskMatches(resourceName string, expected ...models.Disk) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
-		serverResource, ok := state.RootModule().Resources[name]
+		serverResource, ok := state.RootModule().Resources[resourceName]
 		if !ok {
-			return fmt.Errorf("Not found: %s", name)
+			return fmt.Errorf("resource '%s' not found", resourceName)
 		}
 
 		serverID := serverResource.Primary.ID
@@ -566,59 +566,66 @@ func testCheckDDCloudDiskMatches(name string, expected ...models.Disk) resource.
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
 		if err != nil {
-			return fmt.Errorf("bad: Get server: %s", err)
+			return fmt.Errorf("bad %s: get server: %s", resourceName, err)
 		}
 		if server == nil {
-			return fmt.Errorf("bad: Server not found with Id '%s'", serverID)
+			return fmt.Errorf("bad %s: server not found with Id '%s'", resourceName, serverID)
 		}
 
 		var validationMessages []string
-		expectedDisksByUnitID := models.Disks(expected).ByUnitID()
-		for _, actualDisk := range server.Disks {
-			expectedDisk, ok := expectedDisksByUnitID[actualDisk.SCSIUnitID]
-			if !ok {
-				validationMessages = append(validationMessages, fmt.Sprintf(
-					"found unexpected server disk '%s' with SCSI unit ID %d.",
-					*actualDisk.ID,
-					actualDisk.SCSIUnitID,
-				))
+		expectedDisksBySCSIPath := models.Disks(expected).BySCSIPath()
+		for _, actualSCSIController := range server.SCSIControllers {
+			for _, actualDisk := range actualSCSIController.Disks {
+				scsiPath := models.SCSIPath(actualSCSIController.BusNumber, actualDisk.SCSIUnitID)
+				expectedDisk, ok := expectedDisksBySCSIPath[scsiPath]
+				if !ok {
+					validationMessages = append(validationMessages, fmt.Sprintf(
+						"found unexpected server disk '%s' on SCSI bus %d with SCSI unit ID %d.",
+						actualDisk.ID,
+						actualSCSIController.BusNumber,
+						actualDisk.SCSIUnitID,
+					))
 
-				continue
-			}
-			delete(expectedDisksByUnitID, actualDisk.SCSIUnitID)
+					continue
+				}
+				delete(expectedDisksBySCSIPath, scsiPath)
 
-			if actualDisk.SizeGB != expectedDisk.SizeGB {
-				validationMessages = append(validationMessages, fmt.Sprintf(
-					"server disk '%s' with SCSI unit ID %d has size %dGB (expected %dGB).",
-					*actualDisk.ID,
-					actualDisk.SCSIUnitID,
-					actualDisk.SizeGB,
-					expectedDisk.SizeGB,
-				))
-			}
+				if actualDisk.SizeGB != expectedDisk.SizeGB {
+					validationMessages = append(validationMessages, fmt.Sprintf(
+						"server disk '%s' on SCSI bus %d with SCSI unit ID %d has size %dGB (expected %dGB).",
+						actualDisk.ID,
+						actualSCSIController.BusNumber,
+						actualDisk.SCSIUnitID,
+						actualDisk.SizeGB,
+						expectedDisk.SizeGB,
+					))
+				}
 
-			if actualDisk.Speed != expectedDisk.Speed {
-				validationMessages = append(validationMessages, fmt.Sprintf(
-					"server disk '%s' with SCSI unit ID %d has speed '%s' (expected '%s').",
-					*actualDisk.ID,
-					actualDisk.SCSIUnitID,
-					actualDisk.Speed,
-					expectedDisk.Speed,
-				))
+				if actualDisk.Speed != expectedDisk.Speed {
+					validationMessages = append(validationMessages, fmt.Sprintf(
+						"server disk '%s' on SCSI bus %d with SCSI unit ID %d has speed '%s' (expected '%s').",
+						actualDisk.ID,
+						actualSCSIController.BusNumber,
+						actualDisk.SCSIUnitID,
+						actualDisk.Speed,
+						expectedDisk.Speed,
+					))
+				}
 			}
 		}
 
-		for expectedUnitID := range expectedDisksByUnitID {
-			expectedDisk := expectedDisksByUnitID[expectedUnitID]
+		for expectedSCSIPath := range expectedDisksBySCSIPath {
+			expectedDisk := expectedDisksBySCSIPath[expectedSCSIPath]
 
 			validationMessages = append(validationMessages, fmt.Sprintf(
-				"no server disk was found with SCSI unit ID %d.",
+				"no server disk was found on SCSI bus %d with SCSI unit ID %d.",
+				expectedDisk.SCSIBusNumber,
 				expectedDisk.SCSIUnitID,
 			))
 		}
 
 		if len(validationMessages) > 0 {
-			return fmt.Errorf("bad: %s", strings.Join(validationMessages, ", "))
+			return fmt.Errorf("bad %s: %s", resourceName, strings.Join(validationMessages, ", "))
 		}
 
 		return nil
@@ -628,11 +635,11 @@ func testCheckDDCloudDiskMatches(name string, expected ...models.Disk) resource.
 // Acceptance test check for ddcloud_server:
 //
 // Check if the server's tags match the expected tags.
-func testCheckDDCloudServerTagMatches(name string, expected map[string]string) resource.TestCheckFunc {
+func testCheckDDCloudServerTagMatches(resourceName string, expected map[string]string) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
-		serverResource, ok := state.RootModule().Resources[name]
+		serverResource, ok := state.RootModule().Resources[resourceName]
 		if !ok {
-			return fmt.Errorf("Not found: %s", name)
+			return fmt.Errorf("resource '%s' not found", resourceName)
 		}
 
 		serverID := serverResource.Primary.ID
@@ -640,7 +647,7 @@ func testCheckDDCloudServerTagMatches(name string, expected map[string]string) r
 		client := testAccProvider.Meta().(*providerState).Client()
 		tags, err := client.GetAssetTags(serverID, compute.AssetTypeServer, nil)
 		if err != nil {
-			return fmt.Errorf("bad: Get server: %s", err)
+			return fmt.Errorf("bad %s: get server: %s", resourceName, err)
 		}
 
 		expectedTags := make(map[string]string)
@@ -686,7 +693,7 @@ func testCheckDDCloudServerTagMatches(name string, expected map[string]string) r
 		}
 
 		if len(validationMessages) > 0 {
-			return fmt.Errorf("bad: %s", strings.Join(validationMessages, ", "))
+			return fmt.Errorf("bad %s: %s", resourceName, strings.Join(validationMessages, ", "))
 		}
 
 		return nil
@@ -697,12 +704,12 @@ func testCheckDDCloudServerTagMatches(name string, expected map[string]string) r
 //
 // Check all servers specified in the configuration have been destroyed.
 func testCheckDDCloudServerDestroy(state *terraform.State) error {
-	for _, res := range state.RootModule().Resources {
-		if res.Type != "ddcloud_server" {
+	for resourceName, resource := range state.RootModule().Resources {
+		if resource.Type != "ddcloud_server" {
 			continue
 		}
 
-		serverID := res.Primary.ID
+		serverID := resource.Primary.ID
 
 		client := testAccProvider.Meta().(*providerState).Client()
 		server, err := client.GetServer(serverID)
@@ -710,7 +717,7 @@ func testCheckDDCloudServerDestroy(state *terraform.State) error {
 			return nil
 		}
 		if server != nil {
-			return fmt.Errorf("Server '%s' still exists", serverID)
+			return fmt.Errorf("bad %s: server '%s' still exists", resourceName, serverID)
 		}
 	}
 
@@ -721,11 +728,12 @@ func testCheckDDCloudServerDestroy(state *terraform.State) error {
  * Test disk definitions.
  */
 
-// The image disk definition for CentOS 7.
-func testImageDiskCentOS7(sizeGB int, speed string) models.Disk {
+// A disk definition for comparison in tests.
+func testDisk(scsiBusNumber int, scsiUnitID int, sizeGB int, speed string) models.Disk {
 	return models.Disk{
-		SCSIUnitID: 0,
-		SizeGB:     sizeGB,
-		Speed:      speed,
+		SCSIBusNumber: scsiBusNumber,
+		SCSIUnitID:    scsiUnitID,
+		SizeGB:        sizeGB,
+		Speed:         speed,
 	}
 }

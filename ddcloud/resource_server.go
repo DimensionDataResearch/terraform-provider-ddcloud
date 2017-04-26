@@ -305,19 +305,22 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 	// Validate disk configuration.
 	configuredDisks := propertyHelper.GetDisks()
-	err = validateDisks(configuredDisks)
+	err = validateServerDisks(configuredDisks)
 	if err != nil {
 		return err
 	}
 
 	// Image disk speeds
-	configuredDisksByUnitID := configuredDisks.ByUnitID()
-	for index := range deploymentConfiguration.Disks {
-		deploymentDisk := &deploymentConfiguration.Disks[index]
+	configuredDisksBySCSIPath := configuredDisks.BySCSIPath()
+	for controllerIndex := range deploymentConfiguration.SCSIControllers {
+		deploymentSCSIController := &deploymentConfiguration.SCSIControllers[controllerIndex]
+		for diskIndex := range deploymentSCSIController.Disks {
+			deploymentDisk := &deploymentSCSIController.Disks[diskIndex]
 
-		configuredDisk, ok := configuredDisksByUnitID[deploymentDisk.SCSIUnitID]
-		if ok {
-			deploymentDisk.Speed = configuredDisk.Speed
+			configuredDisk, ok := configuredDisksBySCSIPath[models.SCSIPath(deploymentSCSIController.BusNumber, deploymentDisk.SCSIUnitID)]
+			if ok {
+				deploymentDisk.Speed = configuredDisk.Speed
+			}
 		}
 	}
 
@@ -419,7 +422,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 	data.SetPartial(resourceKeyServerTag)
 
-	err = createDisks(server.Disks, data, providerState)
+	err = createDisks(server.SCSIControllers, data, providerState)
 	if err != nil {
 		return err
 	}
@@ -483,7 +486,7 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	}
 
 	propertyHelper.SetDisks(
-		models.NewDisksFromVirtualMachineDisks(server.Disks),
+		models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
 	)
 
 	return nil

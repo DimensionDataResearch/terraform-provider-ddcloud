@@ -1,5 +1,9 @@
 # Changes
 
+# v1.3.0-alpha2
+
+* Support for multiple storage controllers (using `ddcloud_storage_controller` resource).
+
 # v1.3.0-alpha1
 
 * Support for additional disk storage tier (`ECONOMY`) and network adapter types (`E1000E`, `ENHANCED_VMXNET2`, and `FLEXIBLE_PCNET32`).

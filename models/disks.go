@@ -1,6 +1,10 @@
 package models
 
-import "github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+import (
+	"sort"
+
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
+)
 
 // TODO: Consider implementing Disks.CalculateActions([]compute.VirtualMachineDisk)
 
@@ -10,6 +14,15 @@ type Disks []Disk
 // IsEmpty determines whether the Disk array is empty.
 func (disks Disks) IsEmpty() bool {
 	return len(disks) == 0
+}
+
+// SortBySCSIPath sorts the disks by SCSI bus number and then SCSI unit Id.
+func (disks Disks) SortBySCSIPath() {
+	sorter := &diskSorter{
+		Disks: disks,
+	}
+
+	sort.Sort(sorter)
 }
 
 // ToVirtualMachineDisks converts the Disks to an array of compute.VirtualMachineDisk.
@@ -32,22 +45,22 @@ func (disks Disks) ToMaps() []map[string]interface{} {
 	return diskPropertyList
 }
 
-// ByUnitID creates a map of Disk keyed by SCSI unit Id.
-func (disks Disks) ByUnitID() map[int]Disk {
-	disksByUnitID := make(map[int]Disk)
+// BySCSIPath creates a map of Disk keyed by SCSI unit Id.
+func (disks Disks) BySCSIPath() map[string]Disk {
+	disksBySCSIPath := make(map[string]Disk)
 	for _, disk := range disks {
-		disksByUnitID[disk.SCSIUnitID] = disk
+		disksBySCSIPath[disk.SCSIPath()] = disk
 	}
 
-	return disksByUnitID
+	return disksBySCSIPath
 }
 
 // CaptureIDs updates the Disk Ids from the actual disks.
 func (disks Disks) CaptureIDs(actualDisks Disks) {
-	actualDisksByUnitID := actualDisks.ByUnitID()
+	actualDisksBySCSIPath := actualDisks.BySCSIPath()
 	for index := range disks {
 		disk := &disks[index]
-		actualDisk, ok := actualDisksByUnitID[disk.SCSIUnitID]
+		actualDisk, ok := actualDisksBySCSIPath[disk.SCSIPath()]
 		if ok {
 			disk.ID = actualDisk.ID
 		}
@@ -59,12 +72,12 @@ func (disks Disks) CaptureIDs(actualDisks Disks) {
 // Call this function on the old Disks, passing the new Disks.
 func (disks *Disks) ApplyCurrentConfiguration(currentDisks Disks) {
 	previousDisks := *disks
-	currentDisksByID := currentDisks.ByUnitID()
+	currentDisksBySCSIPath := currentDisks.BySCSIPath()
 
 	appliedDisks := make(Disks, 0)
 	for index := range previousDisks {
 		previousDisk := &previousDisks[index]
-		currentDisk, ok := currentDisksByID[previousDisk.SCSIUnitID]
+		currentDisk, ok := currentDisksBySCSIPath[previousDisk.SCSIPath()]
 		if !ok {
 			continue // Disk no longer configured; leave it out.
 		}
@@ -86,9 +99,9 @@ func (disks *Disks) ApplyCurrentConfiguration(currentDisks Disks) {
 //
 // This function only works right after the server has been deployed (i.e. no post-deployment disk changes (such as AddDiskToServer) have been made).
 func (disks Disks) SplitByInitialType(actualDisks Disks) (imageDisks Disks, additionalDisks Disks) {
-	actualDisksByUnitID := actualDisks.ByUnitID()
+	actualDisksBySCSIPath := actualDisks.BySCSIPath()
 	for _, configuredDisk := range disks {
-		_, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
+		_, ok := actualDisksBySCSIPath[configuredDisk.SCSIPath()]
 		if ok {
 			// This is an image disk.
 			imageDisks = append(imageDisks, configuredDisk)
@@ -106,12 +119,12 @@ func (disks Disks) SplitByInitialType(actualDisks Disks) (imageDisks Disks, addi
 // configuredDisks represents the disks currently specified in configuration.
 // actualDisks represents the disks in the server, as returned by CloudControl.
 func (disks Disks) SplitByAction(actualDisks Disks) (addDisks Disks, changeDisks Disks, removeDisks Disks) {
-	actualDisksByUnitID := actualDisks.ByUnitID()
+	actualDisksByUnitSCSIPath := actualDisks.BySCSIPath()
 	for _, configuredDisk := range disks {
-		actualDisk, ok := actualDisksByUnitID[configuredDisk.SCSIUnitID]
+		actualDisk, ok := actualDisksByUnitSCSIPath[configuredDisk.SCSIPath()]
 
 		// We don't want to see this disk when we're looking for disks that don't appear in the configuration.
-		delete(actualDisksByUnitID, configuredDisk.SCSIUnitID)
+		delete(actualDisksByUnitSCSIPath, configuredDisk.SCSIPath())
 
 		if ok {
 			// Existing disk.
@@ -127,8 +140,8 @@ func (disks Disks) SplitByAction(actualDisks Disks) (addDisks Disks, changeDisks
 	}
 
 	// By process of elimination, any remaining actual disks do not appear in the configuration and should be removed.
-	for unconfiguredDiskUnitID := range actualDisksByUnitID {
-		unconfiguredDisk := actualDisksByUnitID[unconfiguredDiskUnitID]
+	for unconfiguredDiskUnitID := range actualDisksByUnitSCSIPath {
+		unconfiguredDisk := actualDisksByUnitSCSIPath[unconfiguredDiskUnitID]
 		removeDisks = append(removeDisks, unconfiguredDisk)
 	}
 
@@ -158,12 +171,54 @@ func NewDisksFromMaps(diskPropertyList []map[string]interface{}) Disks {
 	return disks
 }
 
-// NewDisksFromVirtualMachineDisks creates Disks from an array of compute.VirtualMachineDisk.
-func NewDisksFromVirtualMachineDisks(virtualMachineDisks []compute.VirtualMachineDisk) Disks {
-	disks := make(Disks, len(virtualMachineDisks))
-	for index, virtualMachineDisk := range virtualMachineDisks {
-		disks[index] = NewDiskFromVirtualMachineDisk(virtualMachineDisk)
+// NewDisksFromVirtualMachineSCSIController creates Disks from a compute.VirtualMachineSCSIController.
+func NewDisksFromVirtualMachineSCSIController(virtualMachineSCSIController compute.VirtualMachineSCSIController) (disks Disks) {
+	disks = make(Disks, len(virtualMachineSCSIController.Disks))
+	for index, virtualMachineDisk := range virtualMachineSCSIController.Disks {
+		disks[index] = NewDiskFromVirtualMachineDisk(virtualMachineDisk, virtualMachineSCSIController.BusNumber)
 	}
+	disks.SortBySCSIPath()
 
-	return disks
+	return
 }
+
+// NewDisksFromVirtualMachineSCSIControllers creates Disks from compute.VirtualMachineSCSIControllers.
+func NewDisksFromVirtualMachineSCSIControllers(virtualMachineSCSIControllers compute.VirtualMachineSCSIControllers) (disks Disks) {
+	for _, virtualMachineSCSIController := range virtualMachineSCSIControllers {
+		for _, virtualMachineDisk := range virtualMachineSCSIController.Disks {
+			disks = append(disks,
+				NewDiskFromVirtualMachineDisk(virtualMachineDisk, virtualMachineSCSIController.BusNumber),
+			)
+		}
+	}
+	disks.SortBySCSIPath()
+
+	return
+}
+
+// diskSorter sorts disks by SCSI bus number and then by SCSI unit Id
+type diskSorter struct {
+	Disks Disks
+}
+
+func (sorter diskSorter) Len() int {
+	return len(sorter.Disks)
+}
+
+func (sorter diskSorter) Less(index1 int, index2 int) bool {
+	disk1 := sorter.Disks[index1]
+	disk1SortKey := disk1.SCSIBusNumber*1000 + disk1.SCSIUnitID
+
+	disk2 := sorter.Disks[index2]
+	disk2SortKey := disk2.SCSIBusNumber*1000 + disk2.SCSIUnitID
+
+	return disk1SortKey < disk2SortKey
+}
+
+func (sorter diskSorter) Swap(index1 int, index2 int) {
+	temp := sorter.Disks[index1]
+	sorter.Disks[index1] = sorter.Disks[index2]
+	sorter.Disks[index2] = temp
+}
+
+var _ sort.Interface = &diskSorter{}
