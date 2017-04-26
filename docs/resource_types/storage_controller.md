@@ -4,7 +4,7 @@ A storage controller represents a SCSI adapter in a [Server](server.md). Each st
 
 ## Notes
 * You can either declare your server's disks directly on the `ddcloud_server` resource, or use 1 or more `ddcloud_storage_controller` resources and declare the disks inside them. _Do not declare disks in both places or you run the risk of confusing the Terraform provider and damaging your server's configuration._
-* If you are using more than storage controller in your server, you _must_ use `ddcloud_storage_controller`.
+* If you are using more than 1 storage controller in your server, you _must_ use `ddcloud_storage_controller`.
 * There is a minimum number of disks per server (usually 1, but can vary by datacenter).  
   If a `ddcloud_storage_controller` is being deleted and the provider needs to remove its corresponding storage controller then, if removing that storage controller would involve removing too many disks from the server (e.g. the server's last disk), the controller will not be removed (but will be treated as if it has been).
 
