@@ -1,8 +1,10 @@
 package ddcloud
 
 import (
-	"github.com/hashicorp/terraform/helper/schema"
+	"fmt"
 	"log"
+
+	"github.com/hashicorp/terraform/helper/schema"
 )
 
 func dataSourceVLAN() *schema.Resource {
@@ -70,7 +72,7 @@ func dataSourceVLANRead(data *schema.ResourceData, provider interface{}) error {
 		data.Set(resourceKeyVLANIPv6BaseAddress, vlan.IPv6Range.BaseAddress)
 		data.Set(resourceKeyVLANIPv6PrefixSize, vlan.IPv6Range.PrefixSize)
 	} else {
-		data.SetId("") // Mark resource as deleted.
+		return fmt.Errorf("failed to find VLAN '%s' in network domain '%s'", name, networkDomainID)
 	}
 
 	return nil

@@ -1,5 +1,9 @@
 # Changes
 
+# 1.3.0-alpha3
+
+* `ddcloud_networkdomain` and `ddcloud_vlan` datasources now correctly return an error if the target entity is not found.
+
 # v1.3.0-alpha2
 
 * Support for multiple storage controllers (using `ddcloud_storage_controller` resource).

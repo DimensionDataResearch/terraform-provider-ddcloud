@@ -15,17 +15,17 @@ func dataSourceNetworkDomain() *schema.Resource {
 			resourceKeyNetworkDomainName: &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "A name for the network domain",
+				Description: "The name of the network domain",
 			},
 			resourceKeyNetworkDomainDataCenter: &schema.Schema{
 				Type:        schema.TypeString,
 				Required:    true,
-				Description: "The Id of the MCP 2.0 datacenter in which the network domain is created",
+				Description: "The Id of the MCP 2.0 datacenter in which the network domain is located",
 			},
 			resourceKeyNetworkDomainDescription: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
-				Description: "A description for the network domain",
+				Description: "The network domain description",
 			},
 			resourceKeyNetworkDomainPlan: &schema.Schema{
 				Type:        schema.TypeString,
@@ -61,6 +61,8 @@ func dataSourceNetworkDomainRead(data *schema.ResourceData, provider interface{}
 	}
 
 	if networkDomain != nil {
+		log.Printf("Found network domain '%s' ('%s') in data center '%s'.", name, networkDomain.ID, dataCenterID)
+
 		data.SetId(networkDomain.ID)
 		data.Set(resourceKeyNetworkDomainDescription, networkDomain.Description)
 		data.Set(resourceKeyNetworkDomainPlan, networkDomain.Type)
@@ -71,7 +73,7 @@ func dataSourceNetworkDomainRead(data *schema.ResourceData, provider interface{}
 			networkDomain.OutsideTransitVLANIPv4Subnet.PrefixSize,
 		))
 	} else {
-		data.SetId("") // Mark resource as deleted.
+		return fmt.Errorf("failed to find network domain '%s' in data center '%s'", name, dataCenterID)
 	}
 
 	return nil
