@@ -13,25 +13,26 @@ import (
 )
 
 const (
-	resourceKeyServerName               = "name"
-	resourceKeyServerDescription        = "description"
-	resourceKeyServerAdminPassword      = "admin_password"
-	resourceKeyServerImage              = "image"
-	resourceKeyServerImageType          = "image_type"
-	resourceKeyServerOSType             = "os_type"
-	resourceKeyServerOSFamily           = "os_family"
-	resourceKeyServerNetworkDomainID    = "networkdomain"
-	resourceKeyServerMemoryGB           = "memory_gb"
-	resourceKeyServerCPUCount           = "cpu_count"
-	resourceKeyServerCPUCoreCount       = "cores_per_cpu"
-	resourceKeyServerCPUSpeed           = "cpu_speed"
-	resourceKeyServerPrimaryAdapterVLAN = "primary_adapter_vlan"
-	resourceKeyServerPrimaryAdapterIPv4 = "primary_adapter_ipv4"
-	resourceKeyServerPrimaryAdapterIPv6 = "primary_adapter_ipv6"
-	resourceKeyServerPublicIPv4         = "public_ipv4"
-	resourceKeyServerPrimaryDNS         = "dns_primary"
-	resourceKeyServerSecondaryDNS       = "dns_secondary"
-	resourceKeyServerAutoStart          = "auto_start"
+	resourceKeyServerName                 = "name"
+	resourceKeyServerDescription          = "description"
+	resourceKeyServerAdminPassword        = "admin_password"
+	resourceKeyServerImage                = "image"
+	resourceKeyServerImageType            = "image_type"
+	resourceKeyServerOSType               = "os_type"
+	resourceKeyServerOSFamily             = "os_family"
+	resourceKeyServerNetworkDomainID      = "networkdomain"
+	resourceKeyServerMemoryGB             = "memory_gb"
+	resourceKeyServerCPUCount             = "cpu_count"
+	resourceKeyServerCPUCoreCount         = "cores_per_cpu"
+	resourceKeyServerCPUSpeed             = "cpu_speed"
+	resourceKeyServerPrimaryAdapterVLAN   = "primary_adapter_vlan"
+	resourceKeyServerPrimaryAdapterIPv4   = "primary_adapter_ipv4"
+	resourceKeyServerPrimaryAdapterIPv6   = "primary_adapter_ipv6"
+	resourceKeyServerPublicIPv4           = "public_ipv4"
+	resourceKeyServerPrimaryDNS           = "dns_primary"
+	resourceKeyServerSecondaryDNS         = "dns_secondary"
+	resourceKeyServerAutoStart            = "auto_start"
+	resourceKeyServerGuestOSCustomization = "guest_os_customization"
 
 	// Obsolete properties
 	resourceKeyServerOSImageID          = "os_image_id"
@@ -238,11 +239,7 @@ func resourceServer() *schema.Resource {
 func resourceServerCreate(data *schema.ResourceData, provider interface{}) error {
 	name := data.Get(resourceKeyServerName).(string)
 	description := data.Get(resourceKeyServerDescription).(string)
-	adminPassword := data.Get(resourceKeyServerAdminPassword).(string)
 	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
-	primaryDNS := data.Get(resourceKeyServerPrimaryDNS).(string)
-	secondaryDNS := data.Get(resourceKeyServerSecondaryDNS).(string)
-	autoStart := data.Get(resourceKeyServerAutoStart).(bool)
 
 	log.Printf("Create server '%s' in network domain '%s' (description = '%s').", name, networkDomainID, description)
 
@@ -261,14 +258,6 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	dataCenterID := networkDomain.DatacenterID
 	log.Printf("Server will be deployed in data centre '%s'.", dataCenterID)
 
-	deploymentConfiguration := compute.ServerDeploymentConfiguration{
-		Name:                  name,
-		Description:           description,
-		AdministratorPassword: adminPassword,
-		Start: autoStart,
-	}
-
-	propertyHelper := propertyHelper(data)
 	configuredImage := data.Get(resourceKeyServerImage).(string)
 	configuredImageType := data.Get(resourceKeyServerImageType).(string)
 	image, err := resolveServerImage(configuredImage, configuredImageType, dataCenterID, apiClient)
@@ -279,157 +268,11 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 		return fmt.Errorf("an unexpected error occurred while resolving the configured server image")
 	}
 
-	log.Printf("Server will be deployed from %s image '%s' (Id = '%s') in datacenter '%s",
-		compute.ImageTypeName(image.GetType()),
-		image.GetName(),
-		image.GetID(),
-		dataCenterID,
-	)
-
-	log.Printf("Server will be deployed from %s image named '%s' (Id = '%s').",
-		compute.ImageTypeName(image.GetType()),
-		image.GetName(),
-		image.GetID(),
-	)
-	err = validateAdminPassword(deploymentConfiguration.AdministratorPassword, image)
-	if err != nil {
-		return err
-	}
-	image.ApplyTo(&deploymentConfiguration)
-
-	operatingSystem := image.GetOS()
-	data.Set(resourceKeyServerOSType, operatingSystem.DisplayName)
-	data.SetPartial(resourceKeyServerOSType)
-	data.Set(resourceKeyServerOSFamily, operatingSystem.Family)
-	data.SetPartial(resourceKeyServerOSFamily)
-
-	// Validate disk configuration.
-	configuredDisks := propertyHelper.GetDisks()
-	err = validateServerDisks(configuredDisks)
-	if err != nil {
-		return err
+	if image.RequiresCustomization() {
+		return deployCustomizedServer(data, provider)
 	}
 
-	// Image disk speeds
-	configuredDisksBySCSIPath := configuredDisks.BySCSIPath()
-	for controllerIndex := range deploymentConfiguration.SCSIControllers {
-		deploymentSCSIController := &deploymentConfiguration.SCSIControllers[controllerIndex]
-		for diskIndex := range deploymentSCSIController.Disks {
-			deploymentDisk := &deploymentSCSIController.Disks[diskIndex]
-
-			configuredDisk, ok := configuredDisksBySCSIPath[models.SCSIPath(deploymentSCSIController.BusNumber, deploymentDisk.SCSIUnitID)]
-			if ok {
-				deploymentDisk.Speed = configuredDisk.Speed
-			}
-		}
-	}
-
-	// Memory and CPU
-	memoryGB := propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB, false)
-	if memoryGB != nil {
-		deploymentConfiguration.MemoryGB = *memoryGB
-	} else {
-		data.Set(resourceKeyServerMemoryGB, deploymentConfiguration.MemoryGB)
-	}
-
-	cpuCount := propertyHelper.GetOptionalInt(resourceKeyServerCPUCount, false)
-	if cpuCount != nil {
-		deploymentConfiguration.CPU.Count = *cpuCount
-	} else {
-		data.Set(resourceKeyServerCPUCount, deploymentConfiguration.CPU.Count)
-	}
-
-	cpuCoreCount := propertyHelper.GetOptionalInt(resourceKeyServerCPUCoreCount, false)
-	if cpuCoreCount != nil {
-		deploymentConfiguration.CPU.CoresPerSocket = *cpuCoreCount
-	} else {
-		data.Set(resourceKeyServerCPUCoreCount, deploymentConfiguration.CPU.CoresPerSocket)
-	}
-
-	cpuSpeed := propertyHelper.GetOptionalString(resourceKeyServerCPUSpeed, false)
-	if cpuSpeed != nil {
-		deploymentConfiguration.CPU.Speed = *cpuSpeed
-	} else {
-		data.Set(resourceKeyServerCPUSpeed, deploymentConfiguration.CPU.Speed)
-	}
-
-	// Network
-	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
-		NetworkDomainID: networkDomainID,
-	}
-
-	// Initial configuration for network adapters.
-	networkAdapters := propertyHelper.GetServerNetworkAdapters()
-	networkAdapters.UpdateVirtualMachineNetwork(&deploymentConfiguration.Network)
-
-	deploymentConfiguration.PrimaryDNS = primaryDNS
-	deploymentConfiguration.SecondaryDNS = secondaryDNS
-
-	log.Printf("Server deployment configuration: %+v", deploymentConfiguration)
-	log.Printf("Server CPU deployment configuration: %+v", deploymentConfiguration.CPU)
-
-	var serverID string
-	operationDescription := fmt.Sprintf("Deploy server '%s'", name)
-	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
-		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-		defer asyncLock.Release()
-
-		var deployError error
-		serverID, deployError = apiClient.DeployServer(deploymentConfiguration)
-		if compute.IsResourceBusyError(deployError) {
-			context.Retry()
-		} else if deployError != nil {
-			context.Fail(deployError)
-		}
-	})
-	if err != nil {
-		return err
-	}
-	data.SetId(serverID)
-
-	log.Printf("Server '%s' is being provisioned...", name)
-	resource, err := apiClient.WaitForDeploy(compute.ResourceTypeServer, serverID, resourceCreateTimeoutServer)
-	if err != nil {
-		return err
-	}
-
-	// Capture additional properties that may only be available after deployment.
-	data.Partial(true)
-	server := resource.(*compute.Server)
-
-	networkAdapters.CaptureIDs(server.Network)
-	propertyHelper.SetServerNetworkAdapters(networkAdapters, true)
-	captureServerNetworkConfiguration(server, data, true)
-
-	var publicIPv4Address string
-	publicIPv4Address, err = findPublicIPv4Address(apiClient,
-		networkDomainID,
-		*server.Network.PrimaryAdapter.PrivateIPv4Address,
-	)
-	if err != nil {
-		return err
-	}
-	if !isEmpty(publicIPv4Address) {
-		data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
-	} else {
-		data.Set(resourceKeyServerPublicIPv4, nil)
-	}
-	data.SetPartial(resourceKeyServerPublicIPv4)
-
-	err = applyServerTags(data, apiClient, providerState.Settings())
-	if err != nil {
-		return err
-	}
-	data.SetPartial(resourceKeyServerTag)
-
-	err = createDisks(server.SCSIControllers, data, providerState)
-	if err != nil {
-		return err
-	}
-
-	data.Partial(false)
-
-	return nil
+	return deployUncustomizedServer(data, provider)
 }
 
 // Read a server resource.
@@ -694,6 +537,372 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server '%s' is being deleted...", id)
 
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
+}
+
+// TODO: Refactor deployCustomizedServer / deployUncustomizedServer and move common logic to shared functions.
+
+// Deploy a server with guest OS customisation.
+func deployCustomizedServer(data *schema.ResourceData, provider interface{}) error {
+	name := data.Get(resourceKeyServerName).(string)
+	description := data.Get(resourceKeyServerDescription).(string)
+	adminPassword := data.Get(resourceKeyServerAdminPassword).(string)
+	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
+	primaryDNS := data.Get(resourceKeyServerPrimaryDNS).(string)
+	secondaryDNS := data.Get(resourceKeyServerSecondaryDNS).(string)
+	autoStart := data.Get(resourceKeyServerAutoStart).(bool)
+
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	networkDomain, err := apiClient.GetNetworkDomain(networkDomainID)
+	if err != nil {
+		return err
+	}
+
+	if networkDomain == nil {
+		return fmt.Errorf("no network domain was found with Id '%s'", networkDomainID)
+	}
+
+	dataCenterID := networkDomain.DatacenterID
+	log.Printf("Server will be deployed in data centre '%s' with guest OS customisation.", dataCenterID)
+
+	propertyHelper := propertyHelper(data)
+	configuredImage := data.Get(resourceKeyServerImage).(string)
+	configuredImageType := data.Get(resourceKeyServerImageType).(string)
+	image, err := resolveServerImage(configuredImage, configuredImageType, dataCenterID, apiClient)
+	if err != nil {
+		return err
+	}
+	if image == nil {
+		return fmt.Errorf("an unexpected error occurred while resolving the configured server image")
+	}
+
+	log.Printf("Server will be deployed from %s image named '%s' (Id = '%s').",
+		compute.ImageTypeName(image.GetType()),
+		image.GetName(),
+		image.GetID(),
+	)
+	deploymentConfiguration := compute.ServerDeploymentConfiguration{
+		Name:                  name,
+		Description:           description,
+		AdministratorPassword: adminPassword,
+		Start: autoStart,
+	}
+	err = validateAdminPassword(deploymentConfiguration.AdministratorPassword, image)
+	if err != nil {
+		return err
+	}
+	image.ApplyTo(&deploymentConfiguration)
+
+	operatingSystem := image.GetOS()
+	data.Set(resourceKeyServerOSType, operatingSystem.DisplayName)
+	data.SetPartial(resourceKeyServerOSType)
+	data.Set(resourceKeyServerOSFamily, operatingSystem.Family)
+	data.SetPartial(resourceKeyServerOSFamily)
+
+	// Validate disk configuration.
+	configuredDisks := propertyHelper.GetDisks()
+	err = validateServerDisks(configuredDisks)
+	if err != nil {
+		return err
+	}
+
+	// Image disk speeds
+	configuredDisksBySCSIPath := configuredDisks.BySCSIPath()
+	for controllerIndex := range deploymentConfiguration.SCSIControllers {
+		deploymentSCSIController := &deploymentConfiguration.SCSIControllers[controllerIndex]
+		for diskIndex := range deploymentSCSIController.Disks {
+			deploymentDisk := &deploymentSCSIController.Disks[diskIndex]
+
+			configuredDisk, ok := configuredDisksBySCSIPath[models.SCSIPath(deploymentSCSIController.BusNumber, deploymentDisk.SCSIUnitID)]
+			if ok {
+				deploymentDisk.Speed = configuredDisk.Speed
+			}
+		}
+	}
+
+	// Memory and CPU
+	memoryGB := propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB, false)
+	if memoryGB != nil {
+		deploymentConfiguration.MemoryGB = *memoryGB
+	} else {
+		data.Set(resourceKeyServerMemoryGB, deploymentConfiguration.MemoryGB)
+	}
+
+	cpuCount := propertyHelper.GetOptionalInt(resourceKeyServerCPUCount, false)
+	if cpuCount != nil {
+		deploymentConfiguration.CPU.Count = *cpuCount
+	} else {
+		data.Set(resourceKeyServerCPUCount, deploymentConfiguration.CPU.Count)
+	}
+
+	cpuCoreCount := propertyHelper.GetOptionalInt(resourceKeyServerCPUCoreCount, false)
+	if cpuCoreCount != nil {
+		deploymentConfiguration.CPU.CoresPerSocket = *cpuCoreCount
+	} else {
+		data.Set(resourceKeyServerCPUCoreCount, deploymentConfiguration.CPU.CoresPerSocket)
+	}
+
+	cpuSpeed := propertyHelper.GetOptionalString(resourceKeyServerCPUSpeed, false)
+	if cpuSpeed != nil {
+		deploymentConfiguration.CPU.Speed = *cpuSpeed
+	} else {
+		data.Set(resourceKeyServerCPUSpeed, deploymentConfiguration.CPU.Speed)
+	}
+
+	// Network
+	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
+		NetworkDomainID: networkDomainID,
+	}
+
+	// Initial configuration for network adapters.
+	networkAdapters := propertyHelper.GetServerNetworkAdapters()
+	networkAdapters.UpdateVirtualMachineNetwork(&deploymentConfiguration.Network)
+
+	deploymentConfiguration.PrimaryDNS = primaryDNS
+	deploymentConfiguration.SecondaryDNS = secondaryDNS
+
+	log.Printf("Server deployment configuration: %+v", deploymentConfiguration)
+	log.Printf("Server CPU deployment configuration: %+v", deploymentConfiguration.CPU)
+
+	var serverID string
+	operationDescription := fmt.Sprintf("Deploy server '%s'", name)
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
+		var deployError error
+		serverID, deployError = apiClient.DeployServer(deploymentConfiguration)
+		if compute.IsResourceBusyError(deployError) {
+			context.Retry()
+		} else if deployError != nil {
+			context.Fail(deployError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+	data.SetId(serverID)
+
+	log.Printf("Server '%s' is being provisioned...", name)
+	resource, err := apiClient.WaitForDeploy(compute.ResourceTypeServer, serverID, resourceCreateTimeoutServer)
+	if err != nil {
+		return err
+	}
+
+	// Capture additional properties that may only be available after deployment.
+	server := resource.(*compute.Server)
+	err = captureCreatedServerProperties(data, provider, server, networkAdapters)
+	if err != nil {
+		return err
+	}
+
+	data.Partial(true)
+
+	err = applyServerTags(data, apiClient, providerState.Settings())
+	if err != nil {
+		return err
+	}
+	data.SetPartial(resourceKeyServerTag)
+
+	err = createDisks(server.SCSIControllers, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	data.Partial(false)
+
+	return nil
+}
+
+// Deploy a server without guest OS customisation.
+func deployUncustomizedServer(data *schema.ResourceData, provider interface{}) error {
+	name := data.Get(resourceKeyServerName).(string)
+	description := data.Get(resourceKeyServerDescription).(string)
+	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
+	autoStart := data.Get(resourceKeyServerAutoStart).(bool)
+
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	networkDomain, err := apiClient.GetNetworkDomain(networkDomainID)
+	if err != nil {
+		return err
+	}
+
+	if networkDomain == nil {
+		return fmt.Errorf("no network domain was found with Id '%s'", networkDomainID)
+	}
+
+	dataCenterID := networkDomain.DatacenterID
+	log.Printf("Server will be deployed in data centre '%s' without guest OS customisation.", dataCenterID)
+
+	propertyHelper := propertyHelper(data)
+	configuredImage := data.Get(resourceKeyServerImage).(string)
+	configuredImageType := data.Get(resourceKeyServerImageType).(string)
+	image, err := resolveServerImage(configuredImage, configuredImageType, dataCenterID, apiClient)
+	if err != nil {
+		return err
+	}
+	if image == nil {
+		return fmt.Errorf("an unexpected error occurred while resolving the configured server image")
+	}
+
+	log.Printf("Server will be deployed from %s image named '%s' (Id = '%s').",
+		compute.ImageTypeName(image.GetType()),
+		image.GetName(),
+		image.GetID(),
+	)
+	deploymentConfiguration := compute.UncustomizedServerDeploymentConfiguration{
+		Name:        name,
+		Description: description,
+		Start:       autoStart,
+	}
+	image.ApplyToUncustomized(&deploymentConfiguration)
+
+	operatingSystem := image.GetOS()
+	data.Set(resourceKeyServerOSType, operatingSystem.DisplayName)
+	data.SetPartial(resourceKeyServerOSType)
+	data.Set(resourceKeyServerOSFamily, operatingSystem.Family)
+	data.SetPartial(resourceKeyServerOSFamily)
+
+	// Validate disk configuration.
+	configuredDisks := propertyHelper.GetDisks()
+	err = validateServerDisks(configuredDisks)
+	if err != nil {
+		return err
+	}
+
+	// Image disk speeds
+	configuredDisksBySCSIPath := configuredDisks.BySCSIPath()
+	for diskIndex := range deploymentConfiguration.Disks {
+		deploymentDisk := &deploymentConfiguration.Disks[diskIndex]
+
+		configuredDisk, ok := configuredDisksBySCSIPath[models.SCSIPath(0, deploymentDisk.SCSIUnitID)]
+		if ok {
+			deploymentDisk.Speed = configuredDisk.Speed
+		}
+	}
+
+	// Memory and CPU
+	memoryGB := propertyHelper.GetOptionalInt(resourceKeyServerMemoryGB, false)
+	if memoryGB != nil {
+		deploymentConfiguration.MemoryGB = *memoryGB
+	} else {
+		data.Set(resourceKeyServerMemoryGB, deploymentConfiguration.MemoryGB)
+	}
+
+	cpuCount := propertyHelper.GetOptionalInt(resourceKeyServerCPUCount, false)
+	if cpuCount != nil {
+		deploymentConfiguration.CPU.Count = *cpuCount
+	} else {
+		data.Set(resourceKeyServerCPUCount, deploymentConfiguration.CPU.Count)
+	}
+
+	cpuCoreCount := propertyHelper.GetOptionalInt(resourceKeyServerCPUCoreCount, false)
+	if cpuCoreCount != nil {
+		deploymentConfiguration.CPU.CoresPerSocket = *cpuCoreCount
+	} else {
+		data.Set(resourceKeyServerCPUCoreCount, deploymentConfiguration.CPU.CoresPerSocket)
+	}
+
+	cpuSpeed := propertyHelper.GetOptionalString(resourceKeyServerCPUSpeed, false)
+	if cpuSpeed != nil {
+		deploymentConfiguration.CPU.Speed = *cpuSpeed
+	} else {
+		data.Set(resourceKeyServerCPUSpeed, deploymentConfiguration.CPU.Speed)
+	}
+
+	// Network
+	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
+		NetworkDomainID: networkDomainID,
+	}
+
+	// Initial configuration for network adapters.
+	networkAdapters := propertyHelper.GetServerNetworkAdapters()
+	networkAdapters.UpdateVirtualMachineNetwork(&deploymentConfiguration.Network)
+
+	log.Printf("Server deployment configuration: %+v", deploymentConfiguration)
+	log.Printf("Server CPU deployment configuration: %+v", deploymentConfiguration.CPU)
+
+	var serverID string
+	operationDescription := fmt.Sprintf("Deploy uncustomised server '%s'", name)
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
+		var deployError error
+		serverID, deployError = apiClient.DeployUncustomizedServer(deploymentConfiguration)
+		if compute.IsResourceBusyError(deployError) {
+			context.Retry()
+		} else if deployError != nil {
+			context.Fail(deployError)
+		}
+	})
+	if err != nil {
+		return err
+	}
+	data.SetId(serverID)
+
+	log.Printf("Server '%s' is being provisioned...", name)
+	resource, err := apiClient.WaitForDeploy(compute.ResourceTypeServer, serverID, resourceCreateTimeoutServer)
+	if err != nil {
+		return err
+	}
+
+	// Capture additional properties that may only be available after deployment.
+	server := resource.(*compute.Server)
+	err = captureCreatedServerProperties(data, provider, server, networkAdapters)
+	if err != nil {
+		return err
+	}
+
+	data.Partial(true)
+
+	err = applyServerTags(data, apiClient, providerState.Settings())
+	if err != nil {
+		return err
+	}
+	data.SetPartial(resourceKeyServerTag)
+
+	err = createDisks(server.SCSIControllers, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	data.Partial(false)
+
+	return nil
+}
+
+// Capture additional properties that may only be available after deployment.
+func captureCreatedServerProperties(data *schema.ResourceData, provider interface{}, server *compute.Server, networkAdapters models.NetworkAdapters) error {
+	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
+
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	propertyHelper := propertyHelper(data)
+
+	networkAdapters.CaptureIDs(server.Network)
+	propertyHelper.SetServerNetworkAdapters(networkAdapters, true)
+	captureServerNetworkConfiguration(server, data, true)
+
+	publicIPv4Address, err := findPublicIPv4Address(apiClient,
+		networkDomainID,
+		*server.Network.PrimaryAdapter.PrivateIPv4Address,
+	)
+	if err != nil {
+		return err
+	}
+	if !isEmpty(publicIPv4Address) {
+		data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
+	} else {
+		data.Set(resourceKeyServerPublicIPv4, nil)
+	}
+	data.SetPartial(resourceKeyServerPublicIPv4)
+
+	return nil
 }
 
 func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, privateIPv4Address string) (publicIPv4Address string, err error) {
