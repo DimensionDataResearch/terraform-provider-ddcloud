@@ -269,10 +269,10 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 	}
 
 	if image.RequiresCustomization() {
-		return deployCustomizedServer(data, provider)
+		return deployCustomizedServer(data, providerState, networkDomain, image)
 	}
 
-	return deployUncustomizedServer(data, provider)
+	return deployUncustomizedServer(data, providerState, networkDomain, image)
 }
 
 // Read a server resource.
@@ -542,40 +542,18 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 // TODO: Refactor deployCustomizedServer / deployUncustomizedServer and move common logic to shared functions.
 
 // Deploy a server with guest OS customisation.
-func deployCustomizedServer(data *schema.ResourceData, provider interface{}) error {
+func deployCustomizedServer(data *schema.ResourceData, providerState *providerState, networkDomain *compute.NetworkDomain, image compute.Image) error {
 	name := data.Get(resourceKeyServerName).(string)
 	description := data.Get(resourceKeyServerDescription).(string)
 	adminPassword := data.Get(resourceKeyServerAdminPassword).(string)
-	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
 	primaryDNS := data.Get(resourceKeyServerPrimaryDNS).(string)
 	secondaryDNS := data.Get(resourceKeyServerSecondaryDNS).(string)
 	autoStart := data.Get(resourceKeyServerAutoStart).(bool)
-
-	providerState := provider.(*providerState)
-	apiClient := providerState.Client()
-
-	networkDomain, err := apiClient.GetNetworkDomain(networkDomainID)
-	if err != nil {
-		return err
-	}
-
-	if networkDomain == nil {
-		return fmt.Errorf("no network domain was found with Id '%s'", networkDomainID)
-	}
 
 	dataCenterID := networkDomain.DatacenterID
 	log.Printf("Server will be deployed in data centre '%s' with guest OS customisation.", dataCenterID)
 
 	propertyHelper := propertyHelper(data)
-	configuredImage := data.Get(resourceKeyServerImage).(string)
-	configuredImageType := data.Get(resourceKeyServerImageType).(string)
-	image, err := resolveServerImage(configuredImage, configuredImageType, dataCenterID, apiClient)
-	if err != nil {
-		return err
-	}
-	if image == nil {
-		return fmt.Errorf("an unexpected error occurred while resolving the configured server image")
-	}
 
 	log.Printf("Server will be deployed from %s image named '%s' (Id = '%s').",
 		compute.ImageTypeName(image.GetType()),
@@ -588,7 +566,7 @@ func deployCustomizedServer(data *schema.ResourceData, provider interface{}) err
 		AdministratorPassword: adminPassword,
 		Start: autoStart,
 	}
-	err = validateAdminPassword(deploymentConfiguration.AdministratorPassword, image)
+	err := validateAdminPassword(deploymentConfiguration.AdministratorPassword, image)
 	if err != nil {
 		return err
 	}
@@ -652,7 +630,7 @@ func deployCustomizedServer(data *schema.ResourceData, provider interface{}) err
 
 	// Network
 	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
-		NetworkDomainID: networkDomainID,
+		NetworkDomainID: networkDomain.ID,
 	}
 
 	// Initial configuration for network adapters.
@@ -665,8 +643,10 @@ func deployCustomizedServer(data *schema.ResourceData, provider interface{}) err
 	log.Printf("Server deployment configuration: %+v", deploymentConfiguration)
 	log.Printf("Server CPU deployment configuration: %+v", deploymentConfiguration.CPU)
 
+	apiClient := providerState.Client()
+
 	var serverID string
-	operationDescription := fmt.Sprintf("Deploy server '%s'", name)
+	operationDescription := fmt.Sprintf("Deploy customised server '%s'", name)
 	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
@@ -692,7 +672,7 @@ func deployCustomizedServer(data *schema.ResourceData, provider interface{}) err
 
 	// Capture additional properties that may only be available after deployment.
 	server := resource.(*compute.Server)
-	err = captureCreatedServerProperties(data, provider, server, networkAdapters)
+	err = captureCreatedServerProperties(data, providerState, server, networkAdapters)
 	if err != nil {
 		return err
 	}
@@ -716,37 +696,15 @@ func deployCustomizedServer(data *schema.ResourceData, provider interface{}) err
 }
 
 // Deploy a server without guest OS customisation.
-func deployUncustomizedServer(data *schema.ResourceData, provider interface{}) error {
+func deployUncustomizedServer(data *schema.ResourceData, providerState *providerState, networkDomain *compute.NetworkDomain, image compute.Image) error {
 	name := data.Get(resourceKeyServerName).(string)
 	description := data.Get(resourceKeyServerDescription).(string)
-	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
 	autoStart := data.Get(resourceKeyServerAutoStart).(bool)
 
-	providerState := provider.(*providerState)
-	apiClient := providerState.Client()
-
-	networkDomain, err := apiClient.GetNetworkDomain(networkDomainID)
-	if err != nil {
-		return err
-	}
-
-	if networkDomain == nil {
-		return fmt.Errorf("no network domain was found with Id '%s'", networkDomainID)
-	}
-
 	dataCenterID := networkDomain.DatacenterID
-	log.Printf("Server will be deployed in data centre '%s' without guest OS customisation.", dataCenterID)
+	log.Printf("Server will be deployed in data centre '%s' with guest OS customisation.", dataCenterID)
 
-	propertyHelper := propertyHelper(data)
-	configuredImage := data.Get(resourceKeyServerImage).(string)
-	configuredImageType := data.Get(resourceKeyServerImageType).(string)
-	image, err := resolveServerImage(configuredImage, configuredImageType, dataCenterID, apiClient)
-	if err != nil {
-		return err
-	}
-	if image == nil {
-		return fmt.Errorf("an unexpected error occurred while resolving the configured server image")
-	}
+	apiClient := providerState.Client()
 
 	log.Printf("Server will be deployed from %s image named '%s' (Id = '%s').",
 		compute.ImageTypeName(image.GetType()),
@@ -767,13 +725,14 @@ func deployUncustomizedServer(data *schema.ResourceData, provider interface{}) e
 	data.SetPartial(resourceKeyServerOSFamily)
 
 	// Validate disk configuration.
+	propertyHelper := propertyHelper(data)
 	configuredDisks := propertyHelper.GetDisks()
-	err = validateServerDisks(configuredDisks)
+	err := validateServerDisks(configuredDisks)
 	if err != nil {
 		return err
 	}
 
-	// Image disk speeds
+	// Image disk speeds (for uncustomised servers, only a single SCSI controller is supported for initial deployment).
 	configuredDisksBySCSIPath := configuredDisks.BySCSIPath()
 	for diskIndex := range deploymentConfiguration.Disks {
 		deploymentDisk := &deploymentConfiguration.Disks[diskIndex]
@@ -815,7 +774,7 @@ func deployUncustomizedServer(data *schema.ResourceData, provider interface{}) e
 
 	// Network
 	deploymentConfiguration.Network = compute.VirtualMachineNetwork{
-		NetworkDomainID: networkDomainID,
+		NetworkDomainID: networkDomain.ID,
 	}
 
 	// Initial configuration for network adapters.
@@ -852,7 +811,7 @@ func deployUncustomizedServer(data *schema.ResourceData, provider interface{}) e
 
 	// Capture additional properties that may only be available after deployment.
 	server := resource.(*compute.Server)
-	err = captureCreatedServerProperties(data, provider, server, networkAdapters)
+	err = captureCreatedServerProperties(data, providerState, server, networkAdapters)
 	if err != nil {
 		return err
 	}
@@ -876,10 +835,9 @@ func deployUncustomizedServer(data *schema.ResourceData, provider interface{}) e
 }
 
 // Capture additional properties that may only be available after deployment.
-func captureCreatedServerProperties(data *schema.ResourceData, provider interface{}, server *compute.Server, networkAdapters models.NetworkAdapters) error {
+func captureCreatedServerProperties(data *schema.ResourceData, providerState *providerState, server *compute.Server, networkAdapters models.NetworkAdapters) error {
 	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
 
-	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
 	propertyHelper := propertyHelper(data)
