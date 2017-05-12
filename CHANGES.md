@@ -1,5 +1,9 @@
 # Changes
 
+# 1.3.0-beta1
+
+* Add support for deploying `ddcloud_server` from an uncustomised image.
+
 # 1.3.0-alpha3
 
 * `ddcloud_networkdomain` and `ddcloud_vlan` datasources now correctly return an error if the target entity is not found.
