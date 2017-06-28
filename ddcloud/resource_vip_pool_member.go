@@ -74,9 +74,17 @@ func resourceVIPPoolMemberCreate(data *schema.ResourceData, provider interface{}
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
-	var memberID string
+	var (
+		memberID string
+		err      error
+	)
+
 	operationDescription := fmt.Sprintf("Add node '%s' to VIP pool '%s'", nodeID, poolID)
-	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
 		var addError error
 		memberID, addError = apiClient.AddVIPPoolMember(poolID, nodeID, status, port)
 		if compute.IsResourceBusyError(addError) {
@@ -84,6 +92,7 @@ func resourceVIPPoolMemberCreate(data *schema.ResourceData, provider interface{}
 		} else if addError != nil {
 			context.Fail(addError)
 		}
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
