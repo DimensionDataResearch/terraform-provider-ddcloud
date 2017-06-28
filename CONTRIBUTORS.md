@@ -7,3 +7,4 @@ We'd like to thank the following people for their contributions to the ddcloud p
 * Kumar Chockalingam ([@kumarappanc](https://github.com/kumarappanc))
 * William Ninobla ([@wninobla](https://github.com/wninobla))
 * Ming Sheng ([@mingsheng36](https://github.com/mingsheng36))
+* Nigel Wright ([@nwright-nz](https://github.com/nwright-nz)
