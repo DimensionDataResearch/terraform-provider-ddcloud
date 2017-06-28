@@ -177,12 +177,16 @@ func resourceVIPPoolMemberUpdate(data *schema.ResourceData, provider interface{}
 
 	operationDescription := fmt.Sprintf("Edit VIP pool member '%s'", id)
 	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
 		editError := apiClient.EditVIPPoolMember(id, status)
 		if compute.IsResourceBusyError(editError) {
 			context.Retry()
 		} else if editError != nil {
 			context.Fail(editError)
 		}
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
@@ -202,12 +206,16 @@ func resourceVIPPoolMemberDelete(data *schema.ResourceData, provider interface{}
 
 	operationDescription := fmt.Sprintf("Remove member '%s' from VIP pool '%s'", memberID, poolID)
 	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release() // Released at the end of the current attempt.
+
 		removeError := apiClient.RemoveVIPPoolMember(memberID)
 		if compute.IsResourceBusyError(removeError) {
 			context.Retry()
 		} else if removeError != nil {
 			context.Fail(removeError)
 		}
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
