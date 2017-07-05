@@ -11,5 +11,5 @@ branches:
 install:
   - go get github.com/hashicorp/terraform
   - pushd $GOPATH/src/github.com/hashicorp/terraform
-  - git checkout v0.8.8
+  - git checkout v0.9.11
   - popd

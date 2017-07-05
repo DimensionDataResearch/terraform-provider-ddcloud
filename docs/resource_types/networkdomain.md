@@ -61,7 +61,7 @@ The following attributes are exported:
 
 ## Import
 
-Once declared in configuration, `ddcloud_networkdomain` instances can be imported using the Id.
+Once declared in configuration, `ddcloud_networkdomain` instances can be imported using their Id.
 
 For example:
 

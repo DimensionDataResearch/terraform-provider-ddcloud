@@ -34,6 +34,9 @@ func resourceVLAN() *schema.Resource {
 		Read:   resourceVLANRead,
 		Update: resourceVLANUpdate,
 		Delete: resourceVLANDelete,
+		Importer: &schema.ResourceImporter{
+			State: resourceNetworkDomainImport,
+		},
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyVLANNetworkDomainID: &schema.Schema{
@@ -256,4 +259,35 @@ func resourceVLANDelete(data *schema.ResourceData, provider interface{}) error {
 	log.Printf("VLAN '%s' is being deleted...", id)
 
 	return apiClient.WaitForDelete(compute.ResourceTypeVLAN, id, resourceDeleteTimeoutServer)
+}
+
+// Import data for an existing VLAN.
+func resourceVLANImport(data *schema.ResourceData, provider interface{}) (importedData []*schema.ResourceData, err error) {
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	vlanID := data.Id()
+	log.Printf("Import VLAN '%s'.", vlanID)
+
+	vlan, err := apiClient.GetVLAN(vlanID)
+	if err != nil {
+		return
+	}
+	if vlan == nil {
+		err = fmt.Errorf("VLAN '%s' not found", vlanID)
+
+		return
+	}
+
+	data.Set(resourceKeyVLANName, vlan.Name)
+	data.Set(resourceKeyVLANDescription, vlan.Description)
+	data.Set(resourceKeyVLANIPv4BaseAddress, vlan.IPv4Range.BaseAddress)
+	data.Set(resourceKeyVLANIPv4PrefixSize, vlan.IPv4Range.PrefixSize)
+	data.Set(resourceKeyVLANIPv6BaseAddress, vlan.IPv6Range.BaseAddress)
+	data.Set(resourceKeyVLANIPv6PrefixSize, vlan.IPv6Range.PrefixSize)
+	data.Set(resourceKeyVLANNetworkDomainID, vlan.NetworkDomain.ID)
+
+	importedData = []*schema.ResourceData{data}
+
+	return
 }

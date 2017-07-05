@@ -1,5 +1,10 @@
 # Changes
 
+# 1.3.0-beta2
+
+* Switch to Terraform v0.9.11
+* Implement resource import for `ddcloud_networkdomain` and `ddcloud_vlan`.
+
 # 1.3.0-beta1
 
 * Add support for deploying `ddcloud_server` from an uncustomised image.

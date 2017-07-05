@@ -1,4 +1,4 @@
-FROM hashicorp/terraform:0.7.1
+FROM hashicorp/terraform:0.9.9
 
 MAINTAINER Adam Friedman <adam.friedman@itaas.dimensiondata.com>
 

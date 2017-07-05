@@ -36,3 +36,13 @@ The following additional attributes are exported:
 
 * `ipv6_base_address` - The base address of the VLAN's IPv6 network.
 * `ipv6_prefix_size` - The prefix size of the VLAN's IPv6 network.
+
+## Import
+
+Once declared in configuration, `ddcloud_vlan` instances can be imported using their Id.
+
+For example:
+
+```bash
+$ terraform import ddcloud_vlan.my-vlan 1b7e3191-bac2-4efb-9c9e-87fdd7f86ded
+```
