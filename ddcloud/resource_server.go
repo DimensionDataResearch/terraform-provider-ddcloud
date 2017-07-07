@@ -54,6 +54,9 @@ func resourceServer() *schema.Resource {
 		Read:          resourceServerRead,
 		Update:        resourceServerUpdate,
 		Delete:        resourceServerDelete,
+		Importer: &schema.ResourceImporter{
+			State: resourceServerImport,
+		},
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyServerName: &schema.Schema{
@@ -537,6 +540,61 @@ func resourceServerDelete(data *schema.ResourceData, provider interface{}) error
 	log.Printf("Server '%s' is being deleted...", id)
 
 	return apiClient.WaitForDelete(compute.ResourceTypeServer, id, resourceDeleteTimeoutServer)
+}
+
+// Import data for an existing server.
+func resourceServerImport(data *schema.ResourceData, provider interface{}) (importedData []*schema.ResourceData, err error) {
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	serverID := data.Id()
+	log.Printf("Import server '%s'.", serverID)
+
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return
+	}
+	if server == nil {
+		err = fmt.Errorf("Server '%s' not found", serverID)
+
+		return
+	}
+
+	data.Set(resourceKeyServerName, server.Name)
+	data.Set(resourceKeyServerDescription, server.Description)
+	data.Set(resourceKeyServerMemoryGB, server.MemoryGB)
+	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
+	data.Set(resourceKeyServerCPUCoreCount, server.CPU.CoresPerSocket)
+	data.Set(resourceKeyServerCPUSpeed, server.CPU.Speed)
+
+	captureServerNetworkConfiguration(server, data, false)
+
+	var publicIPv4Address string
+	publicIPv4Address, err = findPublicIPv4Address(apiClient,
+		server.Network.NetworkDomainID,
+		*server.Network.PrimaryAdapter.PrivateIPv4Address,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if !isEmpty(publicIPv4Address) {
+		data.Set(resourceKeyServerPublicIPv4, publicIPv4Address)
+	} else {
+		data.Set(resourceKeyServerPublicIPv4, nil)
+	}
+
+	err = readServerTags(data, apiClient)
+	if err != nil {
+		return nil, err
+	}
+
+	propertyHelper(data).SetDisks(
+		models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
+	)
+
+	importedData = []*schema.ResourceData{data}
+
+	return
 }
 
 // TODO: Refactor deployCustomizedServer / deployUncustomizedServer and move common logic to shared functions.

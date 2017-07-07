@@ -2,8 +2,10 @@
 
 # 1.3.0-beta2
 
-* Switch to Terraform v0.9.11
-* Implement resource import for `ddcloud_networkdomain` and `ddcloud_vlan`.
+* Switch to Terraform v0.9.11.
+* Implement resource import for `ddcloud_networkdomain`  (DimensionDataResearch/dd-cloud-compute-terraform#73).
+* Implement resource import for `ddcloud_vlan` (DimensionDataResearch/dd-cloud-compute-terraform#90).
+* Implement resource import for `ddcloud_server` (DimensionDataResearch/dd-cloud-compute-terraform#91).
 
 # 1.3.0-beta1
 

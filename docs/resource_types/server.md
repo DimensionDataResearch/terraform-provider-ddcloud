@@ -103,3 +103,13 @@ If not specified, Google DNS (`8.8.4.4`) is used.
 * `primary_adapter_ipv6` - The IPv6 address of the server's primary network adapter.
 * `primary_adapter_vlan` - The Id of the VLAN to which the server's primary network adapter is attached. Calculated if `primary_adapter_ipv4` is specified.
 * `public_ipv4` - The server's public IPv4 address (if any). Calculated if there is a NAT rule that points to any of the server's private IPv4 addresses. **Note**: Due to an incompatibility between the CloudControl resource model and Terraform life-cycle model, this attribute is only available after a subsequent refresh (not when the server is first deployed).
+
+## Import
+
+Once declared in configuration, `ddcloud_server` instances can be imported using their Id.
+
+For example:
+
+```bash
+$ terraform import ddcloud_server.my-server a79a9273-5362-4af3-91dd-9853b986872c
+```
