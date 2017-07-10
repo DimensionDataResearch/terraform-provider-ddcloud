@@ -28,3 +28,13 @@ The following arguments are supported:
 
 * `public_ipv4` - The public IPv4 address from which traffic is forwarded.  
 If not specified as an argument, the first available public IP address will be used. If there are no public IPv4 addresses available, a new block will be allocated.
+
+## Import
+
+Once declared in configuration, `ddcloud_nat` instances can be imported using their Id.
+
+For example:
+
+```bash
+$ terraform import ddcloud_nat.my-nat 87d42402-6bec-494d-b365-31971e415bc4
+```

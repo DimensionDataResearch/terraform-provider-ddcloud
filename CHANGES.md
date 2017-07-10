@@ -6,6 +6,7 @@
 * Implement resource import for `ddcloud_networkdomain`  (DimensionDataResearch/dd-cloud-compute-terraform#73).
 * Implement resource import for `ddcloud_vlan` (DimensionDataResearch/dd-cloud-compute-terraform#90).
 * Implement resource import for `ddcloud_server` (DimensionDataResearch/dd-cloud-compute-terraform#91).
+* Implement resource import for `ddcloud_nat` (DimensionDataResearch/dd-cloud-compute-terraform#92).
 
 # 1.3.0-beta1
 

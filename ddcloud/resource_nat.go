@@ -28,6 +28,9 @@ func resourceNAT() *schema.Resource {
 		Read:   resourceNATRead,
 		Update: resourceNATUpdate,
 		Delete: resourceNATDelete,
+		Importer: &schema.ResourceImporter{
+			State: resourceNetworkDomainImport,
+		},
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyNATNetworkDomainID: &schema.Schema{
@@ -210,6 +213,34 @@ func resourceNATDelete(data *schema.ResourceData, provider interface{}) error {
 			}
 		}
 	})
+}
+
+// Import data for an existing network domain.
+func resourceNATImport(data *schema.ResourceData, provider interface{}) (importedData []*schema.ResourceData, err error) {
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	natRuleID := data.Id()
+	log.Printf("Import NAT rule '%s'.", natRuleID)
+
+	var natRule *compute.NATRule
+	natRule, err = apiClient.GetNATRule(natRuleID)
+	if err != nil {
+		return
+	}
+	if natRule == nil {
+		err = fmt.Errorf("NAT rule '%s' not found", natRuleID)
+
+		return
+	}
+
+	data.Set(resourceKeyNATNetworkDomainID, natRule.NetworkDomainID)
+	data.Set(resourceKeyNATPrivateAddress, natRule.InternalIPAddress)
+	data.Set(resourceKeyNATPublicAddress, natRule.ExternalIPAddress)
+
+	importedData = []*schema.ResourceData{data}
+
+	return
 }
 
 func calculateBlockAddresses(block compute.PublicIPBlock) ([]string, error) {
