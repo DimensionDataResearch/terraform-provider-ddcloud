@@ -45,6 +45,9 @@ func resourceFirewallRule() *schema.Resource {
 		Read:   resourceFirewallRuleRead,
 		Update: resourceFirewallRuleUpdate,
 		Delete: resourceFirewallRuleDelete,
+		Importer: &schema.ResourceImporter{
+			State: resourceFirewallRuleImport,
+		},
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyFirewallRuleNetworkDomainID: &schema.Schema{
@@ -359,6 +362,93 @@ func resourceFirewallRuleDelete(data *schema.ResourceData, provider interface{})
 	}
 
 	return apiClient.WaitForDelete(compute.ResourceTypeFirewallRule, id, resourceDeleteTimeoutFirewallRule)
+}
+
+// Import data for an existing firewall rule.
+func resourceFirewallRuleImport(data *schema.ResourceData, provider interface{}) (importedData []*schema.ResourceData, err error) {
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	firewallRuleID := data.Id()
+	log.Printf("Import firewall rule '%s'.", firewallRuleID)
+
+	var firewallRule *compute.FirewallRule
+	firewallRule, err = apiClient.GetFirewallRule(firewallRuleID)
+	if err != nil {
+		return
+	}
+	if firewallRule == nil {
+		err = fmt.Errorf("Firewall rule '%s' not found", firewallRuleID)
+
+		return
+	}
+
+	data.Set(resourceKeyFirewallRuleNetworkDomainID, firewallRule.NetworkDomainID)
+	data.Set(resourceKeyFirewallRuleName, firewallRule.Name)
+	data.Set(resourceKeyFirewallRuleEnabled, firewallRule.Enabled)
+	data.Set(resourceKeyFirewallRuleIPVersion, firewallRule.IPVersion)
+	data.Set(resourceKeyFirewallRuleProtocol, firewallRule.Protocol)
+	data.Set(resourceKeyFirewallRuleAction,
+		normalizeFirewallRuleAction(firewallRule.Action),
+	)
+
+	// Source
+	if firewallRule.Source.IsScopeHost() {
+		data.Set(resourceKeyFirewallRuleSourceAddress, firewallRule.Source.IPAddress.Address)
+	} else if firewallRule.Source.IsScopeNetwork() {
+		data.Set(resourceKeyFirewallRuleSourceNetwork,
+			fmt.Sprintf("%s/%d",
+				firewallRule.Source.IPAddress.Address,
+				*firewallRule.Source.IPAddress.PrefixSize,
+			),
+		)
+	} else if firewallRule.Source.IsScopeAddressList() {
+		data.Set(resourceKeyFirewallRuleSourceAddress, firewallRule.Source.AddressList.ID)
+	}
+
+	if firewallRule.Source.IsScopePort() {
+		data.Set(resourceKeyFirewallRuleSourcePort, firewallRule.Source.Port.Begin)
+	} else if firewallRule.Source.IsScopePortRange() {
+		data.Set(resourceKeyFirewallRuleSourcePort,
+			fmt.Sprintf("%d-%d",
+				firewallRule.Source.Port.Begin,
+				*firewallRule.Source.Port.End,
+			),
+		)
+	} else if firewallRule.Source.IsScopePortList() {
+		data.Set(resourceKeyFirewallRuleSourcePort, *firewallRule.Source.PortListID)
+	}
+
+	// Destination
+	if firewallRule.Destination.IsScopeHost() {
+		data.Set(resourceKeyFirewallRuleDestinationAddress, firewallRule.Destination.IPAddress.Address)
+	} else if firewallRule.Destination.IsScopeNetwork() {
+		data.Set(resourceKeyFirewallRuleDestinationNetwork,
+			fmt.Sprintf("%s/%d",
+				firewallRule.Destination.IPAddress.Address,
+				*firewallRule.Destination.IPAddress.PrefixSize,
+			),
+		)
+	} else if firewallRule.Destination.IsScopeAddressList() {
+		data.Set(resourceKeyFirewallRuleDestinationAddress, firewallRule.Destination.AddressList.ID)
+	}
+
+	if firewallRule.Destination.IsScopePort() {
+		data.Set(resourceKeyFirewallRuleDestinationPort, firewallRule.Destination.Port.Begin)
+	} else if firewallRule.Destination.IsScopePortRange() {
+		data.Set(resourceKeyFirewallRuleDestinationPort,
+			fmt.Sprintf("%d-%d",
+				firewallRule.Destination.Port.Begin,
+				*firewallRule.Destination.Port.End,
+			),
+		)
+	} else if firewallRule.Destination.IsScopePortList() {
+		data.Set(resourceKeyFirewallRuleDestinationPort, *firewallRule.Destination.PortListID)
+	}
+
+	importedData = []*schema.ResourceData{data}
+
+	return
 }
 
 func configureSourceScope(propertyHelper resourcePropertyHelper, configuration *compute.FirewallRuleConfiguration) error {

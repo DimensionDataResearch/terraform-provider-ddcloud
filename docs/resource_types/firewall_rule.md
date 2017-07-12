@@ -147,3 +147,13 @@ Cannot be specified with `destination_port_list`.
 ## Attribute Reference
 
 There are currently no additional attributes for `ddcloud_firewall_rule`.
+
+## Import
+
+Once declared in configuration, `ddcloud_firewall_rule` instances can be imported using their Id.
+
+For example:
+
+```bash
+$ terraform import ddcloud_firewall_rule.allow-http-inbound 3f823eb2-a9ab-4922-97be-124c26ed9d9e
+```

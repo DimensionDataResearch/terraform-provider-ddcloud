@@ -29,7 +29,7 @@ func resourceNAT() *schema.Resource {
 		Update: resourceNATUpdate,
 		Delete: resourceNATDelete,
 		Importer: &schema.ResourceImporter{
-			State: resourceNetworkDomainImport,
+			State: resourceNATImport,
 		},
 
 		Schema: map[string]*schema.Schema{

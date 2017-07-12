@@ -35,7 +35,7 @@ func resourceVLAN() *schema.Resource {
 		Update: resourceVLANUpdate,
 		Delete: resourceVLANDelete,
 		Importer: &schema.ResourceImporter{
-			State: resourceNetworkDomainImport,
+			State: resourceVLANImport,
 		},
 
 		Schema: map[string]*schema.Schema{
