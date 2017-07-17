@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
@@ -566,7 +567,9 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 		AdministratorPassword: adminPassword,
 		Start: autoStart,
 	}
+
 	err := validateAdminPassword(deploymentConfiguration.AdministratorPassword, image)
+
 	if err != nil {
 		return err
 	}
@@ -888,12 +891,36 @@ func findPublicIPv4Address(apiClient *compute.Client, networkDomainID string, pr
 }
 
 func validateAdminPassword(adminPassword string, image compute.Image) error {
+	validPassword := true
+	lettersCount, numCount, specialCount, upperCaseCount := 0, 0, 0, 0
+
+	for _, s := range adminPassword {
+		switch {
+		case unicode.IsDigit(s):
+			numCount++
+		case unicode.IsUpper(s):
+			lettersCount++
+			upperCaseCount++
+		case unicode.IsPunct(s) || unicode.IsSymbol(s):
+			specialCount++
+		case unicode.IsLetter(s) || s == ' ':
+			lettersCount++
+		default:
+			//
+		}
+	}
+	if (numCount < 1) || (lettersCount <= 8) || (specialCount < 1) || (upperCaseCount < 1) {
+		validPassword = false
+	}
+
 	switch image.GetType() {
+
 	case compute.ImageTypeOS:
 		// Admin password is always mandatory for OS images.
-		if adminPassword == "" {
-			return fmt.Errorf("Must specify an initial admin password when deploying an OS image")
+		if !validPassword {
+			return fmt.Errorf("password does not meet complexity requirements. Needs 9 characters, 1 upper, 1 lower, 1 number and a special char")
 		}
+
 	case compute.ImageTypeCustomer:
 		imageOS := image.GetOS()
 
@@ -907,7 +934,7 @@ func validateAdminPassword(adminPassword string, image compute.Image) error {
 			return nil
 		}
 
-		if adminPassword == "" {
+		if !validPassword {
 			// Mandatory for Windows Server 2008.
 			if strings.HasPrefix(imageOS.ID, "WIN2008") {
 
