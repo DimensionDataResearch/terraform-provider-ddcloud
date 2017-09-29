@@ -61,7 +61,8 @@ If `image` is a GUID / UUID, then it is treated as the image Id. Otherwise, it i
 * `image_type` - (Optional) The type of image used to create the server.  
 If specified, must be `os`, `customer`, or `auto` (default). 
 * `disk` - (Optional) The set of virtual disks attached to the server.  
-  **Note**: If your server has (or is likely to have) multiple storage controllers (i.e. SCSI buses) then you will need to also define one or more [ddcloud\_storage\_controller](storage_controller.md) resources and declare your disks there instead.
+  **Note**: If you list _any_ of the server's disks here, you must specify _all_ of its disks (including ones included in the original image).  
+  Additionally, if your server has (or is likely to have) multiple storage controllers (i.e. SCSI buses) then you should define one or more [ddcloud\_storage\_controller](storage_controller.md) resources and declare your disks there instead.  
     * `scsi_unit_id` - (Required) The SCSI Logical Unit Number (LUN) for the disk. Must be unique across the server's disks.
     * `size_gb` - (Required) The size (in GB) of the disk. This value can be increased (to expand the disk) but not decreased.
     * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, or `HIGHPERFORMANCE` (but varies between data centres).
