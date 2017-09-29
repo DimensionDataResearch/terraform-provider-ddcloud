@@ -63,7 +63,8 @@ Behaviour is undefined if you have more than one `ddcloud_storage_controller` po
 * `adapter_type` - (Optional) The type of adapter emulated by the storage controller (one of `BUSLOGIC_PARALLEL`, `LSI_LOGIC_PARALLEL`, `LSI_LOGIC_SAS`, or `VMWARE_PARAVIRTUAL`).  
 Default value: `LSI_LOGIC_PARALLEL`.  
 **Note**: Changing this property will result in the storage controller (and its attached disks) being destroyed and recreated.
-* `disk` - (Optional) The set of disks attached to the storage controller.
+* `disk` - (Optional) The set of disks attached to the storage controller.  
+    **Note**: If you list _any_ of the controller's disks here, you must specify _all_ of its disks.  
     * `scsi_unit_id` - (Required) The SCSI Logical Unit Number (LUN) for the disk. Must be unique across the controller's disks.
     * `size_gb` - (Required) The size (in GB) of the disk. This value can be increased (to expand the disk) but not decreased.
     * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, or `HIGHPERFORMANCE` (but varies between data centres).
