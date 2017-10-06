@@ -1,6 +1,6 @@
 # Changes
 
-# 1.3.0-beta2
+# 1.3.0
 
 * Switch to Terraform v0.9.11.
 * Implement resource import for `ddcloud_networkdomain`  (DimensionDataResearch/dd-cloud-compute-terraform#73).
