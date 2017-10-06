@@ -50,12 +50,12 @@ Ready to contribute? Here's how to set up `terraform-provider-ddcloud` for local
     * The resulting VM will have your repository folder mapped into the VM as a shared folder (so you can use your regular editor on your machine, but run build commands in the VM).
     * Run `vagrant ssh` to connect to the VM.
   * Otherwise:
-    1. Install Go version 1.6.x
+    1. Install Go version 1.9.x
     2. Make sure your GOPATH environment variable has been set.
     3. Run `go get -u github.com/DimensionDataResearch/dd-cloud-compute-terraform`.
     4. Go to $GOPATH/src/github.com/DimensionDataResearch/dd-cloud-compute-terraform.
 2. Run `make dev` to build the provider.
-3. Configure Terraform to use the build provider:
+3. Configure Terraform to use the built provider:
   * On windows create / update `$HOME\terraform.rc`
   * On Linux / OSX, create / update `~/.terraformrc`
   * And add the following contents:  
@@ -69,7 +69,7 @@ Ready to contribute? Here's how to set up `terraform-provider-ddcloud` for local
 
 Before you submit a pull request, check that it meets these guidelines:
 
-1. Your pull request should target the [v1.2](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/tree/development/v1.2) branch.
+1. Your pull request should target the [v1.3](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/tree/development/v1.3) branch.
 2. The pull request should include tests (either unit or acceptance, as appropriate).
 3. If the pull request adds functionality, the docs should be updated.
 
