@@ -27,6 +27,9 @@ func resourceNetworkAdapter() *schema.Resource {
 		Read:   resourceNetworkAdapterRead,
 		Update: resourceNetworkAdapterUpdate,
 		Delete: resourceNetworkAdapterDelete,
+		Importer: &schema.ResourceImporter{
+			State: resourceNetworkAdapterImport,
+		},
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyNetworkAdapterServerID: &schema.Schema{
@@ -361,6 +364,42 @@ func resourceNetworkAdapterDelete(data *schema.ResourceData, provider interface{
 	}
 
 	return nil
+}
+
+// Import data for an existing network adapter.
+func resourceNetworkAdapterImport(data *schema.ResourceData, provider interface{}) (importedData []*schema.ResourceData, err error) {
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	networkAdapterID := data.Id()
+	serverID := data.Get(resourceKeyNetworkAdapterServerID).(string)
+	log.Printf("Import network adapter '%s' in server '%s'.", networkAdapterID, serverID)
+
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return
+	}
+	if server == nil {
+		err = fmt.Errorf("Server '%s' not found", serverID)
+
+		return
+	}
+	serverNetworkAdapter := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network).GetByID(networkAdapterID)
+	if serverNetworkAdapter == nil {
+		err = fmt.Errorf("Network adapter '%s' not found in server '%s'", networkAdapterID, serverID)
+
+		return
+	}
+
+	data.Set(resourceKeyNetworkAdapterType, serverNetworkAdapter.AdapterType)
+	data.Set(resourceKeyNetworkAdapterMACAddress, serverNetworkAdapter.MACAddress)
+	data.Set(resourceKeyNetworkAdapterVLANID, serverNetworkAdapter.VLANID)
+	data.Set(resourceKeyNetworkAdapterPrivateIPV4, serverNetworkAdapter.PrivateIPv4Address)
+	data.Set(resourceKeyNetworkAdapterPrivateIPV6, serverNetworkAdapter.PrivateIPv6Address)
+
+	importedData = []*schema.ResourceData{data}
+
+	return
 }
 
 func validateNetworkAdapterAdapterType(value interface{}, propertyName string) (messages []string, errors []error) {
