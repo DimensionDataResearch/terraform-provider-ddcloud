@@ -36,6 +36,9 @@ func resourceStorageController() *schema.Resource {
 		Read:          resourceStorageControllerRead,
 		Update:        resourceStorageControllerUpdate,
 		Delete:        resourceStorageControllerDelete,
+		Importer: &schema.ResourceImporter{
+			State: resourceStorageControllerImport,
+		},
 
 		Schema: map[string]*schema.Schema{
 			resourceKeyStorageControllerServerID: &schema.Schema{

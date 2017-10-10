@@ -33,3 +33,13 @@ It's still useful to supply both, though, since it sets up a dependency between 
 The following attributes are exposed:
 
 * `mac` - The network adapter's MAC address.
+
+## Import
+
+Once declared in configuration, `ddcloud_network_adapter` instances can be imported using their Id.
+
+For example:
+
+```bash
+$ terraform import ddcloud_network_adapter.my-server-nic-1 c81ef351-9dbf-4459-bc68-128d567bdaee
+```
