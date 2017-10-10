@@ -72,3 +72,13 @@ Default value: `LSI_LOGIC_PARALLEL`.
 ## Attribute Reference
 
 This resource does not expose any additional attributes.
+
+## Import
+
+Once declared in configuration, `ddcloud_storage_controller` instances can be imported using their Id.
+
+For example:
+
+```bash
+$ terraform import ddcloud_storage_controller.my-storage-controller f7cf06f7-f0d9-438c-be0e-d609d6cf1d98
+```

@@ -350,6 +350,42 @@ func resourceStorageControllerDelete(data *schema.ResourceData, provider interfa
 	return nil
 }
 
+// Import data for an existing storage controller.
+func resourceStorageControllerImport(data *schema.ResourceData, provider interface{}) (importedData []*schema.ResourceData, err error) {
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	storageControllerID := data.Id()
+	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
+	log.Printf("Import storage controller '%s' in server '%s'.", storageControllerID, serverID)
+
+	server, err := apiClient.GetServer(serverID)
+	if err != nil {
+		return
+	}
+	if server == nil {
+		err = fmt.Errorf("Server '%s' not found", serverID)
+
+		return
+	}
+	storageController := server.SCSIControllers.GetByID(storageControllerID)
+	if storageController == nil {
+		err = fmt.Errorf("Storage controller '%s' not found in server '%s'", storageControllerID, serverID)
+
+		return
+	}
+
+	data.Set(resourceKeyStorageControllerBusNumber, storageController.BusNumber)
+	data.Set(resourceKeyStorageControllerAdapterType, storageController.AdapterType)
+	propertyHelper(data).SetDisks(
+		models.NewDisksFromVirtualMachineSCSIController(*storageController),
+	)
+
+	importedData = []*schema.ResourceData{data}
+
+	return
+}
+
 // When updating a storage controller resource, synchronise the controller's disk attributes with its resource data
 func updateStorageControllerDisks(data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
