@@ -967,7 +967,7 @@ func validateAdminPassword(adminPassword string, image compute.Image) error {
 			//
 		}
 	}
-	if (numCount < 1) || (lettersCount <= 8) || (specialCount < 1) || (upperCaseCount < 1) {
+	if (len(adminPassword) < 8) || (numCount < 1) || (lettersCount < 1) || (specialCount < 1) || (upperCaseCount < 1) {
 		validPassword = false
 	}
 
@@ -976,6 +976,10 @@ func validateAdminPassword(adminPassword string, image compute.Image) error {
 	case compute.ImageTypeOS:
 		// Admin password is always mandatory for OS images.
 		if !validPassword {
+			log.Printf("Password validation failed: Length=%d, LetterCount=%d, DigitCount=%d, Special=%d, UpperCount=%d",
+				len(adminPassword), lettersCount, numCount, specialCount, upperCaseCount,
+			)
+
 			return fmt.Errorf("A password is mandatory for OS images. Either you have not supplied a password, or the password does not meet complexity requirements. Needs at least 9 characters, 1 upper, 1 lower, 1 number and a special char")
 		}
 
