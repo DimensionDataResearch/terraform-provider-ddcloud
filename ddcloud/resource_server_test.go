@@ -277,7 +277,7 @@ func testAccDDCloudServerPowerState(powerState string) string {
 		resource "ddcloud_server" "acc_test_server" {
 			name				= "acc-test-server-power-state"
 			description 		= "Server for Terraform acceptance test (Power State)."
-			admin_password		= "snausages!"
+			admin_password		= "Snausages!"
 
 			memory_gb			= 8
 
