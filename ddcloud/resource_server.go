@@ -32,7 +32,7 @@ const (
 	resourceKeyServerPublicIPv4           = "public_ipv4"
 	resourceKeyServerPrimaryDNS           = "dns_primary"
 	resourceKeyServerSecondaryDNS         = "dns_secondary"
-	resourceKeyServerAutoStart            = "auto_start"
+	resourceKeyServerPowerState           = "power_state"
 	resourceKeyServerGuestOSCustomization = "guest_os_customization"
 
 	// Obsolete properties
@@ -41,6 +41,7 @@ const (
 	resourceKeyServerCustomerImageID    = "customer_image_id"
 	resourceKeyServerCustomerImageName  = "customer_image_name"
 	resourceKeyServerPrimaryAdapterType = "primary_adapter_type"
+	resourceKeyServerAutoStart            = "auto_start"
 
 	resourceCreateTimeoutServer = 30 * time.Minute
 	resourceUpdateTimeoutServer = 10 * time.Minute
@@ -191,11 +192,12 @@ func resourceServer() *schema.Resource {
 				Description: "The IP address of the server's secondary DNS server",
 			},
 			resourceKeyServerAutoStart: &schema.Schema{
-				Type:        schema.TypeBool,
+				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     false,
-				Description: "Should the server be started automatically once it has been deployed",
-			},
+				Default:     "shutdown",
+				Description: "Start or shutdown a server. If set to start upon server creation it will Auto Start the server",
+			},			
+
 			resourceKeyServerTag: schemaServerTag(),
 
 			// Obsolete properties
@@ -234,6 +236,13 @@ func resourceServer() *schema.Resource {
 				Description: "The name of the customer (custom) image from which the server is created",
 				Removed:     fmt.Sprintf("This property has been removed; use %s instead.", resourceKeyServerImage),
 			},
+			resourceKeyServerAutoStart: &schema.Schema{
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "Should the server be started automatically once it has been deployed",
+				Removed:     fmt.Sprintf("This propery as been removed; set %s to start instead", resourceKeyServerPowerState)
+			},			
 		},
 		MigrateState: resourceServerMigrateState,
 	}
@@ -488,6 +497,23 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
+	if data.HasChange(resourceKeyServerPowerState) {
+		log.Printf("Server power state change has been detected.")
+		if strings.ToLower(resourceKeyServerPowerState) := "start" {
+			err = serverStart(providerState, serverID)
+		} else if strings.ToLower(resourceKeyServerPowerState) := "shutdown" {
+			err = serverShutdown(providerState, serverID)
+		} else
+		{
+			err = errors.new("arg: invalid state; use start or shutdown only")
+		}
+		if err != nil {
+			return err
+		}
+		
+		data.SetPartial(resourceKeyServerPowerState)
+	}
+
 	data.Partial(false)
 
 	return nil
@@ -608,6 +634,7 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 	primaryDNS := data.Get(resourceKeyServerPrimaryDNS).(string)
 	secondaryDNS := data.Get(resourceKeyServerSecondaryDNS).(string)
 	autoStart := data.Get(resourceKeyServerAutoStart).(bool)
+	powerState := data.Get(resourceKeyServerPowerState).(string)
 
 	dataCenterID := networkDomain.DatacenterID
 	log.Printf("Server will be deployed in data centre '%s' with guest OS customisation.", dataCenterID)
@@ -619,11 +646,20 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 		image.GetName(),
 		image.GetID(),
 	)
+
+	powerOn := false
+	if strings.ToLower(powerState) := "start" {
+		powerOn := true
+	} else if autoStart && strings.ToLower(powerState) := "shutdown" {
+		// used for backwards compatabiliy with auto_start
+		powerOn := true
+	}
+
 	deploymentConfiguration := compute.ServerDeploymentConfiguration{
 		Name:                  name,
 		Description:           description,
 		AdministratorPassword: adminPassword,
-		Start: autoStart,
+		Start: powerOn,
 	}
 
 	err := validateAdminPassword(deploymentConfiguration.AdministratorPassword, image)
@@ -761,6 +797,7 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 	name := data.Get(resourceKeyServerName).(string)
 	description := data.Get(resourceKeyServerDescription).(string)
 	autoStart := data.Get(resourceKeyServerAutoStart).(bool)
+	powerState := data.Get(resourceKeyServerPowerState).(string)	
 
 	dataCenterID := networkDomain.DatacenterID
 	log.Printf("Server will be deployed in data centre '%s' with guest OS customisation.", dataCenterID)
@@ -772,10 +809,18 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 		image.GetName(),
 		image.GetID(),
 	)
+	powerOn := false
+	if strings.ToLower(powerState) := "start" {
+		powerOn := true
+	} else if autoStart && strings.ToLower(powerState) := "shutdown" {
+		// used for backwards compatabiliy with auto_start
+		powerOn := true
+	}
+
 	deploymentConfiguration := compute.UncustomizedServerDeploymentConfiguration{
 		Name:        name,
 		Description: description,
-		Start:       autoStart,
+		Start:       powerOn,
 	}
 	image.ApplyToUncustomized(&deploymentConfiguration)
 
