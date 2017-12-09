@@ -241,7 +241,7 @@ func resourceServer() *schema.Resource {
 				Optional:    true,
 				Default:     false,
 				Description: "Should the server be started automatically once it has been deployed",
-				Removed:     fmt.Sprintf("This propery as been removed; set %s to start instead", resourceKeyServerPowerState)
+				Removed:     fmt.Sprintf("This propery as been removed; set %s to start instead", resourceKeyServerPowerState),
 			},			
 		},
 		MigrateState: resourceServerMigrateState,
@@ -499,9 +499,9 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	if data.HasChange(resourceKeyServerPowerState) {
 		log.Printf("Server power state change has been detected.")
-		if strings.ToLower(resourceKeyServerPowerState) := "start" {
+		if strings.ToLower(resourceKeyServerPowerState) == "start" {
 			err = serverStart(providerState, serverID)
-		} else if strings.ToLower(resourceKeyServerPowerState) := "shutdown" {
+		} else if strings.ToLower(resourceKeyServerPowerState) == "shutdown" {
 			err = serverShutdown(providerState, serverID)
 		} else
 		{
@@ -648,9 +648,9 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 	)
 
 	powerOn := false
-	if strings.ToLower(powerState) := "start" {
+	if strings.ToLower(powerState) == "start" {
 		powerOn := true
-	} else if autoStart && strings.ToLower(powerState) := "shutdown" {
+	} else if autoStart && strings.ToLower(powerState) == "shutdown" {
 		// used for backwards compatabiliy with auto_start
 		powerOn := true
 	}
@@ -810,9 +810,9 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 		image.GetID(),
 	)
 	powerOn := false
-	if strings.ToLower(powerState) := "start" {
+	if strings.ToLower(powerState) == "start" {
 		powerOn := true
-	} else if autoStart && strings.ToLower(powerState) := "shutdown" {
+	} else if autoStart && strings.ToLower(powerState) == "shutdown" {
 		// used for backwards compatabiliy with auto_start
 		powerOn := true
 	}

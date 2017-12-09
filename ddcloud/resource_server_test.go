@@ -833,7 +833,7 @@ func testCheckDDCloudServerStarted(name string, started bool) resource.TestCheck
 		}
 		if started && server.Started == false {
 			return fmt.Errorf("bad: server %s not started", serverID)
-		} else if !started && server.Started true {
+		} else if !started && server.Started == true {
 			return fmt.Errorf("bad: server %s is started", serverID)
 		}
 
