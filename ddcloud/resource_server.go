@@ -499,13 +499,13 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	if data.HasChange(resourceKeyServerPowerState) {
 		log.Printf("Server power state change has been detected.")
-		powerState := data.Get(resourceKeyServerPowerState).(string)
+		powerState := propertyHelper(resourceKeyServerPowerState,false)
 		if strings.ToLower(powerState) == "start" {
 			err = serverStart(providerState, serverID)
 		} else if strings.ToLower(powerState) == "shutdown" {
 			err = serverShutdown(providerState, serverID)
 		} else {
-			err = fmt.Errorf("arg: invalid state; use either start or shutdown")
+			err = fmt.Errorf("arg: invalid power state %g; use either start or shutdown", powerState)
 			//err = errors.new("arg: invalid state; use start or shutdown only")
 		}
 		if err != nil {
