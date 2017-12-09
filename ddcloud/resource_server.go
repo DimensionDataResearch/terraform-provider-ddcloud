@@ -191,7 +191,7 @@ func resourceServer() *schema.Resource {
 				Default:     "",
 				Description: "The IP address of the server's secondary DNS server",
 			},
-			resourceKeyServerAutoStart: &schema.Schema{
+			resourceKeyServerPowerState: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "shutdown",
