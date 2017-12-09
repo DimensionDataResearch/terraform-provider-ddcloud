@@ -305,7 +305,6 @@ func testAccDDCloudServerPowerState(powerState string) string {
 	`, powerState)
 }
 
-
 /*
  * Acceptance tests.
  */
@@ -524,8 +523,7 @@ func TestAccServerBasicCreateAutoPower(t *testing.T) {
 		),
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudServerPowerState("start",
-				),
+				Config: testAccDDCloudServerPowerState("start"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
 					testCheckDDCloudServerStarted("ddcloud_server.acc_test_server", true),
