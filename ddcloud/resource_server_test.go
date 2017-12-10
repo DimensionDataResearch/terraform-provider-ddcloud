@@ -277,7 +277,7 @@ func testAccDDCloudServerPowerState(powerState string) string {
 		resource "ddcloud_server" "acc_test_server" {
 			name				= "acc-test-server-power-state"
 			description 		= "Server for Terraform acceptance test (Power State)."
-			admin_password		= "Snausages!"
+			admin_password		= "Snaus4ges!"
 
 			memory_gb			= 8
 
@@ -293,7 +293,7 @@ func testAccDDCloudServerPowerState(powerState string) string {
 
 			image				= "CentOS 7 64-bit 2 CPU"
 
-			power_state         = %s
+			power_state         = "%s"
 
 			# Image disk
 			disk {
@@ -513,7 +513,7 @@ func TestAccServerTagUpdate(t *testing.T) {
 }
 
 // Create a server and verify that it auto powers on.
-func TestAccServerBasicCreateAutoPower(t *testing.T) {
+func TestAccServerAutoPower(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
@@ -526,7 +526,49 @@ func TestAccServerBasicCreateAutoPower(t *testing.T) {
 				Config: testAccDDCloudServerPowerState("start"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
-					testCheckDDCloudServerStarted("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", true),
+				),
+			},
+		},
+	})
+}
+
+//Builds a server with auto power, shuts it down, starts again, then powers off
+func TestAccServerPowerStates(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		CheckDestroy: resource.ComposeTestCheckFunc(
+			testCheckDDCloudServerDestroy,
+			testCheckDDCloudVLANDestroy,
+			testCheckDDCloudNetworkDomainDestroy,
+		),
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccDDCloudServerPowerState("start"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", true),
+				),
+			},
+			resource.TestStep{
+				Config: testAccDDCloudServerPowerState("shutdown"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", false),
+				),
+			},
+			resource.TestStep{
+				Config: testAccDDCloudServerPowerState("start"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", true),
+				),
+			},
+			resource.TestStep{
+				Config: testAccDDCloudServerPowerState("off"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", false),
 				),
 			},
 		},
@@ -815,7 +857,7 @@ func testDisk(scsiBusNumber int, scsiUnitID int, sizeGB int, speed string) model
 }
 
 // Check if the server started.
-func testCheckDDCloudServerStarted(name string, started bool) resource.TestCheckFunc {
+func testCheckDDCloudServerStartedState(name string, started bool) resource.TestCheckFunc {
 	return func(state *terraform.State) error {
 		res, ok := state.RootModule().Resources[name]
 		if !ok {
