@@ -502,16 +502,16 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		powerState := propertyHelper.GetOptionalString(resourceKeyServerPowerState, false)
 
 		switch strings.ToLower(*powerState) {
-			case "start":
-				err = serverStart(providerState, serverID)
-			case "shutdown":
-				err = serverShutdown(providerState, serverID)
-			case "off":
-				err = serverPowerOff(providerState, serverID)
-			default:
-				err = fmt.Errorf("Invalid power State (%s); Valid Power states are start, shutdown, off", *powerState)
+		case "start":
+			err = serverStart(providerState, serverID)
+		case "shutdown":
+			err = serverShutdown(providerState, serverID)
+		case "off":
+			err = serverPowerOff(providerState, serverID)
+		default:
+			err = fmt.Errorf("Invalid power State (%s); Valid Power states are start, shutdown, off", *powerState)
 		}
-		
+
 		if err != nil {
 			return err
 		}
@@ -623,6 +623,12 @@ func resourceServerImport(data *schema.ResourceData, provider interface{}) (impo
 	propertyHelper(data).SetDisks(
 		models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
 	)
+
+	if server.Started {
+		data.Set(resourceKeyServerPowerState, "start")
+	} else {
+		data.Set(resourceKeyServerPowerState, "Stop")
+	}
 
 	importedData = []*schema.ResourceData{data}
 
