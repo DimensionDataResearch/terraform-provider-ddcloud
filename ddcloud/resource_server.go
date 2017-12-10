@@ -499,7 +499,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	if data.HasChange(resourceKeyServerPowerState) {
 		log.Printf("Server power state change has been detected.")
-		powerState := propertyHelper(resourceKeyServerPowerState,false)
+		powerState := propertyHelper(resourceKeyServerPowerState, false)
 		if strings.ToLower(powerState) == "start" {
 			err = serverStart(providerState, serverID)
 		} else if strings.ToLower(powerState) == "shutdown" {
