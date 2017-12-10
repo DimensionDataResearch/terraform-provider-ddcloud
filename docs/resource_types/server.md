@@ -92,7 +92,10 @@ If not specified, Google DNS (`8.8.8.8`) is used.
 * `dns_secondary` - (Required) The IP address of the server's secondary DNS.  
 If not specified, Google DNS (`8.8.4.4`) is used.
 * `power_state` - (Optional) Sets the Power state of the server (default is off).
-Must be either `off` (default), `shutdown` - Graceful shutdown if started, or `start` - Will auto start a new server
+Available Options.
+  * `start` - Starts the server, auto starts if server is being created.
+  * `off'` (default) Hard stops the server.
+  * `shutdown` - Graceful shutdown of the server.
 
 * `tag` - (Optional) A set of tags to apply to the server.
     * `name` - (Required) The tag name. **Note**: The tag name must already be defined for your organisation.
