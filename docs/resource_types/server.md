@@ -91,7 +91,9 @@ If specified, must be `os`, `customer`, or `auto` (default).
 If not specified, Google DNS (`8.8.8.8`) is used.
 * `dns_secondary` - (Required) The IP address of the server's secondary DNS.  
 If not specified, Google DNS (`8.8.4.4`) is used.
-* `auto_start` - (Optional) Automatically start the server once it is deployed (default is false).
+* `power_state` - (Optional) Sets the Power state of the server (default is off).
+Must be either `off` (default), `shutdown` - Graceful shutdown if started, or `start` - Will auto start a new server
+
 * `tag` - (Optional) A set of tags to apply to the server.
     * `name` - (Required) The tag name. **Note**: The tag name must already be defined for your organisation.
     * `value` - (Required) The tag value.

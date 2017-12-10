@@ -194,7 +194,7 @@ func resourceServer() *schema.Resource {
 			resourceKeyServerPowerState: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "shutdown",
+				Default:     "off",
 				Description: "Start or shutdown a server. If set to start upon server creation it will Auto Start the server",
 			},
 
@@ -499,15 +499,19 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	if data.HasChange(resourceKeyServerPowerState) {
 		log.Printf("Server power state change has been detected.")
-		powerState := propertyHelper(resourceKeyServerPowerState, false)
-		if strings.ToLower(powerState) == "start" {
-			err = serverStart(providerState, serverID)
-		} else if strings.ToLower(powerState) == "shutdown" {
-			err = serverShutdown(providerState, serverID)
-		} else {
-			err = fmt.Errorf("arg: invalid power state %g; use either start or shutdown", powerState)
-			//err = errors.new("arg: invalid state; use start or shutdown only")
+		powerState := propertyHelper.GetOptionalString(resourceKeyServerPowerState, false)
+
+		switch strings.ToLower(*powerState) {
+			case "start":
+				err = serverStart(providerState, serverID)
+			case "shutdown":
+				err = serverShutdown(providerState, serverID)
+			case "off":
+				err = serverPowerOff(providerState, serverID)
+			default:
+				err = fmt.Errorf("Invalid power State (%s); Valid Power states are start, shutdown, off", *powerState)
 		}
+		
 		if err != nil {
 			return err
 		}
