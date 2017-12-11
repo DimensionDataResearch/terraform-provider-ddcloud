@@ -499,26 +499,29 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
+
 	if data.HasChange(resourceKeyServerPowerState) {
 		log.Printf("Server power state change has been detected.")
 		powerState := propertyHelper.GetOptionalString(resourceKeyServerPowerState, false)
 
-		switch strings.ToLower(*powerState) {
-		case "start":
-			err = serverStart(providerState, serverID)
-		case "shutdown":
-			err = serverShutdown(providerState, serverID)
-		case "off":
-			err = serverPowerOff(providerState, serverID)
-		default:
-			err = fmt.Errorf("Invalid power State (%s); Valid Power states are start, shutdown, off", *powerState)
-		}
+		if powerState != nil {
+			switch strings.ToLower(*powerState) {
+			case "start":
+				err = serverStart(providerState, serverID)
+			case "shutdown":
+				err = serverShutdown(providerState, serverID)
+			case "off":
+				err = serverPowerOff(providerState, serverID)
+			default:
+				err = fmt.Errorf("Invalid power State (%s); Valid Power states are start, shutdown, off", *powerState)
+			}
 
-		if err != nil {
-			return err
-		}
+			if err != nil {
+				return err
+			}
 
-		data.SetPartial(resourceKeyServerPowerState)
+			data.SetPartial(resourceKeyServerPowerState)
+	    }
 	}
 
 	data.Partial(false)
