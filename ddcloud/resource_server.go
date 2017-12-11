@@ -9,6 +9,7 @@ import (
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/validators"	
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -196,6 +197,7 @@ func resourceServer() *schema.Resource {
 				Optional:    true,
 				Default:     "off",
 				Description: "Start or shutdown a server. If set to start upon server creation it will Auto Start the server",
+                ValidateFunc: validators.StringIsOneOf("Server Power State", "start","off","shutdown"),
 			},
 
 			resourceKeyServerTag: schemaServerTag(),
