@@ -9,7 +9,7 @@ import (
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
-	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/validators"	
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/validators"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
@@ -35,6 +35,7 @@ const (
 	resourceKeyServerSecondaryDNS         = "dns_secondary"
 	resourceKeyServerPowerState           = "power_state"
 	resourceKeyServerGuestOSCustomization = "guest_os_customization"
+	resourceKeyServerStarted              = "started"
 
 	// Obsolete properties
 	resourceKeyServerOSImageID          = "os_image_id"
@@ -193,11 +194,17 @@ func resourceServer() *schema.Resource {
 				Description: "The IP address of the server's secondary DNS server",
 			},
 			resourceKeyServerPowerState: &schema.Schema{
-				Type:        schema.TypeString,
-				Optional:    true,
-				Default:     "off",
-				Description: "Start or shutdown a server. If set to start upon server creation it will Auto Start the server",
-                ValidateFunc: validators.StringIsOneOf("Server Power State", "start","off","shutdown"),
+				Type:         schema.TypeString,
+				Optional:     true,
+				Default:      "off",
+				Description:  "Start or shutdown a server. If set to start upon server creation it will Auto Start the server",
+				ValidateFunc: validators.StringIsOneOf("Server Power State", "disabled", "autostart", "start", "shutdown", "shutdown-hard"),
+			},
+
+			resourceKeyServerStarted: &schema.Schema{
+				Type:        schema.TypeBool,
+				Description: "The started state of the server. This is computed and returned",
+				Computed:    true,
 			},
 
 			resourceKeyServerTag: schemaServerTag(),
@@ -346,6 +353,12 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	propertyHelper.SetDisks(
 		models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
 	)
+
+	if server.Started {
+		data.Set(resourceKeyServerStarted, true)
+	} else {
+		data.Set(resourceKeyServerStarted, false)
+	}
 
 	return nil
 }
@@ -499,7 +512,6 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
-
 	if data.HasChange(resourceKeyServerPowerState) {
 		log.Printf("Server power state change has been detected.")
 		powerState := propertyHelper.GetOptionalString(resourceKeyServerPowerState, false)
@@ -510,10 +522,13 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 				err = serverStart(providerState, serverID)
 			case "shutdown":
 				err = serverShutdown(providerState, serverID)
-			case "off":
+			case "shutdown-hard":
 				err = serverPowerOff(providerState, serverID)
+			case "disabled", "autostart":
+				// do nothing
+				break
 			default:
-				err = fmt.Errorf("Invalid power State (%s); Valid Power states are start, shutdown, off", *powerState)
+				err = fmt.Errorf("Invalid power State (%s); Valid Power states are start, shutdown, shutdown-hard, disabled", *powerState)
 			}
 
 			if err != nil {
@@ -521,9 +536,20 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 			}
 
 			data.SetPartial(resourceKeyServerPowerState)
-	    }
-	}
+		}
 
+	}
+	// Refresh Server State after Power State
+	server, err = apiClient.GetServer(serverID)
+    if err != nil {
+		return err
+	}
+	
+	if server.Started {
+		data.Set(resourceKeyServerStarted, true)
+	} else {
+		data.Set(resourceKeyServerStarted, false)
+	}
 	data.Partial(false)
 
 	return nil
@@ -649,7 +675,6 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 	adminPassword := data.Get(resourceKeyServerAdminPassword).(string)
 	primaryDNS := data.Get(resourceKeyServerPrimaryDNS).(string)
 	secondaryDNS := data.Get(resourceKeyServerSecondaryDNS).(string)
-	autoStart := data.Get(resourceKeyServerAutoStart).(bool)
 	powerState := data.Get(resourceKeyServerPowerState).(string)
 
 	dataCenterID := networkDomain.DatacenterID
@@ -664,10 +689,7 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 	)
 
 	powerOn := false
-	if strings.ToLower(powerState) == "start" {
-		powerOn = true
-	} else if autoStart && strings.ToLower(powerState) == "shutdown" {
-		// used for backwards compatabiliy with auto_start
+	if strings.ToLower(powerState) == "start" || strings.ToLower(powerState) == "autostart" {
 		powerOn = true
 	}
 
@@ -812,7 +834,6 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 func deployUncustomizedServer(data *schema.ResourceData, providerState *providerState, networkDomain *compute.NetworkDomain, image compute.Image) error {
 	name := data.Get(resourceKeyServerName).(string)
 	description := data.Get(resourceKeyServerDescription).(string)
-	autoStart := data.Get(resourceKeyServerAutoStart).(bool)
 	powerState := data.Get(resourceKeyServerPowerState).(string)
 
 	dataCenterID := networkDomain.DatacenterID
@@ -826,10 +847,7 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 		image.GetID(),
 	)
 	powerOn := false
-	if strings.ToLower(powerState) == "start" {
-		powerOn = true
-	} else if autoStart && strings.ToLower(powerState) == "shutdown" {
-		// used for backwards compatabiliy with auto_start
+	if strings.ToLower(powerState) == "start" || strings.ToLower(powerState) == "autostart" {
 		powerOn = true
 	}
 
@@ -981,6 +999,9 @@ func captureCreatedServerProperties(data *schema.ResourceData, providerState *pr
 		data.Set(resourceKeyServerPublicIPv4, nil)
 	}
 	data.SetPartial(resourceKeyServerPublicIPv4)
+
+	data.Set(resourceKeyServerStarted, server.Started)
+	data.SetPartial(resourceKeyServerStarted)
 
 	return nil
 }

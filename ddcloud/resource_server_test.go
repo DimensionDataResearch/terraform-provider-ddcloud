@@ -513,7 +513,7 @@ func TestAccServerTagUpdate(t *testing.T) {
 }
 
 // Create a server and verify that it auto powers on.
-func TestAccServerAutoPower(t *testing.T) {
+func TestAccServerAutoStart(t *testing.T) {
 	resource.Test(t, resource.TestCase{
 		Providers: testAccProviders,
 		CheckDestroy: resource.ComposeTestCheckFunc(
@@ -523,7 +523,7 @@ func TestAccServerAutoPower(t *testing.T) {
 		),
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudServerPowerState("start"),
+				Config: testAccDDCloudServerPowerState("autostart"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
 					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", true),
@@ -544,7 +544,7 @@ func TestAccServerPowerStates(t *testing.T) {
 		),
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudServerPowerState("start"),
+				Config: testAccDDCloudServerPowerState("autostart"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
 					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", true),
@@ -565,7 +565,7 @@ func TestAccServerPowerStates(t *testing.T) {
 				),
 			},
 			resource.TestStep{
-				Config: testAccDDCloudServerPowerState("off"),
+				Config: testAccDDCloudServerPowerState("shutdown-hard"),
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
 					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", false),
