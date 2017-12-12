@@ -53,7 +53,7 @@ const (
 
 func resourceServer() *schema.Resource {
 	return &schema.Resource{
-		SchemaVersion: 4,
+		SchemaVersion: 5,
 		Create:        resourceServerCreate,
 		Read:          resourceServerRead,
 		Update:        resourceServerUpdate,
@@ -196,7 +196,7 @@ func resourceServer() *schema.Resource {
 			resourceKeyServerPowerState: &schema.Schema{
 				Type:         schema.TypeString,
 				Optional:     true,
-				Default:      "off",
+				Default:      "disabled",
 				Description:  "Start or shutdown a server. If set to start upon server creation it will Auto Start the server",
 				ValidateFunc: validators.StringIsOneOf("Server Power State", "disabled", "autostart", "start", "shutdown", "shutdown-hard"),
 			},
@@ -250,7 +250,7 @@ func resourceServer() *schema.Resource {
 				Optional:    true,
 				Default:     false,
 				Description: "Should the server be started automatically once it has been deployed",
-				Removed:     fmt.Sprintf("This propery as been removed; set %s to start instead", resourceKeyServerPowerState),
+				Removed:     fmt.Sprintf("This propery as been removed; set %s to autostart instead", resourceKeyServerPowerState),
 			},
 		},
 		MigrateState: resourceServerMigrateState,
