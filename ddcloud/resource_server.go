@@ -656,9 +656,9 @@ func resourceServerImport(data *schema.ResourceData, provider interface{}) (impo
 	)
 
 	if server.Started {
-		data.Set(resourceKeyServerPowerState, "start")
+		data.Set(resourceKeyServerStarted, true)
 	} else {
-		data.Set(resourceKeyServerPowerState, "Stop")
+		data.Set(resourceKeyServerStarted, false)
 	}
 
 	importedData = []*schema.ResourceData{data}
