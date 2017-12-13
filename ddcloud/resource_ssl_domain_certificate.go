@@ -94,6 +94,9 @@ func resourceSSLDomainCertificateCreate(data *schema.ResourceData, provider inte
 	certificatePEM := data.Get(resourceKeySSLDomainCertificateCertificate).(string)
 	privateKeyPEM := data.Get(resourceKeySSLDomainCertificatePrivateKey).(string)
 
+	// Don't persist the private key in the state file.
+	data.Set(resourceKeySSLDomainCertificatePrivateKey, "")
+
 	log.Printf("Create SSL domain certificate '%s' in network domain '%s'.", name, networkDomainID)
 
 	providerState := provider.(*providerState)
