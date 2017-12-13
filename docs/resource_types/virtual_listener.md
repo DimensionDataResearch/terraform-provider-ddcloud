@@ -24,7 +24,8 @@ resource "ddcloud_virtual_listener" "test_virtual_listener" {
 
 The following arguments are supported:
 
-* `name` - (Required) A name for the virtual listener. **Note**: Changing this value will cause the listener to be destroyed and re-created.
+* `name` - (Required) A name for the virtual listener.  
+  **Note**: Changing this value will cause the listener to be destroyed and re-created.
 * `description` - (Optional) A description of the virtual listener.
 * `type` - (Optional) The listener type.  
   Must be one of:
@@ -63,4 +64,4 @@ The following arguments are supported:
 
 ## Attribute Reference
 
-There are currently no additional attributes for `ddcloud_vip_pool`.
+There are currently no additional attributes for `ddcloud_virtual_listener`.

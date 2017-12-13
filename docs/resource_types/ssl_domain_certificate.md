@@ -4,7 +4,7 @@ An X.509 certificate (with private key) used for SSL offloading.
 
 ## Example Usage
 
-```
+```hcl
 resource "ddcloud_ssl_domain_certificate" "my_cert" {
   name        = "MyCertificate"
   certificate = "${file("./certificate.pem")}"

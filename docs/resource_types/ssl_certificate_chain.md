@@ -4,7 +4,7 @@ An X.509 certificate chain used for SSL offloading.
 
 ## Example Usage
 
-```
+```hcl
 resource "ddcloud_ssl_certificate_chain" "my_chain" {
   name          = "MyChain"
   chain         = "${file("./chain.pem")}"

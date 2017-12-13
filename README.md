@@ -17,6 +17,7 @@ Currently, the following resource types are supported:
 * `ddcloud_vip_node`: A Virtual IP (VIP) node
 * `ddcloud_vip_pool`: A Virtual IP (VIP) pool
 * `ddcloud_vip_pool_member`: A Virtual IP (VIP) pool membership (node -> pool)
+* `ddcloud_ssl_offload_profile`: An SSL-offload profile used by a Virtual Listener
 * `ddcloud_ssl_domain_certificate`: An X.509 certificate (with private key) for SSL offload
 * `ddcloud_ssl_certificate_chain`: An X.509 certificate chain for SSL offload
 

@@ -111,6 +111,9 @@ func Provider() terraform.ResourceProvider {
 			// A virtual listener is the top-level entity for load-balancing functionality.
 			"ddcloud_virtual_listener": resourceVirtualListener(),
 
+			// An SSL-offload profile for a virtual listener.
+			"ddcloud_ssl_offload_profile": resourceSSLOffloadProfile(),
+
 			// An SSL certificate (with private key) for a domain.
 			"ddcloud_ssl_domain_certificate": resourceSSLDomainCertificate(),
 
