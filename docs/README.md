@@ -25,6 +25,7 @@ The `ddcloud` provider supports the following resource types:
 * [ddcloud_vip_pool_member](resource_types/vip_pool_member.md) - A CloudControl Virtual IP (VIP) pool membership.  
 Links a `ddcloud_vip_node` (and optionally a port) to a `ddcloud_vip_pool`.
 * [ddcloud_virtual_listener](resource_types/virtual_listener.md) - A CloudControl Virtual Listener.
+* [ssl_domain_certificate](resource_types/ssl_domain_certificate.md) - A certificate (with private key) for SSL offload.
 * [ddcloud_ip_address_reservation](resource_types/ip_address_reservation.md) - An IP address reservation on a CloudControl VLAN (experimental, for advanced usage scenarios only).
 
 And the following data-source types:

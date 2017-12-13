@@ -2,7 +2,6 @@ package ddcloud
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/pem"
 	"io/ioutil"
 	"log"
@@ -17,8 +16,6 @@ const (
 	resourceKeyPFXCertificate = "certificate"
 	resourceKeyPFXPrivateKey  = "private_key"
 )
-
-var pemBase64 = base64.StdEncoding
 
 func dataSourcePFX() *schema.Resource {
 	return &schema.Resource{
