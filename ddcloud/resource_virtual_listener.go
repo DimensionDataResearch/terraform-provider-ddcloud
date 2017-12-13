@@ -22,6 +22,7 @@ const (
 	resourceKeyVirtualListenerSourcePortPreservation = "source_port_preservation"
 	resourceKeyVirtualListenerPoolID                 = "pool"
 	resourceKeyVirtualListenerPersistenceProfileName = "persistence_profile"
+	resourceKeyVirtualListenerSSLOffloadProfileID    = "ssl_offload_profile"
 	resourceKeyVirtualListenerIRuleNames             = "irules"
 	resourceKeyVirtualListenerOptimizationProfiles   = "optimization_profiles"
 	resourceKeyVirtualListenerNetworkDomainID        = "networkdomain"
@@ -135,6 +136,11 @@ func resourceVirtualListener() *schema.Resource {
 				Optional: true,
 				Default:  "",
 			},
+			resourceKeyVirtualListenerSSLOffloadProfileID: &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  nil,
+			},
 			resourceKeyVirtualListenerIRuleNames: &schema.Schema{
 				Type:     schema.TypeSet,
 				Optional: true,
@@ -219,6 +225,7 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 			SourcePortPreservation: data.Get(resourceKeyVirtualListenerSourcePortPreservation).(string),
 			PoolID:                 propertyHelper.GetOptionalString(resourceKeyVirtualListenerPoolID, false),
 			PersistenceProfileID:   persistenceProfileID,
+			SSLOffloadProfileID:    propertyHelper.GetOptionalString(resourceKeyVirtualListenerSSLOffloadProfileID, false),
 			IRuleIDs:               iRuleIDs,
 			OptimizationProfiles:   propertyHelper.GetStringSetItems(resourceKeyVirtualListenerOptimizationProfiles),
 			NetworkDomainID:        networkDomainID,
@@ -310,6 +317,7 @@ func resourceVirtualListenerRead(data *schema.ResourceData, provider interface{}
 	data.Set(resourceKeyVirtualListenerConnectionRateLimit, virtualListener.ConnectionRateLimit)
 	data.Set(resourceKeyVirtualListenerSourcePortPreservation, virtualListener.SourcePortPreservation)
 	data.Set(resourceKeyVirtualListenerPersistenceProfileName, virtualListener.PersistenceProfile.Name)
+	data.Set(resourceKeyVirtualListenerSSLOffloadProfileID, virtualListener.SSLOffloadProfile.ID)
 	data.Set(resourceKeyVirtualListenerIPv4Address, virtualListener.ListenerIPAddress)
 
 	propertyHelper := propertyHelper(data)
@@ -352,6 +360,10 @@ func resourceVirtualListenerUpdate(data *schema.ResourceData, provider interface
 
 	if data.HasChange(resourceKeyVirtualListenerPoolID) {
 		configuration.PoolID = propertyHelper.GetOptionalString(resourceKeyVirtualListenerPoolID, true)
+	}
+
+	if data.HasChange(resourceKeyVirtualListenerSSLOffloadProfileID) {
+		configuration.SSLOffloadProfileID = propertyHelper.GetOptionalString(resourceKeyVirtualListenerSSLOffloadProfileID, false)
 	}
 
 	if data.HasChange(resourceKeyVirtualListenerPersistenceProfileName) {

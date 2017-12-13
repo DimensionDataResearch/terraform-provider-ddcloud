@@ -2,6 +2,7 @@
 
 # 1.3.1
 
+* Expose SSL-offload profile on `ddcloud_virtual_listener` (DimensionDataResearch/dd-cloud-compute-terraform#104).
 * Implement `ddcloud_ssl_domain_certificate` resource type (DimensionDataResearch/dd-cloud-compute-terraform#104).
 * Implement `ddcloud_ssl_certificate_chain` resource type (DimensionDataResearch/dd-cloud-compute-terraform#104).
 * Implement `ddcloud_pfx` data source (DimensionDataResearch/dd-cloud-compute-terraform#104).

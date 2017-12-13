@@ -52,10 +52,11 @@ The following arguments are supported:
 	  `ipv4` is required, and must be neither already be in use by a Node on the Network Domain nor fall within the IP space of a VLAN deployed on the Network Domain.
 * `port` - (Optional)
 * `enabled` - (Optional)
-* `connection_limit`
-* `connection_rate_limit`
-* `source_port_preservation`
-* `persistence_profile`
+* `ssl_offload_profile` - (Optional) The Id of an SSL-offload profile (if any) to assign to the virtual listener.
+* `connection_limit` (Optional) - The listener total connection limit.
+* `connection_rate_limit` (Optional) - The listener connection rate limit.
+* `source_port_preservation` (Optional) - Preserve source port information (if possible)?
+* `persistence_profile` (Optional) - The name of the persistence profile (if any) to use.
 * `irules`
 * `optimization_profiles`
 * `networkdomain` - (Required) The Id of the network domain in which the VIP pool is created.
