@@ -31,6 +31,7 @@ And the following data-source types:
 
 * [ddcloud_networkdomain](datasource_types/networkdomain.md) - A CloudControl network domain (lookup by name and data centre).
 * [ddcloud_vlan](datasource_types/vlan.md) - A CloudControl Virtual LAN (VLAN) (lookup by name and network domain).
+* [ddcloud_pfx](datasource_types/pfx.md) - Enables decoding of a `.pfx` file into PEM-format certificate and private key (useful for SSL-offload resources).
 
 ## Migration
 

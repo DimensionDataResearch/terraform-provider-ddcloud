@@ -121,6 +121,9 @@ func Provider() terraform.ResourceProvider {
 
 			// A virtual network (VLAN).
 			"ddcloud_vlan": dataSourceVLAN(),
+
+			// A PKCS12 (PFX) file.
+			"ddcloud_pfx": dataSourcePFX(),
 		},
 
 		// Provider configuration
