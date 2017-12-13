@@ -8,7 +8,7 @@ The `ddcloud_pfx` data-source enables decoding of a `.pfx` file into PEM-format 
 
 ## Example Usage
 
-```
+```hcl
 // Extract certificate and private key from test.pfx
 data "ddcloud_pfx" "server_cert" {
     file        = "./server.pfx"
