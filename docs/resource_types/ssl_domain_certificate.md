@@ -21,7 +21,7 @@ The following arguments are supported:
 * `networkdomain` - (Required) The Id of the network domain in which the SSL domain certificate will be used for SSL offload.
 * `name` - (Required) A name for the certificate.
 * `description` - (Optional) A description for the certificate.
-* `certificate` - (Required) The X.509 certificate (in PEM format, use `ddcloud_pfx` data source if you need to use a certificate from a `.pfx` file).
+* `certificate` - (Required) The X.509 certificate (in PEM format; use `ddcloud_pfx` data source if you need to use a certificate from a `.pfx` file).
 * `private_key` - (Required) The private key (in PEM format).
 
 ## Attribute Reference

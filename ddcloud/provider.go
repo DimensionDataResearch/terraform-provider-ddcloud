@@ -114,6 +114,9 @@ func Provider() terraform.ResourceProvider {
 			// An SSL certificate (with private key) for a domain.
 			"ddcloud_ssl_domain_certificate": resourceSSLDomainCertificate(),
 
+			// An SSL certificate chain.
+			"ddcloud_ssl_certificate_chain": resourceSSLCertificateChain(),
+
 			// A reserved IPv6 or private IPv4 address on a VLAN.
 			"ddcloud_ip_address_reservation": resourceIPAddressReservation(),
 		},

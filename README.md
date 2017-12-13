@@ -17,13 +17,14 @@ Currently, the following resource types are supported:
 * `ddcloud_vip_node`: A Virtual IP (VIP) node
 * `ddcloud_vip_pool`: A Virtual IP (VIP) pool
 * `ddcloud_vip_pool_member`: A Virtual IP (VIP) pool membership (node -> pool)
-* `ddcloud_ssl_domain_certificate`: A certificate (with private key) for SSL offload
+* `ddcloud_ssl_domain_certificate`: An X.509 certificate (with private key) for SSL offload
+* `ddcloud_ssl_certificate_chain`: An X.509 certificate chain for SSL offload
 
 And the following data-source types are supported:
 
 * `ddcloud_networkdomain`: A network domain (lookup by name and data centre)
 * `ddcloud_vlan`: A VLAN (lookup by name and network domain)
-* `ddcloud_pfx`: A PFX (PKCS12) file (exposes certificate and private key in PEM format, e.g. for use in `ddcloud_ssl_domain_certificate`)
+* `ddcloud_pfx`: A PFX (PKCS12) file (exposes certificate and private key in PEM format, e.g. for use with `ddcloud_ssl_domain_certificate`)
 
 For more information, see the [provider documentation](docs/).
 
