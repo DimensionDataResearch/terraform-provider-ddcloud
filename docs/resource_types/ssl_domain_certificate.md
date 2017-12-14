@@ -23,7 +23,8 @@ The following arguments are supported:
 * `description` - (Optional) A description for the certificate.
 * `certificate` - (Required) The X.509 certificate (in PEM format; use `ddcloud_pfx` data source if you need to use a certificate from a `.pfx` file).
 * `private_key` - (Required) The private key (in PEM format).  
-  **Note:** this value is not persisted in state data (providing Terraform does not crash during the initial `terraform apply`).
+  This value is not persisted in state data (providing Terraform does not crash during the initial `terraform apply`).  
+  **Note:** only RSA keys are supported by CloudControl.
 
 ## Attribute Reference
 
