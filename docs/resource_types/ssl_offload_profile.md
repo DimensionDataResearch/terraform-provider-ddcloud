@@ -27,7 +27,9 @@ The following arguments are supported:
 * `certificate` - (Required) The Id of the SSL domain certificate to use.
 * `chain` - (Optional) The Id of the SSL certificate chain (if any) to use.
 * `ciphers` - (Optional, Computed) SSL ciphers to use.  
-  If not specified, then CloudControl will a default selection of ciphers (see the CloudControl documentation for details).
+  If not specified, then CloudControl will a default selection of ciphers.  
+  Each data center location has a "default cipher" string that will be used if the cipher is not explicitly defined.  
+  The default cipher should work for most purposes.
 
 ## Attribute Reference
 
