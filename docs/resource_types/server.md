@@ -91,7 +91,14 @@ If specified, must be `os`, `customer`, or `auto` (default).
 If not specified, Google DNS (`8.8.8.8`) is used.
 * `dns_secondary` - (Required) The IP address of the server's secondary DNS.  
 If not specified, Google DNS (`8.8.4.4`) is used.
-* `auto_start` - (Optional) Automatically start the server once it is deployed (default is false).
+* `power_state` - (Optional) Sets the power state of the server.  
+Available Options include.
+  * `autostart` - Starts the server on creation only.
+  * `start` - Starts the server from any shutdown state. Will autostart the server on creation
+  * `shutdown` - Graceful Shutdown of the server.
+  * `shutdown-server` - Hard shutdown of the server.
+  * `disabled` - (Default) Ignore this argument.
+
 * `tag` - (Optional) A set of tags to apply to the server.
     * `name` - (Required) The tag name. **Note**: The tag name must already be defined for your organisation.
     * `value` - (Required) The tag value.
@@ -104,6 +111,7 @@ If not specified, Google DNS (`8.8.4.4`) is used.
 * `primary_adapter_ipv6` - The IPv6 address of the server's primary network adapter.
 * `primary_adapter_vlan` - The Id of the VLAN to which the server's primary network adapter is attached. Calculated if `primary_adapter_ipv4` is specified.
 * `public_ipv4` - The server's public IPv4 address (if any). Calculated if there is a NAT rule that points to any of the server's private IPv4 addresses. **Note**: Due to an incompatibility between the CloudControl resource model and Terraform life-cycle model, this attribute is only available after a subsequent refresh (not when the server is first deployed).
+* `started` - The start state of the server. Always calulated. Returns true if server is started
 
 ## Import
 
