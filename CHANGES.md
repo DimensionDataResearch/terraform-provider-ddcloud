@@ -1,6 +1,6 @@
 # Changes
 
-# 1.3.1
+# 1.3.2
 
 * Expose SSL-offload profile on `ddcloud_virtual_listener` (DimensionDataResearch/dd-cloud-compute-terraform#104).
 * Implement `ddcloud_ssl_offload_profile` resource type (DimensionDataResearch/dd-cloud-compute-terraform#104).
