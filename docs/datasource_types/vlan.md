@@ -1,6 +1,6 @@
 # ddcloud\_vlan
 
-A VLAN isa virtual network.
+A VLAN is a virtual network.
 
 The `ddcloud_vlan` data-source enables lookup of a VLAN by name and network domain.
 
