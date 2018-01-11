@@ -541,10 +541,10 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 	}
 	// Refresh Server State after Power State
 	server, err = apiClient.GetServer(serverID)
-    if err != nil {
+	if err != nil {
 		return err
 	}
-	
+
 	if server.Started {
 		data.Set(resourceKeyServerStarted, true)
 	} else {

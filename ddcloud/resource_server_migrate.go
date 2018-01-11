@@ -262,6 +262,7 @@ func migrateServerStateV3toV4(instanceState *terraform.InstanceState) (migratedS
 
 	return
 }
+
 // Migrate state for ddcloud_server (v3 to v4).
 //
 // From:
@@ -278,8 +279,7 @@ func migrateServerStateV4toV5(instanceState *terraform.InstanceState) (migratedS
 	}
 	delete(migratedState.Attributes, resourceKeyServerAutoStart)
 
-	log.Printf("[Migration] Server attributes after migratation from v4 to v5: %#v", migratedState.Attributes,)
+	log.Printf("[Migration] Server attributes after migratation from v4 to v5: %#v", migratedState.Attributes)
 
 	return
 }
-
