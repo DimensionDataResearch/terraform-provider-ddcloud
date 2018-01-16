@@ -58,6 +58,7 @@ func testAccDDCloudServerBasic(name string, description string, primaryIPv4Addre
 			image				= "CentOS 7 64-bit 2 CPU"
 
 			auto_start			= false
+			power_state         = shutdown
 
 			# Image disk
 			disk {
@@ -248,6 +249,60 @@ func testAccDDCloudServerTag(tags map[string]string) string {
 			%s
 		}
 	`, tagConfiguration)
+}
+
+// A basic Server (and its accompanying network domain and VLAN).
+func testAccDDCloudServerPowerState(powerState string) string {
+	return fmt.Sprintf(`
+		provider "ddcloud" {
+			region		= "AU"
+		}
+
+		resource "ddcloud_networkdomain" "acc_test_domain" {
+			name		= "acc-test-networkdomain"
+			description	= "Network domain for Terraform acceptance test."
+			datacenter	= "AU9"
+		}
+
+		resource "ddcloud_vlan" "acc_test_vlan" {
+			name				= "acc-test-vlan"
+			description 		= "VLAN for Terraform acceptance test."
+
+			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
+
+			ipv4_base_address	= "192.168.17.0"
+			ipv4_prefix_size	= 24
+		}
+
+		resource "ddcloud_server" "acc_test_server" {
+			name				= "acc-test-server-power-state"
+			description 		= "Server for Terraform acceptance test (Power State)."
+			admin_password		= "Snaus4ges!"
+
+			memory_gb			= 8
+
+			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
+			
+			primary_network_adapter {
+				vlan            = "${ddcloud_vlan.acc_test_vlan.id}"
+				ipv4            = "192.168.17.6"
+			}
+
+			dns_primary			= "8.8.8.8"
+			dns_secondary		= "8.8.4.4"
+
+			image				= "CentOS 7 64-bit 2 CPU"
+
+			power_state         = "%s"
+
+			# Image disk
+			disk {
+				scsi_unit_id    = 0
+				size_gb         = 10
+				speed           = "STANDARD"
+			}
+		}
+	`, powerState)
 }
 
 /*
@@ -451,6 +506,69 @@ func TestAccServerTagUpdate(t *testing.T) {
 						"role":      "greetings, earth",
 						"consul_dc": "farewell, luna",
 					}),
+				),
+			},
+		},
+	})
+}
+
+// Create a server and verify that it auto powers on.
+func TestAccServerAutoStart(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		CheckDestroy: resource.ComposeTestCheckFunc(
+			testCheckDDCloudServerDestroy,
+			testCheckDDCloudVLANDestroy,
+			testCheckDDCloudNetworkDomainDestroy,
+		),
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccDDCloudServerPowerState("autostart"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", true),
+				),
+			},
+		},
+	})
+}
+
+//Builds a server with auto power, shuts it down, starts again, then powers off
+func TestAccServerPowerStates(t *testing.T) {
+	resource.Test(t, resource.TestCase{
+		Providers: testAccProviders,
+		CheckDestroy: resource.ComposeTestCheckFunc(
+			testCheckDDCloudServerDestroy,
+			testCheckDDCloudVLANDestroy,
+			testCheckDDCloudNetworkDomainDestroy,
+		),
+		Steps: []resource.TestStep{
+			resource.TestStep{
+				Config: testAccDDCloudServerPowerState("autostart"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", true),
+				),
+			},
+			resource.TestStep{
+				Config: testAccDDCloudServerPowerState("shutdown"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", false),
+				),
+			},
+			resource.TestStep{
+				Config: testAccDDCloudServerPowerState("start"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", true),
+				),
+			},
+			resource.TestStep{
+				Config: testAccDDCloudServerPowerState("shutdown-hard"),
+				Check: resource.ComposeTestCheckFunc(
+					testCheckDDCloudServerExists("ddcloud_server.acc_test_server", true),
+					testCheckDDCloudServerStartedState("ddcloud_server.acc_test_server", false),
 				),
 			},
 		},
@@ -735,5 +853,30 @@ func testDisk(scsiBusNumber int, scsiUnitID int, sizeGB int, speed string) model
 		SCSIUnitID:    scsiUnitID,
 		SizeGB:        sizeGB,
 		Speed:         speed,
+	}
+}
+
+// Check if the server started.
+func testCheckDDCloudServerStartedState(name string, started bool) resource.TestCheckFunc {
+	return func(state *terraform.State) error {
+		res, ok := state.RootModule().Resources[name]
+		if !ok {
+			return fmt.Errorf("Not found: %s", name)
+		}
+
+		serverID := res.Primary.ID
+
+		client := testAccProvider.Meta().(*providerState).Client()
+		server, err := client.GetServer(serverID)
+		if err != nil {
+			return fmt.Errorf("bad: Get server: %s", err)
+		}
+		if started && server.Started == false {
+			return fmt.Errorf("bad: server %s not started", serverID)
+		} else if !started && server.Started == true {
+			return fmt.Errorf("bad: server %s is started", serverID)
+		}
+
+		return nil
 	}
 }

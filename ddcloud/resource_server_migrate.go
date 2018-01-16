@@ -20,7 +20,7 @@ func resourceServerMigrateState(schemaVersion int, instanceState *terraform.Inst
 		return
 	}
 
-	const currentSchemaVersion = 3
+	const currentSchemaVersion = 5
 	for schemaVersion < currentSchemaVersion {
 		switch schemaVersion {
 		case 0:
@@ -35,6 +35,9 @@ func resourceServerMigrateState(schemaVersion int, instanceState *terraform.Inst
 		case 3:
 			log.Println("Found Server state v3; migrating to v4")
 			migratedState, err = migrateServerStateV3toV4(instanceState)
+		case 4:
+			log.Println("[Migration]Found server state v4; migrating to v5")
+			migratedState, err = migrateServerStateV4toV5(instanceState)
 		default:
 			err = fmt.Errorf("Unexpected schema version: %d", schemaVersion)
 		}
@@ -256,6 +259,27 @@ func migrateServerStateV3toV4(instanceState *terraform.InstanceState) (migratedS
 	log.Printf("Server attributes after migration from v3 to v4: %#v",
 		migratedState.Attributes,
 	)
+
+	return
+}
+
+// Migrate state for ddcloud_server (v3 to v4).
+//
+// From:
+// auto_start: true/false
+//
+// To:
+// power_state: disabled/autostart/start/shutdown/shutdown-hard
+func migrateServerStateV4toV5(instanceState *terraform.InstanceState) (migratedState *terraform.InstanceState, err error) {
+	migratedState = instanceState
+
+	autoStart := migratedState.Attributes[resourceKeyServerAutoStart]
+	if autoStart == "true" {
+		migratedState.Attributes[resourceKeyServerPowerState] = "autostart"
+	}
+	delete(migratedState.Attributes, resourceKeyServerAutoStart)
+
+	log.Printf("[Migration] Server attributes after migratation from v4 to v5: %#v", migratedState.Attributes)
 
 	return
 }

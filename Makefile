@@ -93,4 +93,7 @@ version: $(VERSION_INFO_FILE)
 
 $(VERSION_INFO_FILE): Makefile
 	@echo "Update version info: v$(VERSION)"
-	@echo "package $(PROVIDER_NAME)\n\n// ProviderVersion is the current version of the $(PROVIDER_NAME) terraform provider.\nconst ProviderVersion = \"v$(VERSION) (`git rev-parse HEAD`)\"" > $(VERSION_INFO_FILE)
+	@echo "package $(PROVIDER_NAME)" > $(VERSION_INFO_FILE)
+	@echo "" >> $(VERSION_INFO_FILE)
+	@echo "// ProviderVersion is the current version of the $(PROVIDER_NAME) terraform provider." >> $(VERSION_INFO_FILE)
+	@echo "const ProviderVersion = \"v$(VERSION) (`git rev-parse HEAD`)\"" >> $(VERSION_INFO_FILE)
