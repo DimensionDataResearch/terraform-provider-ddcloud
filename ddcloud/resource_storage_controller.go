@@ -782,7 +782,7 @@ func processRemoveStorageControllerDisks(removeDisks models.Disks, data *schema.
 			removeError := apiClient.RemoveDisk(removeDisk.ID)
 			if compute.IsResourceBusyError(removeError) {
 				context.Retry()
-			} else if compute.IsAPIErrorCode(removeError, compute.ResponseCodeExceedsLimit) {
+			} else if compute.IsExceedsLimitError(removeError) {
 				removingDisk = false // It's the server's last disk, so we won't actually perform the removal
 			} else if removeError != nil {
 				context.Fail(removeError)
