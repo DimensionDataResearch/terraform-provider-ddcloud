@@ -87,6 +87,9 @@ func Provider() terraform.ResourceProvider {
 			// A server anti-affinity rule.
 			"ddcloud_server_anti_affinity": resourceAntiAffinityRule(),
 
+			// Cloud Backup configuration for a server.
+			"ddcloud_server_backup": resourceServerBackup(),
+
 			// A Network Address Translation (NAT) rule.
 			"ddcloud_nat": resourceNAT(),
 
