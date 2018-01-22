@@ -3,16 +3,20 @@ package ddcloud
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/pkg/errors"
 )
 
 const (
 	resourceKeyServerBackupServerID    = "server"
 	resourceKeyServerBackupServicePlan = "service_plan"
 	resourceKeyServerBackupAssetID     = "asset_id"
+
+	resourceCreateTimeoutServerBackup = 10 * time.Minute
 )
 
 func resourceServerBackup() *schema.Resource {
@@ -67,10 +71,15 @@ func resourceServerBackupCreate(data *schema.ResourceData, provider interface{})
 
 	operationDescription := fmt.Sprintf("Enable backup for server '%s'.", server.Name)
 	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+		defer asyncLock.Release()
+
 		enableError := apiClient.EnableServerBackup(serverID, servicePlan)
 		if enableError != nil {
-			if compute.IsResourceBusyError(enableError) {
+			if compute.IsResourceBusyError(enableError) || compute.IsAPIErrorCode(enableError, compute.ResultCodeBackupEnablementInProgressForServer) {
 				context.Retry()
+			} else if compute.IsAPIErrorCode(enableError, compute.ResultCodeBackupEnabledForServer) {
+				// Backup is already enabled; proceed (if there's service plan mismatch, it will be resolved in the next apply-cycle).
 			} else {
 				context.Fail(enableError)
 			}
@@ -78,6 +87,11 @@ func resourceServerBackupCreate(data *schema.ResourceData, provider interface{})
 	})
 	if err != nil {
 		return err
+	}
+
+	_, err = apiClient.WaitForServerBackupStatus(serverID, "enable backup", compute.ResourceStatusNormal, resourceCreateTimeoutServerBackup)
+	if err != nil {
+		return errors.Wrapf(err, "timed out waiting to enable backup for server '%s'", serverID)
 	}
 
 	backupDetails, err := apiClient.GetServerBackupDetails(serverID)
@@ -122,6 +136,7 @@ func resourceServerBackupRead(data *schema.ResourceData, provider interface{}) e
 	}
 
 	data.Set(resourceKeyServerBackupAssetID, backupDetails.AssetID)
+	data.Set(resourceKeyServerBackupServicePlan, backupDetails.ServicePlan)
 
 	return nil
 }
