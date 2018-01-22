@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 )
 
@@ -61,9 +63,19 @@ func resourceServerBackupCreate(data *schema.ResourceData, provider interface{})
 		return fmt.Errorf("cannot find server '%s'", serverID)
 	}
 
-	log.Printf("Enable backup for server '%s'.", server.Name)
+	log.Printf("Enabling backup for server '%s'...", server.Name)
 
-	err = apiClient.EnableServerBackup(serverID, servicePlan)
+	operationDescription := fmt.Sprintf("Enable backup for server '%s'.", server.Name)
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+		enableError := apiClient.EnableServerBackup(serverID, servicePlan)
+		if enableError != nil {
+			if compute.IsResourceBusyError(enableError) {
+				context.Retry()
+			} else {
+				context.Fail(enableError)
+			}
+		}
+	})
 	if err != nil {
 		return err
 	}
@@ -149,7 +161,17 @@ func resourceServerBackupUpdate(data *schema.ResourceData, provider interface{})
 			servicePlan,
 		)
 
-		err = apiClient.ChangeServerBackupServicePlan(serverID, servicePlan)
+		operationDescription := fmt.Sprintf("Change backup service plan for server '%s'.", server.Name)
+		err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+			changeServicePlanError := apiClient.ChangeServerBackupServicePlan(serverID, servicePlan)
+			if changeServicePlanError != nil {
+				if compute.IsResourceBusyError(changeServicePlanError) {
+					context.Retry()
+				} else {
+					context.Fail(changeServicePlanError)
+				}
+			}
+		})
 		if err != nil {
 			return err
 		}
@@ -175,7 +197,7 @@ func resourceServerBackupDelete(data *schema.ResourceData, provider interface{})
 		return fmt.Errorf("cannot find server '%s'", serverID)
 	}
 
-	// TODO: Remove backup clients (if any)
+	// TODO: Remove backup clients (if any).
 
 	log.Printf("Disable backup for server '%s'.", serverID)
 
@@ -191,7 +213,17 @@ func resourceServerBackupDelete(data *schema.ResourceData, provider interface{})
 		return nil
 	}
 
-	err = apiClient.DisableServerBackup(serverID)
+	operationDescription := fmt.Sprintf("Disable backup for server '%s'.", server.Name)
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+		disableError := apiClient.DisableServerBackup(serverID)
+		if disableError != nil {
+			if compute.IsResourceBusyError(disableError) {
+				context.Retry()
+			} else {
+				context.Fail(disableError)
+			}
+		}
+	})
 	if err != nil {
 		return err
 	}
