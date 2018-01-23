@@ -12,9 +12,19 @@ import (
 )
 
 const (
-	resourceKeyServerBackupServerID    = "server"
-	resourceKeyServerBackupServicePlan = "service_plan"
-	resourceKeyServerBackupAssetID     = "asset_id"
+	resourceKeyServerBackupServerID                 = "server"
+	resourceKeyServerBackupServicePlan              = "service_plan"
+	resourceKeyServerBackupAssetID                  = "asset_id"
+	resourceKeyServerBackupClients                  = "client"
+	resourceKeyServerBackupClientID                 = "id"
+	resourceKeyServerBackupClientType               = "type"
+	resourceKeyServerBackupClientDescription        = "description"
+	resourceKeyServerBackupClientStoragePolicyName  = "storage_policy"
+	resourceKeyServerBackupClientSchedulePolicyName = "schedule_policy"
+	resourceKeyServerBackupClientDownloadURL        = "download_url"
+	resourceKeyServerBackupClientAlert              = "alert"
+	resourceKeyServerBackupClientAlertTrigger       = "trigger"
+	resourceKeyServerBackupClientAlertEmails        = "emails"
 
 	resourceCreateTimeoutServerBackup = 10 * time.Minute
 )
@@ -46,6 +56,66 @@ func resourceServerBackup() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "The server's Cloud Backup asset Id",
+			},
+			resourceKeyServerBackupClients: &schema.Schema{
+				Type: schema.TypeList,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						resourceKeyServerBackupClientID: &schema.Schema{
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "The backup client's Id",
+						},
+						resourceKeyServerBackupClientType: &schema.Schema{
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: "The backup client type",
+						},
+						resourceKeyServerBackupClientDescription: &schema.Schema{
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "A description of the backup client",
+						},
+						resourceKeyServerBackupClientDownloadURL: &schema.Schema{
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "The backup client's download URL",
+						},
+						resourceKeyServerBackupClientStoragePolicyName: &schema.Schema{
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "The name of the backup client's assigned storage policy",
+						},
+						resourceKeyServerBackupClientSchedulePolicyName: &schema.Schema{
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "The name of the backup client's assigned schedule policy",
+						},
+						resourceKeyServerBackupClientAlert: &schema.Schema{
+							Type:     schema.TypeList,
+							Optional: true,
+							MaxItems: 1,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									resourceKeyServerBackupClientAlertTrigger: &schema.Schema{
+										Type:        schema.TypeString,
+										Optional:    true,
+										Default:     "",
+										Description: "If alerts are enabled, one of 'ON_FAILURE', 'ON_SUCCESS', 'ON_SUCCESS_OR_FAILURE'",
+									},
+									resourceKeyServerBackupClientAlertEmails: &schema.Schema{
+										Type:        schema.TypeList,
+										Optional:    true,
+										Default:     "",
+										Description: "If alerts are enabled, one of 'ON_FAILURE', 'ON_SUCCESS', 'ON_SUCCESS_OR_FAILURE'",
+									},
+								},
+							},
+							Description: "If alerts are enabled, one of 'ON_FAILURE', 'ON_SUCCESS', 'ON_SUCCESS_OR_FAILURE'",
+						},
+					},
+				},
+				Description: "The server's assigned backup clients",
 			},
 		},
 	}
