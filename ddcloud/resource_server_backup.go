@@ -5,6 +5,10 @@ import (
 	"log"
 	"time"
 
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
+
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/validators"
+
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
@@ -84,12 +88,12 @@ func resourceServerBackup() *schema.Resource {
 						},
 						resourceKeyServerBackupClientStoragePolicyName: &schema.Schema{
 							Type:        schema.TypeString,
-							Computed:    true,
+							Required:    true,
 							Description: "The name of the backup client's assigned storage policy",
 						},
 						resourceKeyServerBackupClientSchedulePolicyName: &schema.Schema{
 							Type:        schema.TypeString,
-							Computed:    true,
+							Required:    true,
 							Description: "The name of the backup client's assigned schedule policy",
 						},
 						resourceKeyServerBackupClientAlert: &schema.Schema{
@@ -99,10 +103,11 @@ func resourceServerBackup() *schema.Resource {
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									resourceKeyServerBackupClientAlertTrigger: &schema.Schema{
-										Type:        schema.TypeString,
-										Optional:    true,
-										Default:     "",
-										Description: "If alerts are enabled, one of 'ON_FAILURE', 'ON_SUCCESS', 'ON_SUCCESS_OR_FAILURE'",
+										Type:         schema.TypeString,
+										Optional:     true,
+										Default:      "",
+										Description:  "If alerts are enabled, one of 'ON_FAILURE', 'ON_SUCCESS', 'ON_SUCCESS_OR_FAILURE'",
+										ValidateFunc: validators.StringIsOneOf("ON_FAILURE", "ON_SUCCESS", "ON_SUCCESS_OR_FAILURE"),
 									},
 									resourceKeyServerBackupClientAlertEmails: &schema.Schema{
 										Type:        schema.TypeList,
@@ -141,7 +146,7 @@ func resourceServerBackupCreate(data *schema.ResourceData, provider interface{})
 		return fmt.Errorf("cannot find server '%s'", serverID)
 	}
 
-	log.Printf("Enabling backup for server '%s'...", server.Name)
+	log.Printf("Enabling backup for server '%s'...", serverID)
 
 	operationDescription := fmt.Sprintf("Enable backup for server '%s'.", server.Name)
 	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
@@ -177,7 +182,69 @@ func resourceServerBackupCreate(data *schema.ResourceData, provider interface{})
 	}
 
 	data.SetId(serverID)
+
+	data.Partial(true)
 	data.Set(resourceKeyServerBackupAssetID, backupDetails.AssetID)
+	data.SetPartial(resourceKeyServerBackupAssetID)
+
+	propertyHelper := propertyHelper(data)
+	backupClients := propertyHelper.GetServerBackupClients()
+
+	if backupClients.IsEmpty() {
+		return nil
+	}
+
+	log.Printf("Adding backup clients to server '%s'...", serverID)
+
+	data.SetPartial(resourceKeyServerBackupClients)
+
+	for index := range backupClients {
+		backupClient := backupClients[index]
+
+		log.Printf("Adding '%s' backup client to server '%s'...", backupClient.Type, serverID)
+
+		var clientID string
+		operationDescription := fmt.Sprintf("Enable backup for server '%s'.", server.Name)
+		err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+			defer asyncLock.Release()
+
+			var addClientError error
+			clientID, _, addClientError = apiClient.AddServerBackupClient(serverID, backupClient.Type, backupClient.SchedulePolicyName, backupClient.StoragePolicyName, nil /* TODO: Add alerting configuration */)
+			if addClientError != nil {
+				if compute.IsResourceBusyError(addClientError) {
+					context.Retry()
+				} else {
+					context.Fail(addClientError)
+				}
+			}
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = apiClient.WaitForServerBackupStatus(serverID, "enable backup", compute.ResourceStatusNormal, resourceCreateTimeoutServerBackup)
+		if err != nil {
+			return errors.Wrapf(err, "timed out waiting to enable backup for server '%s'", serverID)
+		}
+
+		backupDetails, err := apiClient.GetServerBackupDetails(serverID)
+		if err != nil {
+			return err
+		}
+		if backupDetails == nil {
+			return fmt.Errorf("cannot find backup details for server '%s'", serverID)
+		}
+
+		// Update computed properties
+		serverBackupClientsByID := models.NewServerBackupClientsFromBackupClientDetails(backupDetails.Clients).ByID()
+		backupClients[index] = serverBackupClientsByID[clientID]
+
+		// Persist
+		propertyHelper.SetServerBackupClients(backupClients)
+	}
+
+	data.Partial(false)
 
 	return nil
 }
