@@ -96,6 +96,7 @@ func resourceServerBackup() *schema.Resource {
 							Required:    true,
 							Description: "The name of the backup client's assigned schedule policy",
 						},
+						// TODO: Add resourceKeyServerBackupClientStatus
 						resourceKeyServerBackupClientAlert: &schema.Schema{
 							Type:     schema.TypeList,
 							Optional: true,
@@ -182,10 +183,7 @@ func resourceServerBackupCreate(data *schema.ResourceData, provider interface{})
 	}
 
 	data.SetId(serverID)
-
-	data.Partial(true)
 	data.Set(resourceKeyServerBackupAssetID, backupDetails.AssetID)
-	data.SetPartial(resourceKeyServerBackupAssetID)
 
 	propertyHelper := propertyHelper(data)
 	backupClients := propertyHelper.GetServerBackupClients()
@@ -196,57 +194,7 @@ func resourceServerBackupCreate(data *schema.ResourceData, provider interface{})
 
 	log.Printf("Adding backup clients to server '%s'...", serverID)
 
-	data.SetPartial(resourceKeyServerBackupClients)
-
-	for index := range backupClients {
-		backupClient := backupClients[index]
-
-		log.Printf("Adding '%s' backup client to server '%s'...", backupClient.Type, serverID)
-
-		var clientID string
-		operationDescription := fmt.Sprintf("Enable backup for server '%s'.", server.Name)
-		err = providerState.RetryAction(operationDescription, func(context retry.Context) {
-			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-			defer asyncLock.Release()
-
-			var addClientError error
-			clientID, _, addClientError = apiClient.AddServerBackupClient(serverID, backupClient.Type, backupClient.SchedulePolicyName, backupClient.StoragePolicyName, nil /* TODO: Add alerting configuration */)
-			if addClientError != nil {
-				if compute.IsResourceBusyError(addClientError) {
-					context.Retry()
-				} else {
-					context.Fail(addClientError)
-				}
-			}
-		})
-		if err != nil {
-			return err
-		}
-
-		_, err = apiClient.WaitForServerBackupStatus(serverID, "enable backup", compute.ResourceStatusNormal, resourceCreateTimeoutServerBackup)
-		if err != nil {
-			return errors.Wrapf(err, "timed out waiting to enable backup for server '%s'", serverID)
-		}
-
-		backupDetails, err := apiClient.GetServerBackupDetails(serverID)
-		if err != nil {
-			return err
-		}
-		if backupDetails == nil {
-			return fmt.Errorf("cannot find backup details for server '%s'", serverID)
-		}
-
-		// Update computed properties
-		serverBackupClientsByID := models.NewServerBackupClientsFromBackupClientDetails(backupDetails.Clients).ByID()
-		backupClients[index] = serverBackupClientsByID[clientID]
-
-		// Persist
-		propertyHelper.SetServerBackupClients(backupClients)
-	}
-
-	data.Partial(false)
-
-	return nil
+	return createBackupClients(server, backupClients, data, providerState)
 }
 
 // Read a server backup resource.
@@ -261,9 +209,11 @@ func resourceServerBackupRead(data *schema.ResourceData, provider interface{}) e
 		return err
 	}
 	if server == nil {
+		log.Printf("cannot find server '%s' (will treat as deleted)", serverID)
+
 		data.SetId("")
 
-		return fmt.Errorf("cannot find server '%s' (will treat as deleted)", serverID)
+		return nil
 	}
 
 	log.Printf("Read backup details for server '%s'.", server.Name)
@@ -273,17 +223,27 @@ func resourceServerBackupRead(data *schema.ResourceData, provider interface{}) e
 		return err
 	}
 	if backupDetails == nil {
-		return fmt.Errorf("cannot find backup details for server '%s'", serverID)
+		log.Printf("backup is not enabled for server '%s' (will treat as deleted)", serverID)
+
+		data.SetId("")
+
+		return nil
 	}
 
 	data.Set(resourceKeyServerBackupAssetID, backupDetails.AssetID)
 	data.Set(resourceKeyServerBackupServicePlan, backupDetails.ServicePlan)
+
+	propertyHelper := propertyHelper(data)
+	propertyHelper.SetServerBackupClients(
+		models.NewServerBackupClientsFromBackupClientDetails(backupDetails.Clients),
+	)
 
 	return nil
 }
 
 // Update a server backup resource.
 func resourceServerBackupUpdate(data *schema.ResourceData, provider interface{}) error {
+	propertyHelper := propertyHelper(data)
 	serverID := data.Get(resourceKeyServerBackupServerID).(string)
 
 	providerState := provider.(*providerState)
@@ -333,7 +293,24 @@ func resourceServerBackupUpdate(data *schema.ResourceData, provider interface{})
 		}
 	}
 
-	// TODO: Add / remove agents as required.
+	configuredBackupClients := propertyHelper.GetServerBackupClients()
+	actualBackupClients := models.NewServerBackupClientsFromBackupClientDetails(backupDetails.Clients)
+	addedBackupClients, changedBackupClients, removedBackupClients := configuredBackupClients.SplitByAction(actualBackupClients)
+
+	err = deleteBackupClients(server, removedBackupClients, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	err = createBackupClients(server, addedBackupClients, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	err = updateBackupClients(server, changedBackupClients, data, providerState)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -353,10 +330,6 @@ func resourceServerBackupDelete(data *schema.ResourceData, provider interface{})
 		return fmt.Errorf("cannot find server '%s'", serverID)
 	}
 
-	// TODO: Remove backup clients (if any).
-
-	log.Printf("Disable backup for server '%s'.", serverID)
-
 	backupDetails, err := apiClient.GetServerBackupDetails(serverID)
 	if err != nil {
 		return err
@@ -368,6 +341,16 @@ func resourceServerBackupDelete(data *schema.ResourceData, provider interface{})
 
 		return nil
 	}
+
+	log.Printf("Remove backup clients (if any) for server '%s'.", serverID)
+
+	backupClientsToRemove := models.NewServerBackupClientsFromBackupClientDetails(backupDetails.Clients)
+	err = deleteBackupClients(server, backupClientsToRemove, data, providerState)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Disable backup for server '%s'.", serverID)
 
 	operationDescription := fmt.Sprintf("Disable backup for server '%s'.", server.Name)
 	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
@@ -382,6 +365,195 @@ func resourceServerBackupDelete(data *schema.ResourceData, provider interface{})
 	})
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func createBackupClients(server *compute.Server, backupClients models.ServerBackupClients, data *schema.ResourceData, providerState *providerState) error {
+	if len(backupClients) == 0 {
+		return nil
+	}
+
+	propertyHelper := propertyHelper(data)
+	apiClient := providerState.Client()
+
+	log.Printf("Add %d backup clients to server '%s'.", len(backupClients), server.ID)
+
+	for index := range backupClients {
+		addBackupClient := backupClients[index]
+
+		log.Printf("Adding '%s' backup client to server '%s'...", addBackupClient.Type, server.ID)
+
+		var backupClientID string
+		operationDescription := fmt.Sprintf("Add '%s' backup client to server '%s'.", addBackupClient.Type, server.Name)
+		err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+			defer asyncLock.Release()
+
+			var addClientError error
+			backupClientID, _, addClientError = apiClient.AddServerBackupClient(server.ID, addBackupClient.Type, addBackupClient.SchedulePolicyName, addBackupClient.StoragePolicyName, nil /* TODO: Add alerting configuration */)
+			if addClientError != nil {
+				if compute.IsResourceBusyError(addClientError) {
+					context.Retry()
+				} else {
+					context.Fail(addClientError)
+				}
+			}
+		})
+		if err != nil {
+			return errors.Wrapf(err, "failed to add '%s' backup client to server '%s'", addBackupClient.Type, server.ID)
+		}
+
+		_, err = apiClient.WaitForServerBackupStatus(server.ID, "add backup client", compute.ResourceStatusNormal, resourceCreateTimeoutServerBackup)
+		if err != nil {
+			return errors.Wrapf(err, "timed out waiting to add '%s' backup client for server '%s'", addBackupClient.ID, server.ID)
+		}
+
+		backupDetails, err := apiClient.GetServerBackupDetails(server.ID)
+		if err != nil {
+			return err
+		}
+		if backupDetails == nil {
+			return fmt.Errorf("cannot find backup details for server '%s'", server.ID)
+		}
+
+		// Persist
+		propertyHelper.SetServerBackupClients(
+			models.NewServerBackupClientsFromBackupClientDetails(backupDetails.Clients),
+		)
+	}
+
+	return nil
+}
+
+func updateBackupClients(server *compute.Server, backupClients models.ServerBackupClients, data *schema.ResourceData, providerState *providerState) error {
+	if len(backupClients) == 0 {
+		return nil
+	}
+
+	propertyHelper := propertyHelper(data)
+	apiClient := providerState.Client()
+
+	log.Printf("Update %d backup clients for server '%s'.", len(backupClients), server.ID)
+
+	for index := range backupClients {
+		backupClient := backupClients[index]
+
+		log.Printf("Modifying '%s' backup client of server '%s'...", backupClient.Type, server.ID)
+
+		operationDescription := fmt.Sprintf("Modify backup client '%s' of server '%s'.", backupClient.ID, server.Name)
+		err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+			defer asyncLock.Release()
+
+			var changeClientError error
+			_, changeClientError = apiClient.ModifyServerBackupClient(server.ID, backupClient.ID,
+				backupClient.SchedulePolicyName,
+				backupClient.StoragePolicyName,
+				nil, /* TODO: Add alerting configuration */
+			)
+			if changeClientError != nil {
+				if compute.IsResourceBusyError(changeClientError) {
+					context.Retry()
+				} else {
+					context.Fail(changeClientError)
+				}
+			}
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = apiClient.WaitForServerBackupStatus(server.ID, "modify backup client", compute.ResourceStatusNormal, resourceCreateTimeoutServerBackup)
+		if err != nil {
+			return errors.Wrapf(err, "timed out waiting to modify backup client '%s' of server '%s'", backupClient.ID, server.ID)
+		}
+
+		backupDetails, err := apiClient.GetServerBackupDetails(server.ID)
+		if err != nil {
+			return err
+		}
+		if backupDetails == nil {
+			return fmt.Errorf("cannot find backup details for server '%s'", server.ID)
+		}
+
+		// Persist
+		propertyHelper.SetServerBackupClients(
+			models.NewServerBackupClientsFromBackupClientDetails(backupDetails.Clients),
+		)
+	}
+
+	return nil
+}
+
+func deleteBackupClients(server *compute.Server, backupClients models.ServerBackupClients, data *schema.ResourceData, providerState *providerState) error {
+	if len(backupClients) == 0 {
+		return nil
+	}
+
+	propertyHelper := propertyHelper(data)
+	apiClient := providerState.Client()
+
+	log.Printf("Remove %d backup clients from server '%s'.", len(backupClients), server.ID)
+
+	for index := range backupClients {
+		backupClient := backupClients[index]
+
+		log.Printf("Removing '%s' backup client '%s' from server '%s'...", backupClient.Type, backupClient.ID, server.ID)
+
+		operationDescription := fmt.Sprintf("Remove '%s' backup client '%s' from server '%s'.", backupClient.Type, backupClient.ID, server.Name)
+		err := providerState.RetryAction(operationDescription, func(context retry.Context) {
+			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
+			defer asyncLock.Release()
+
+			log.Printf("Attempting to cancel all outstanding jobs for '%s' backup client '%s' of server '%s'...", backupClient.Type, backupClient.ID, server.ID)
+			cancelJobsError := apiClient.CancelBackupClientJobs(server.ID, backupClient.ID)
+			if cancelJobsError != nil {
+				if compute.IsAPIErrorCode(cancelJobsError, compute.ResultCodeBackupClientNotFound) {
+					// Client has never actually been installed on the target server; it's safe to remove it.
+				} else {
+					if compute.IsResourceBusyError(cancelJobsError) {
+						context.Retry()
+					} else {
+						context.Fail(cancelJobsError)
+					}
+
+					return
+				}
+			}
+
+			log.Printf("Attempting to remove '%s' backup client '%s' from server '%s'...", backupClient.Type, backupClient.ID, server.ID)
+			removeClientError := apiClient.RemoveServerBackupClient(server.ID, backupClient.ID)
+			if removeClientError != nil {
+				if compute.IsResourceBusyError(removeClientError) {
+					context.Retry()
+				} else {
+					context.Fail(removeClientError)
+				}
+			}
+		})
+		if err != nil {
+			return err
+		}
+
+		_, err = apiClient.WaitForServerBackupStatus(server.ID, "remove backup client", compute.ResourceStatusNormal, resourceCreateTimeoutServerBackup)
+		if err != nil {
+			return errors.Wrapf(err, "timed out waiting to remove '%s' backup client '%s' of server '%s'", backupClient.Type, backupClient.ID, server.ID)
+		}
+
+		backupDetails, err := apiClient.GetServerBackupDetails(server.ID)
+		if err != nil {
+			return err
+		}
+		if backupDetails == nil {
+			return fmt.Errorf("cannot find backup details for server '%s'", server.ID)
+		}
+
+		// Persist
+		propertyHelper.SetServerBackupClients(
+			models.NewServerBackupClientsFromBackupClientDetails(backupDetails.Clients),
+		)
 	}
 
 	return nil
