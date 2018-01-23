@@ -58,7 +58,8 @@ func resourceServerBackup() *schema.Resource {
 				Description: "The server's Cloud Backup asset Id",
 			},
 			resourceKeyServerBackupClients: &schema.Schema{
-				Type: schema.TypeList,
+				Type:     schema.TypeList,
+				Optional: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
 						resourceKeyServerBackupClientID: &schema.Schema{
@@ -106,12 +107,15 @@ func resourceServerBackup() *schema.Resource {
 									resourceKeyServerBackupClientAlertEmails: &schema.Schema{
 										Type:        schema.TypeList,
 										Optional:    true,
-										Default:     "",
-										Description: "If alerts are enabled, one of 'ON_FAILURE', 'ON_SUCCESS', 'ON_SUCCESS_OR_FAILURE'",
+										MinItems:    1,
+										Description: "If alerts are enabled, the email address to which alerts will be sent",
+										Elem: &schema.Schema{
+											Type: schema.TypeString,
+										},
 									},
 								},
 							},
-							Description: "If alerts are enabled, one of 'ON_FAILURE', 'ON_SUCCESS', 'ON_SUCCESS_OR_FAILURE'",
+							Description: "Backup alerting configuration",
 						},
 					},
 				},
