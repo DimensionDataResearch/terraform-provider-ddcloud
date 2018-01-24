@@ -15,6 +15,7 @@ The `ddcloud` provider supports the following resource types:
 * [ddcloud_server](resource_types/server.md) - A CloudControl Server (virtual machine).
 * [ddcloud_storage_controller](resource_types/storage_controller.md) - A SCSI controller in a CloudControl Server.
 * [ddcloud_network_adapter](resource_types/network_adapter.md) - An additional network adapter for a CloudControl Server.
+* [ddcloud_server_backup](resource_types/server_backup.md) - Backup configuration for a CloudControl Server.
 * [ddcloud_server_anti_affinity](resource_types/server_anti_affinity.md) - Anti-affinity rule for 2 CloudControl Servers (virtual machines).
 * [ddcloud_nat](resource_types/nat.md) - A CloudControl Network Address Translation (NAT) rule.
 * [ddcloud_firewall_rule](resource_types/firewall_rule.md) - A CloudControl firewall rule.

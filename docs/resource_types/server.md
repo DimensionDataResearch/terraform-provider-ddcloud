@@ -98,7 +98,6 @@ Available Options include.
   * `shutdown` - Graceful Shutdown of the server.
   * `shutdown-server` - Hard shutdown of the server.
   * `disabled` - (Default) Ignore this argument.
-
 * `tag` - (Optional) A set of tags to apply to the server.
     * `name` - (Required) The tag name. **Note**: The tag name must already be defined for your organisation.
     * `value` - (Required) The tag value.
@@ -110,8 +109,13 @@ Available Options include.
 * `primary_adapter_ipv4` - The IPv4 address of the server's primary network adapter.
 * `primary_adapter_ipv6` - The IPv6 address of the server's primary network adapter.
 * `primary_adapter_vlan` - The Id of the VLAN to which the server's primary network adapter is attached. Calculated if `primary_adapter_ipv4` is specified.
-* `public_ipv4` - The server's public IPv4 address (if any). Calculated if there is a NAT rule that points to any of the server's private IPv4 addresses. **Note**: Due to an incompatibility between the CloudControl resource model and Terraform life-cycle model, this attribute is only available after a subsequent refresh (not when the server is first deployed).
-* `started` - The start state of the server. Always calulated. Returns true if server is started
+* `public_ipv4` - The server's public IPv4 address (if any). Calculated if there is a NAT rule that points to any of the server's private IPv4 addresses.  
+  **Note**: Due to an incompatibility between the CloudControl resource model and Terraform life-cycle model, this attribute is only available after a subsequent refresh (not when the server is first deployed).
+* `started` - Is the server running?
+* `backup_enabled` - Is Cloud Backup enabled for the server?
+* `backup_client_urls` - A map containing download URLs for the server's backup clients (if any), keyed by client type.  
+  The `.` character in the client type will be replaced with `_` (because `.` confuses Terraform when used as a map key).  
+  **Note**: Due to an incompatibility between the CloudControl resource model and Terraform life-cycle model, this attribute is only available after a subsequent refresh (not when the server is first deployed).
 
 ## Import
 
