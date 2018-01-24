@@ -386,18 +386,23 @@ func createBackupClients(server *compute.Server, backupClients models.ServerBack
 	log.Printf("Add %d backup clients to server '%s'.", len(backupClients), server.ID)
 
 	for index := range backupClients {
-		addBackupClient := backupClients[index]
+		backupClient := backupClients[index]
 
-		log.Printf("Adding '%s' backup client to server '%s'...", addBackupClient.Type, server.ID)
+		log.Printf("Adding '%s' backup client to server '%s'...", backupClient.Type, server.ID)
+
+		var backupClientAlerting *compute.BackupClientAlerting
+		if backupClient.Alerting != nil {
+			backupClientAlerting = backupClient.ToBackupClientDetail().Alerting
+		}
 
 		var backupClientID string
-		operationDescription := fmt.Sprintf("Add '%s' backup client to server '%s'.", addBackupClient.Type, server.Name)
+		operationDescription := fmt.Sprintf("Add '%s' backup client to server '%s'.", backupClient.Type, server.Name)
 		err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 			defer asyncLock.Release()
 
 			var addClientError error
-			backupClientID, _, addClientError = apiClient.AddServerBackupClient(server.ID, addBackupClient.Type, addBackupClient.SchedulePolicyName, addBackupClient.StoragePolicyName, nil /* TODO: Add alerting configuration */)
+			backupClientID, _, addClientError = apiClient.AddServerBackupClient(server.ID, backupClient.Type, backupClient.SchedulePolicyName, backupClient.StoragePolicyName, backupClientAlerting)
 			if addClientError != nil {
 				if compute.IsResourceBusyError(addClientError) {
 					context.Retry()
@@ -407,12 +412,12 @@ func createBackupClients(server *compute.Server, backupClients models.ServerBack
 			}
 		})
 		if err != nil {
-			return errors.Wrapf(err, "failed to add '%s' backup client to server '%s'", addBackupClient.Type, server.ID)
+			return errors.Wrapf(err, "failed to add '%s' backup client to server '%s'", backupClient.Type, server.ID)
 		}
 
 		_, err = apiClient.WaitForServerBackupStatus(server.ID, "add backup client", compute.ResourceStatusNormal, resourceCreateTimeoutServerBackup)
 		if err != nil {
-			return errors.Wrapf(err, "timed out waiting to add '%s' backup client for server '%s'", addBackupClient.ID, server.ID)
+			return errors.Wrapf(err, "timed out waiting to add '%s' backup client for server '%s'", backupClient.ID, server.ID)
 		}
 
 		backupDetails, err := apiClient.GetServerBackupDetails(server.ID)
@@ -447,6 +452,11 @@ func updateBackupClients(server *compute.Server, backupClients models.ServerBack
 
 		log.Printf("Modifying '%s' backup client of server '%s'...", backupClient.Type, server.ID)
 
+		var backupClientAlerting *compute.BackupClientAlerting
+		if backupClient.Alerting != nil {
+			backupClientAlerting = backupClient.ToBackupClientDetail().Alerting
+		}
+
 		operationDescription := fmt.Sprintf("Modify backup client '%s' of server '%s'.", backupClient.ID, server.Name)
 		err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
@@ -456,7 +466,7 @@ func updateBackupClients(server *compute.Server, backupClients models.ServerBack
 			_, changeClientError = apiClient.ModifyServerBackupClient(server.ID, backupClient.ID,
 				backupClient.SchedulePolicyName,
 				backupClient.StoragePolicyName,
-				nil, /* TODO: Add alerting configuration */
+				backupClientAlerting,
 			)
 			if changeClientError != nil {
 				if compute.IsResourceBusyError(changeClientError) {

@@ -30,7 +30,6 @@ The following arguments are supported:
   * `schedule_policy` - (Required) The name of the schedule policy to use (e.g. `6AM - 12PM`).
   * `storage_policy` - (Required) The name of the storage policy to use (e.g. `14 Day Storage Policy`).
   * `alert` - (Optional) The client's alerting configuration.  
-    **Note**: Configuring of alerts for each backup client is not supported yet.
     * `trigger` - (Required) The trigger for backup client alerts.  
       Must be one of `ON_FAILURE`, `ON_SUCCESS`, or `ON_SUCCESS_OR_FAILURE`.
     * `emails` - (Required) A list of one or more email addresses that alerts will be sent to.

@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
@@ -114,9 +115,22 @@ func (clients ServerBackupClients) SplitByAction(actualServerBackupClients Serve
 
 		if ok {
 			// Existing client.
-			if configuredServerBackupClient.SchedulePolicyName != actualServerBackupClient.SchedulePolicyName {
-				changeServerBackupClients = append(changeServerBackupClients, configuredServerBackupClient)
-			} else if configuredServerBackupClient.StoragePolicyName != actualServerBackupClient.StoragePolicyName {
+			var changed bool
+
+			changed = changed || configuredServerBackupClient.SchedulePolicyName != actualServerBackupClient.SchedulePolicyName
+			changed = changed || configuredServerBackupClient.StoragePolicyName != actualServerBackupClient.StoragePolicyName
+
+			if configuredServerBackupClient.Alerting != nil && actualServerBackupClient.Alerting != nil {
+				// Cheaty string comparison.
+				configuredAlerting := fmt.Sprintf("%#v", *configuredServerBackupClient.Alerting)
+				actualAlerting := fmt.Sprintf("%#v", *actualServerBackupClient.Alerting)
+
+				changed = changed || configuredAlerting != actualAlerting
+			} else {
+				changed = changed || configuredServerBackupClient.Alerting != actualServerBackupClient.Alerting
+			}
+
+			if changed {
 				changeServerBackupClients = append(changeServerBackupClients, configuredServerBackupClient)
 			}
 		} else {
