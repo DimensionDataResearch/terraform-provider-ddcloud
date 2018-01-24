@@ -15,27 +15,29 @@ import (
 )
 
 const (
-	resourceKeyServerName                 = "name"
-	resourceKeyServerDescription          = "description"
-	resourceKeyServerAdminPassword        = "admin_password"
-	resourceKeyServerImage                = "image"
-	resourceKeyServerImageType            = "image_type"
-	resourceKeyServerOSType               = "os_type"
-	resourceKeyServerOSFamily             = "os_family"
-	resourceKeyServerNetworkDomainID      = "networkdomain"
-	resourceKeyServerMemoryGB             = "memory_gb"
-	resourceKeyServerCPUCount             = "cpu_count"
-	resourceKeyServerCPUCoreCount         = "cores_per_cpu"
-	resourceKeyServerCPUSpeed             = "cpu_speed"
-	resourceKeyServerPrimaryAdapterVLAN   = "primary_adapter_vlan"
-	resourceKeyServerPrimaryAdapterIPv4   = "primary_adapter_ipv4"
-	resourceKeyServerPrimaryAdapterIPv6   = "primary_adapter_ipv6"
-	resourceKeyServerPublicIPv4           = "public_ipv4"
-	resourceKeyServerPrimaryDNS           = "dns_primary"
-	resourceKeyServerSecondaryDNS         = "dns_secondary"
-	resourceKeyServerPowerState           = "power_state"
-	resourceKeyServerGuestOSCustomization = "guest_os_customization"
-	resourceKeyServerStarted              = "started"
+	resourceKeyServerName                     = "name"
+	resourceKeyServerDescription              = "description"
+	resourceKeyServerAdminPassword            = "admin_password"
+	resourceKeyServerImage                    = "image"
+	resourceKeyServerImageType                = "image_type"
+	resourceKeyServerOSType                   = "os_type"
+	resourceKeyServerOSFamily                 = "os_family"
+	resourceKeyServerNetworkDomainID          = "networkdomain"
+	resourceKeyServerMemoryGB                 = "memory_gb"
+	resourceKeyServerCPUCount                 = "cpu_count"
+	resourceKeyServerCPUCoreCount             = "cores_per_cpu"
+	resourceKeyServerCPUSpeed                 = "cpu_speed"
+	resourceKeyServerPrimaryAdapterVLAN       = "primary_adapter_vlan"
+	resourceKeyServerPrimaryAdapterIPv4       = "primary_adapter_ipv4"
+	resourceKeyServerPrimaryAdapterIPv6       = "primary_adapter_ipv6"
+	resourceKeyServerPublicIPv4               = "public_ipv4"
+	resourceKeyServerPrimaryDNS               = "dns_primary"
+	resourceKeyServerSecondaryDNS             = "dns_secondary"
+	resourceKeyServerPowerState               = "power_state"
+	resourceKeyServerGuestOSCustomization     = "guest_os_customization"
+	resourceKeyServerStarted                  = "started"
+	resourceKeyServerBackupEnabled            = "backup_enabled"
+	resourceKeyServerBackupClientDownloadURLs = "backup_client_urls"
 
 	// Obsolete properties
 	resourceKeyServerOSImageID          = "os_image_id"
@@ -203,11 +205,22 @@ func resourceServer() *schema.Resource {
 
 			resourceKeyServerStarted: &schema.Schema{
 				Type:        schema.TypeBool,
-				Description: "The started state of the server. This is computed and returned",
+				Description: "Is the server currently running",
 				Computed:    true,
 			},
 
 			resourceKeyServerTag: schemaServerTag(),
+
+			resourceKeyServerBackupEnabled: &schema.Schema{
+				Type:        schema.TypeBool,
+				Computed:    true,
+				Description: "Is cloud backup enabled for the server",
+			},
+			resourceKeyServerBackupClientDownloadURLs: &schema.Schema{
+				Type:        schema.TypeMap,
+				Computed:    true,
+				Description: "Download URLs for the server's backup clients (if any)",
+			},
 
 			// Obsolete properties
 			resourceKeyServerPrimaryAdapterType: &schema.Schema{
@@ -360,7 +373,7 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 		data.Set(resourceKeyServerStarted, false)
 	}
 
-	return nil
+	return readServerBackupClientDownloadURLs(server.ID, data, apiClient)
 }
 
 // Update a server resource.
@@ -1201,6 +1214,35 @@ func serverPowerOff(providerState *providerState, serverID string) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+// Capture summary information for server backup.
+func readServerBackupClientDownloadURLs(serverID string, data *schema.ResourceData, apiClient *compute.Client) error {
+	log.Printf("Read backup details for server '%s'.", serverID)
+
+	backupDetails, err := apiClient.GetServerBackupDetails(serverID)
+	if err != nil {
+		return err
+	}
+	if backupDetails == nil {
+		log.Printf("Backup is not enabled for server '%s'.", serverID)
+
+		data.Set(resourceKeyServerBackupEnabled, false)
+		data.Set(resourceKeyServerBackupClientDownloadURLs, nil)
+
+		return nil
+	}
+
+	data.Set(resourceKeyServerBackupEnabled, true)
+
+	clientDownloadURLs := make(map[string]interface{})
+	for _, clientDetail := range backupDetails.Clients {
+		clientType := strings.Replace(clientDetail.Type, ".", "_", -1)
+		clientDownloadURLs[clientType] = clientDetail.DownloadURL
+	}
+	data.Set(resourceKeyServerBackupClientDownloadURLs, clientDownloadURLs)
 
 	return nil
 }
