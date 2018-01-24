@@ -31,6 +31,16 @@ type Reader interface {
 	//
 	// If the value does not exist, or is not an int, returns nil.
 	GetIntPtr(key string) *int
+
+	// GetMapSlice retrieves a slice of sub-maps from the underlying data.
+	//
+	// If the value does not exist, or is not a slice of maps, returns an empty slice.
+	GetMapSlice(key string) []map[string]interface{}
+
+	// GetMapSliceElement retrieves the specified element from a slice of sub-maps.
+	//
+	// If the value does not exist, or is not a slice of maps, returns nil.
+	GetMapSliceElement(key string, index int) map[string]interface{}
 }
 
 // NewReader creates a new Reader to read the values in the specified map.
