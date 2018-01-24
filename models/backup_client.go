@@ -14,6 +14,13 @@ type ServerBackupClient struct {
 	SchedulePolicyName string
 	DownloadURL        string
 	Status             string
+	Alerting           *BackupClientAlerting
+}
+
+// BackupClientAlerting represents the alerting configuration (if any) for a backup client.
+type BackupClientAlerting struct {
+	Trigger string
+	Emails  []string
 }
 
 // ReadMap populates the ServerBackupClient with values from the specified map.
@@ -26,7 +33,18 @@ func (backupClient *ServerBackupClient) ReadMap(backupClientProperties map[strin
 	backupClient.StoragePolicyName = reader.GetString("storage_policy")
 	backupClient.SchedulePolicyName = reader.GetString("schedule_policy")
 	backupClient.DownloadURL = reader.GetString("download_url")
-	backupClient.Status = reader.GetString("status")
+
+	rawAlertingProperties, ok := backupClientProperties["alert"]
+	if ok {
+		alertingProperties, ok := rawAlertingProperties.(map[string]interface{})
+		if ok {
+			alertingReader := maps.NewReader(alertingProperties)
+			backupClient.Alerting = &BackupClientAlerting{
+				Trigger: alertingReader.GetString("trigger"),
+				Emails:  alertingReader.GetStringSlice("emails"),
+			}
+		}
+	}
 }
 
 // ToMap creates a new map using the values from the ServerBackupClient.
@@ -48,6 +66,16 @@ func (backupClient *ServerBackupClient) UpdateMap(backupClientProperties map[str
 	writer.SetString("schedule_policy", backupClient.SchedulePolicyName)
 	writer.SetString("download_url", backupClient.DownloadURL)
 	writer.SetString("status", backupClient.Status)
+
+	if backupClient.Alerting != nil {
+		alertingProperties := make(map[string]interface{})
+		alertingWriter := maps.NewWriter(alertingProperties)
+
+		alertingWriter.SetString("trigger", backupClient.Alerting.Trigger)
+		alertingWriter.SetStringSlice("emails", backupClient.Alerting.Emails)
+
+		backupClientProperties["alert"] = alertingProperties
+	}
 }
 
 // ReadBackupClientDetail populates the ServerBackupClient with values from the specified BackupClientDetail.
@@ -59,6 +87,14 @@ func (backupClient *ServerBackupClient) ReadBackupClientDetail(backupClientDetai
 	backupClient.SchedulePolicyName = backupClientDetail.SchedulePolicyName
 	backupClient.DownloadURL = backupClientDetail.DownloadURL
 	backupClient.Status = backupClientDetail.Status
+	if backupClientDetail.Alerting != nil {
+		backupClient.Alerting = &BackupClientAlerting{
+			Trigger: backupClientDetail.Alerting.Trigger,
+			Emails:  backupClientDetail.Alerting.EmailAddresses, // TODO: Make a copy
+		}
+	} else {
+		backupClient.Alerting = nil
+	}
 }
 
 // ToBackupClientDetail updates a map using values from the ServerBackupClient.
@@ -78,6 +114,15 @@ func (backupClient *ServerBackupClient) UpdateBackupClientDetail(backupClientDet
 	backupClientDetail.SchedulePolicyName = backupClient.SchedulePolicyName
 	backupClientDetail.DownloadURL = backupClient.DownloadURL
 	backupClientDetail.Status = backupClient.Status
+
+	if backupClient.Alerting != nil {
+		backupClientDetail.Alerting = &compute.BackupClientAlerting{
+			Trigger:        backupClient.Alerting.Trigger,
+			EmailAddresses: backupClient.Alerting.Emails, // TODO: Make a copy
+		}
+	} else {
+		backupClientDetail.Alerting = nil
+	}
 }
 
 // NewServerBackupClientFromMap creates a ServerBackupClient from the values in the specified map.

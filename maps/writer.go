@@ -10,6 +10,9 @@ type Writer interface {
 	// SetStringPtr creates or updates a string pointer in the underlying data.
 	SetStringPtr(key string, value *string)
 
+	// SetStringSlice creates or updates a string slice in the underlying data.
+	SetStringSlice(key string, value []string)
+
 	// SetInt creates or updates an integer in the underlying data.
 	SetInt(key string, value int)
 

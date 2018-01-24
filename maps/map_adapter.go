@@ -44,6 +44,30 @@ func (reader *mapAdapter) GetStringPtr(key string) *string {
 	return nil
 }
 
+// GetStringSlice retrieves a slice of strings from the underlying data, or an empty slice if the value does not exist.
+func (reader *mapAdapter) GetStringSlice(key string) []string {
+	strings := make([]string, 0)
+
+	value, ok := reader.data[key]
+	if !ok {
+		return strings
+	}
+
+	rawSlice, ok := value.([]interface{})
+	if !ok {
+		return strings
+	}
+
+	for index := range rawSlice {
+		stringValue, ok := rawSlice[index].(string)
+		if ok {
+			strings = append(strings, stringValue)
+		}
+	}
+
+	return strings
+}
+
 // GetInt retrieves an integer from the underlying data.
 //
 // If the value does not exist, or is not an int, returns 0.
@@ -98,6 +122,16 @@ func (reader *mapAdapter) SetString(key string, value string) {
 // SetStringPtr creates or updates a string pointer in the underlying data.
 func (reader *mapAdapter) SetStringPtr(key string, value *string) {
 	reader.data[key] = value
+}
+
+// SetStringSlice creates or updates a string in the underlying data.
+func (reader *mapAdapter) SetStringSlice(key string, values []string) {
+	strings := make([]interface{}, len(values))
+	for index := range values {
+		strings[index] = values[index]
+	}
+
+	reader.data[key] = strings
 }
 
 // SetInt creates or updates an integer in the underlying data.

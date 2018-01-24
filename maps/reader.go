@@ -14,6 +14,9 @@ type Reader interface {
 	// If the value does not exist, or is not a string, returns nil.
 	GetStringPtr(key string) *string
 
+	// GetStringSlice retrieves a slice of strings from the underlying data, or an empty slice if not present.
+	GetStringSlice(key string) []string
+
 	// GetInt retrieves an integer from the underlying data.
 	//
 	// If the value does not exist, or is not an int, returns 0.
