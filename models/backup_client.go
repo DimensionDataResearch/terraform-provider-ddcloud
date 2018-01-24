@@ -34,16 +34,25 @@ func (backupClient *ServerBackupClient) ReadMap(backupClientProperties map[strin
 	backupClient.SchedulePolicyName = reader.GetString("schedule_policy")
 	backupClient.DownloadURL = reader.GetString("download_url")
 
-	rawAlertingProperties, ok := backupClientProperties["alert"]
-	if ok {
-		alertingProperties, ok := rawAlertingProperties.(map[string]interface{})
-		if ok {
-			alertingReader := maps.NewReader(alertingProperties)
-			backupClient.Alerting = &BackupClientAlerting{
-				Trigger: alertingReader.GetString("trigger"),
-				Emails:  alertingReader.GetStringSlice("emails"),
-			}
-		}
+	rawValue, ok := backupClientProperties["alert"]
+	if !ok {
+		return
+	}
+
+	rawAlertingProperties, ok := rawValue.([]interface{})
+	if !ok || len(rawAlertingProperties) == 0 {
+		return
+	}
+
+	alertingProperties, ok := rawAlertingProperties[0].(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	alertingReader := maps.NewReader(alertingProperties)
+	backupClient.Alerting = &BackupClientAlerting{
+		Trigger: alertingReader.GetString("trigger"),
+		Emails:  alertingReader.GetStringSlice("emails"),
 	}
 }
 
@@ -74,7 +83,7 @@ func (backupClient *ServerBackupClient) UpdateMap(backupClientProperties map[str
 		alertingWriter.SetString("trigger", backupClient.Alerting.Trigger)
 		alertingWriter.SetStringSlice("emails", backupClient.Alerting.Emails)
 
-		backupClientProperties["alert"] = alertingProperties
+		backupClientProperties["alert"] = []interface{}{alertingProperties}
 	}
 }
 
