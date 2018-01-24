@@ -26,6 +26,7 @@ const (
 	resourceKeyServerBackupClientStoragePolicyName  = "storage_policy"
 	resourceKeyServerBackupClientSchedulePolicyName = "schedule_policy"
 	resourceKeyServerBackupClientDownloadURL        = "download_url"
+	resourceKeyServerBackupClientStatus             = "status"
 	resourceKeyServerBackupClientAlert              = "alert"
 	resourceKeyServerBackupClientAlertTrigger       = "trigger"
 	resourceKeyServerBackupClientAlertEmails        = "emails"
@@ -86,6 +87,11 @@ func resourceServerBackup() *schema.Resource {
 							Computed:    true,
 							Description: "The backup client's download URL",
 						},
+						resourceKeyServerBackupClientStatus: &schema.Schema{
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "The backup client's current status",
+						},
 						resourceKeyServerBackupClientStoragePolicyName: &schema.Schema{
 							Type:        schema.TypeString,
 							Required:    true,
@@ -96,7 +102,6 @@ func resourceServerBackup() *schema.Resource {
 							Required:    true,
 							Description: "The name of the backup client's assigned schedule policy",
 						},
-						// TODO: Add resourceKeyServerBackupClientStatus
 						resourceKeyServerBackupClientAlert: &schema.Schema{
 							Type:     schema.TypeList,
 							Optional: true,
@@ -507,20 +512,24 @@ func deleteBackupClients(server *compute.Server, backupClients models.ServerBack
 			asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 			defer asyncLock.Release()
 
-			log.Printf("Attempting to cancel all outstanding jobs for '%s' backup client '%s' of server '%s'...", backupClient.Type, backupClient.ID, server.ID)
-			cancelJobsError := apiClient.CancelBackupClientJobs(server.ID, backupClient.ID)
-			if cancelJobsError != nil {
-				if compute.IsAPIErrorCode(cancelJobsError, compute.ResultCodeBackupClientNotFound) {
-					// Client has never actually been installed on the target server; it's safe to remove it.
-				} else {
-					if compute.IsResourceBusyError(cancelJobsError) {
-						context.Retry()
+			if backupClient.Status == compute.BackupClientStatusActive {
+				log.Printf("Attempting to cancel all outstanding jobs for '%s' backup client '%s' of server '%s'...", backupClient.Type, backupClient.ID, server.ID)
+				cancelJobsError := apiClient.CancelBackupClientJobs(server.ID, backupClient.ID)
+				if cancelJobsError != nil {
+					if compute.IsAPIErrorCode(cancelJobsError, compute.ResultCodeBackupClientNotFound) {
+						// Client has never actually been installed on the target server; it's safe to remove it.
 					} else {
-						context.Fail(cancelJobsError)
-					}
+						if compute.IsResourceBusyError(cancelJobsError) {
+							context.Retry()
+						} else {
+							context.Fail(cancelJobsError)
+						}
 
-					return
+						return
+					}
 				}
+			} else {
+				log.Printf("'%s' backup client '%s' of server '%s' is not active (current status is '%s'); will assume it's safe to remove", backupClient.Type, backupClient.ID, server.ID, backupClient.Status)
 			}
 
 			log.Printf("Attempting to remove '%s' backup client '%s' from server '%s'...", backupClient.Type, backupClient.ID, server.ID)

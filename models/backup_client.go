@@ -13,6 +13,7 @@ type ServerBackupClient struct {
 	StoragePolicyName  string
 	SchedulePolicyName string
 	DownloadURL        string
+	Status             string
 }
 
 // ReadMap populates the ServerBackupClient with values from the specified map.
@@ -25,6 +26,7 @@ func (backupClient *ServerBackupClient) ReadMap(backupClientProperties map[strin
 	backupClient.StoragePolicyName = reader.GetString("storage_policy")
 	backupClient.SchedulePolicyName = reader.GetString("schedule_policy")
 	backupClient.DownloadURL = reader.GetString("download_url")
+	backupClient.Status = reader.GetString("status")
 }
 
 // ToMap creates a new map using the values from the ServerBackupClient.
@@ -45,6 +47,7 @@ func (backupClient *ServerBackupClient) UpdateMap(backupClientProperties map[str
 	writer.SetString("storage_policy", backupClient.StoragePolicyName)
 	writer.SetString("schedule_policy", backupClient.SchedulePolicyName)
 	writer.SetString("download_url", backupClient.DownloadURL)
+	writer.SetString("status", backupClient.Status)
 }
 
 // ReadBackupClientDetail populates the ServerBackupClient with values from the specified BackupClientDetail.
@@ -55,6 +58,7 @@ func (backupClient *ServerBackupClient) ReadBackupClientDetail(backupClientDetai
 	backupClient.StoragePolicyName = backupClientDetail.StoragePolicyName
 	backupClient.SchedulePolicyName = backupClientDetail.SchedulePolicyName
 	backupClient.DownloadURL = backupClientDetail.DownloadURL
+	backupClient.Status = backupClientDetail.Status
 }
 
 // ToBackupClientDetail updates a map using values from the ServerBackupClient.
@@ -73,6 +77,7 @@ func (backupClient *ServerBackupClient) UpdateBackupClientDetail(backupClientDet
 	backupClientDetail.StoragePolicyName = backupClient.StoragePolicyName
 	backupClientDetail.SchedulePolicyName = backupClient.SchedulePolicyName
 	backupClientDetail.DownloadURL = backupClient.DownloadURL
+	backupClientDetail.Status = backupClient.Status
 }
 
 // NewServerBackupClientFromMap creates a ServerBackupClient from the values in the specified map.
