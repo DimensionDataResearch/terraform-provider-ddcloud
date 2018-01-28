@@ -1,5 +1,10 @@
 # Changes
 
+# 1.3.3-preview1
+
+* Implement `ddcloud_server_backup` resource type (DimensionDataResearch/dd-cloud-compute-terraform#26).
+* Expose downoad URLs for backup clients on computed `backup_client_urls` attribute of `ddcloud_server` resource type  (DimensionDataResearch/dd-cloud-compute-terraform#26).
+
 # 1.3.2
 
 * Expose SSL-offload profile on `ddcloud_virtual_listener` (DimensionDataResearch/dd-cloud-compute-terraform#104).
