@@ -67,4 +67,4 @@ The following arguments are supported:
 
 ## Attribute Reference
 
-There are currently no additional attributes for `ddcloud_virtual_listener`.
+* `ipv4` - The listener's IPv4 address.
