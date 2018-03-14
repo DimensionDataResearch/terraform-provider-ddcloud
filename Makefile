@@ -59,7 +59,7 @@ dist: build
 	cd $(BIN_DIRECTORY)/linux-amd64 && \
 		zip -9 ../$(DIST_ZIP_PREFIX).linux-amd64.zip $(EXECUTABLE_NAME)
 	cd $(BIN_DIRECTORY)/darwin-amd64 && \
-		zip -9 ../$(DIST_ZIP_PREFIX)-darwin-amd64.zip $(EXECUTABLE_NAME)
+		zip -9 ../$(DIST_ZIP_PREFIX).darwin-amd64.zip $(EXECUTABLE_NAME)
 
 test: fmt testprovider testmodels testmaps testcompute
 
