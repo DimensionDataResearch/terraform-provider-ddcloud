@@ -1,5 +1,12 @@
 # Changes
 
+# 1.3.3
+
+* Bug-fix: `ssl_offload_profile` property is not being persisted by `ddcloud_virtual_listener` (DimensionDataResearch/dd-cloud-compute-terraform#110).
+* Use v2.6 API for ddcloud_virtual_listener.
+* Ignore changes to `private_key` property of `ddcloud_ssl_domain_certificate`.  
+  This is required because the private key is not persisted in state data.
+
 # 1.3.2
 
 * Expose SSL-offload profile on `ddcloud_virtual_listener` (DimensionDataResearch/dd-cloud-compute-terraform#104).
