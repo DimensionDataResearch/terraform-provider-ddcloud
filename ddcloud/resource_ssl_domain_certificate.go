@@ -59,6 +59,9 @@ func resourceSSLDomainCertificate() *schema.Resource {
 				Required:    true,
 				Sensitive:   true,
 				Description: "The certificate's private key (in PEM format).",
+				DiffSuppressFunc: func(key string, oldValue string, newValue string, data *schema.ResourceData) bool {
+					return true // Key is not persisted, so we always act like there's no difference
+				},
 			},
 		},
 	}
