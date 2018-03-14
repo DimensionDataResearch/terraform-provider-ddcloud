@@ -64,13 +64,11 @@ func TestAccVirtualListenerBasicCreate(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudVirtualListenerExists("acc_test_listener", true),
 					testCheckDDCloudVirtualListenerMatches("acc_test_listener", compute.VirtualListener{
-						Name:              "AccTestListener",
-						Protocol:          compute.VirtualListenerStandardProtocolHTTP,
-						ListenerIPAddress: "192.168.18.10",
-						Enabled:           true,
-						OptimizationProfiles: []string{
-							"TCP",
-						},
+						Name:                "AccTestListener",
+						Protocol:            compute.VirtualListenerStandardProtocolHTTP,
+						ListenerIPAddress:   "192.168.18.10",
+						Enabled:             true,
+						OptimizationProfile: "TCP",
 					}),
 				),
 			},
@@ -98,13 +96,11 @@ func TestAccVirtualListenerBasicUpdateDisable(t *testing.T) {
 		InitialCheck: resource.ComposeTestCheckFunc(
 			testCheckDDCloudVirtualListenerExists("acc_test_listener", true),
 			testCheckDDCloudVirtualListenerMatches("acc_test_listener", compute.VirtualListener{
-				Name:              "AccTestListener",
-				Protocol:          compute.VirtualListenerStandardProtocolHTTP,
-				ListenerIPAddress: "192.168.18.10",
-				Enabled:           true,
-				OptimizationProfiles: []string{
-					"TCP",
-				},
+				Name:                "AccTestListener",
+				Protocol:            compute.VirtualListenerStandardProtocolHTTP,
+				ListenerIPAddress:   "192.168.18.10",
+				Enabled:             true,
+				OptimizationProfile: "TCP",
 			}),
 		),
 
@@ -117,13 +113,11 @@ func TestAccVirtualListenerBasicUpdateDisable(t *testing.T) {
 		UpdateCheck: resource.ComposeTestCheckFunc(
 			testCheckDDCloudVirtualListenerExists("acc_test_listener", true),
 			testCheckDDCloudVirtualListenerMatches("acc_test_listener", compute.VirtualListener{
-				Name:              "AccTestListener",
-				Protocol:          compute.VirtualListenerStandardProtocolHTTP,
-				ListenerIPAddress: "192.168.18.10",
-				Enabled:           false,
-				OptimizationProfiles: []string{
-					"TCP",
-				},
+				Name:                "AccTestListener",
+				Protocol:            compute.VirtualListenerStandardProtocolHTTP,
+				ListenerIPAddress:   "192.168.18.10",
+				Enabled:             false,
+				OptimizationProfile: "TCP",
 			}),
 		),
 	})
@@ -149,13 +143,11 @@ func TestAccVirtualListenerBasicUpdateName(t *testing.T) {
 		InitialCheck: resource.ComposeTestCheckFunc(
 			testCheckDDCloudVirtualListenerExists("acc_test_listener", true),
 			testCheckDDCloudVirtualListenerMatches("acc_test_listener", compute.VirtualListener{
-				Name:              "AccTestListener",
-				Protocol:          compute.VirtualListenerStandardProtocolHTTP,
-				ListenerIPAddress: "192.168.18.10",
-				Enabled:           true,
-				OptimizationProfiles: []string{
-					"TCP",
-				},
+				Name:                "AccTestListener",
+				Protocol:            compute.VirtualListenerStandardProtocolHTTP,
+				ListenerIPAddress:   "192.168.18.10",
+				Enabled:             true,
+				OptimizationProfile: "TCP",
 			}),
 		),
 
@@ -168,13 +160,11 @@ func TestAccVirtualListenerBasicUpdateName(t *testing.T) {
 		UpdateCheck: resource.ComposeTestCheckFunc(
 			testCheckDDCloudVirtualListenerExists("acc_test_listener", true),
 			testCheckDDCloudVirtualListenerMatches("acc_test_listener", compute.VirtualListener{
-				Name:              "AccTestListener1",
-				Protocol:          compute.VirtualListenerStandardProtocolHTTP,
-				ListenerIPAddress: "192.168.18.10",
-				Enabled:           true,
-				OptimizationProfiles: []string{
-					"TCP",
-				},
+				Name:                "AccTestListener1",
+				Protocol:            compute.VirtualListenerStandardProtocolHTTP,
+				ListenerIPAddress:   "192.168.18.10",
+				Enabled:             true,
+				OptimizationProfile: "TCP",
 			}),
 		),
 	})
