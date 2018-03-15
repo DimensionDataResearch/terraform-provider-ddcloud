@@ -1,5 +1,10 @@
 # Changes
 
+# 1.3.4
+
+* Persist private key for `ddcloud_ssl_domain_certificate` in state data.  
+  Otherwise, Terraform either supplies an incorrect value to the provider (which causes creation to fail) or always sees the key as having changed (which causes a destroy-and-recreate of the resource).
+
 # 1.3.3
 
 * Bug-fix: `ssl_offload_profile` property is not being persisted by `ddcloud_virtual_listener` (DimensionDataResearch/dd-cloud-compute-terraform#110).

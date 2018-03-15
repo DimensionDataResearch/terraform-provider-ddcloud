@@ -59,9 +59,6 @@ func resourceSSLDomainCertificate() *schema.Resource {
 				Required:    true,
 				Sensitive:   true,
 				Description: "The certificate's private key (in PEM format).",
-				DiffSuppressFunc: func(key string, oldValue string, newValue string, data *schema.ResourceData) bool {
-					return true // Key is not persisted, so we always act like there's no difference
-				},
 			},
 		},
 	}
@@ -96,9 +93,6 @@ func resourceSSLDomainCertificateCreate(data *schema.ResourceData, provider inte
 	description := data.Get(resourceKeySSLDomainCertificateDescription).(string)
 	certificatePEM := data.Get(resourceKeySSLDomainCertificateCertificate).(string)
 	privateKeyPEM := data.Get(resourceKeySSLDomainCertificatePrivateKey).(string)
-
-	// Don't persist the private key in the state file.
-	data.Set(resourceKeySSLDomainCertificatePrivateKey, "")
 
 	log.Printf("Create SSL domain certificate '%s' in network domain '%s'.", name, networkDomainID)
 
