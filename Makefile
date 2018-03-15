@@ -1,6 +1,6 @@
 PROVIDER_NAME = ddcloud
 
-VERSION = 1.3.3-preview1
+VERSION = 1.3.4-alpha1
 VERSION_INFO_FILE = ./$(PROVIDER_NAME)/version-info.go
 
 BIN_DIRECTORY   = _bin
@@ -59,7 +59,7 @@ dist: build
 	cd $(BIN_DIRECTORY)/linux-amd64 && \
 		zip -9 ../$(DIST_ZIP_PREFIX).linux-amd64.zip $(EXECUTABLE_NAME)
 	cd $(BIN_DIRECTORY)/darwin-amd64 && \
-		zip -9 ../$(DIST_ZIP_PREFIX)-darwin-amd64.zip $(EXECUTABLE_NAME)
+		zip -9 ../$(DIST_ZIP_PREFIX).darwin-amd64.zip $(EXECUTABLE_NAME)
 
 test: fmt testprovider testmodels testmaps testcompute
 

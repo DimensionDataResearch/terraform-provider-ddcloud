@@ -24,7 +24,7 @@ const (
 	resourceKeyVirtualListenerPersistenceProfileName = "persistence_profile"
 	resourceKeyVirtualListenerSSLOffloadProfileID    = "ssl_offload_profile"
 	resourceKeyVirtualListenerIRuleNames             = "irules"
-	resourceKeyVirtualListenerOptimizationProfiles   = "optimization_profiles"
+	resourceKeyVirtualListenerOptimizationProfile    = "optimization_profile"
 	resourceKeyVirtualListenerNetworkDomainID        = "networkdomain"
 )
 
@@ -154,18 +154,10 @@ func resourceVirtualListener() *schema.Resource {
 					return schema.HashString(iRuleID)
 				},
 			},
-			resourceKeyVirtualListenerOptimizationProfiles: &schema.Schema{
-				Type:     schema.TypeSet,
+			resourceKeyVirtualListenerOptimizationProfile: &schema.Schema{
+				Type:     schema.TypeString,
 				Optional: true,
 				Default:  nil,
-				Elem: &schema.Schema{
-					Type: schema.TypeString,
-				},
-				Set: func(item interface{}) int {
-					optimizationProfile := item.(string)
-
-					return schema.HashString(optimizationProfile)
-				},
 			},
 			resourceKeyVirtualListenerNetworkDomainID: &schema.Schema{
 				Type:     schema.TypeString,
@@ -227,7 +219,7 @@ func resourceVirtualListenerCreate(data *schema.ResourceData, provider interface
 			PersistenceProfileID:   persistenceProfileID,
 			SSLOffloadProfileID:    propertyHelper.GetOptionalString(resourceKeyVirtualListenerSSLOffloadProfileID, false),
 			IRuleIDs:               iRuleIDs,
-			OptimizationProfiles:   propertyHelper.GetStringSetItems(resourceKeyVirtualListenerOptimizationProfiles),
+			OptimizationProfile:    propertyHelper.GetOptionalString(resourceKeyVirtualListenerOptimizationProfile, false),
 			NetworkDomainID:        networkDomainID,
 		})
 		if err != nil {
@@ -338,13 +330,10 @@ func resourceVirtualListenerUpdate(data *schema.ResourceData, provider interface
 	configuration := &compute.EditVirtualListenerConfiguration{}
 
 	propertyHelper := propertyHelper(data)
-	if data.HasChange(resourceKeyVirtualListenerDescription) {
-		configuration.Description = propertyHelper.GetOptionalString(resourceKeyVirtualListenerDescription, true)
-	}
 
-	if data.HasChange(resourceKeyVirtualListenerEnabled) {
-		configuration.Enabled = propertyHelper.GetOptionalBool(resourceKeyVirtualListenerEnabled)
-	}
+	// Effectively, these properties must always be supplied.
+	configuration.Description = propertyHelper.GetOptionalString(resourceKeyVirtualListenerDescription, true)
+	configuration.Enabled = propertyHelper.GetOptionalBool(resourceKeyVirtualListenerEnabled)
 
 	if data.HasChange(resourceKeyVirtualListenerConnectionLimit) {
 		configuration.ConnectionLimit = propertyHelper.GetOptionalInt(resourceKeyVirtualListenerConnectionLimit, false)

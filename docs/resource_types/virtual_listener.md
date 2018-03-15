@@ -11,8 +11,9 @@ VIP Pools are only supported in Network Domains on the `ADVANCED` plan.
 ```
 resource "ddcloud_virtual_listener" "test_virtual_listener" {
 	name                 	= "my_terraform_listener"
+	type									= "STANDARD"
 	protocol             	= "HTTP"
-	optimization_profiles 	= ["TCP"]
+	optimization_profile 	= "TCP"
 	pool                 	= "${ddcloud_vip_pool.test_pool.id}"
 	ipv4                	= "192.168.18.10"
 
@@ -59,9 +60,11 @@ The following arguments are supported:
 * `source_port_preservation` (Optional) - Preserve source port information (if possible)?
 * `persistence_profile` (Optional) - The name of the persistence profile (if any) to use.
 * `irules`
-* `optimization_profiles`
+* `optimization_profile` (Optional) - The listener optimisation profile.  
+  Required if `type` is `STANDARD` and `protocol` is `TCP`.  
+	See the CloudControl documentation for further information.
 * `networkdomain` - (Required) The Id of the network domain in which the VIP pool is created.
 
 ## Attribute Reference
 
-There are currently no additional attributes for `ddcloud_virtual_listener`.
+* `ipv4` - The listener's IPv4 address.
