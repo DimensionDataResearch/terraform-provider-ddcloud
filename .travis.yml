@@ -13,7 +13,7 @@ install:
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform
   - pushd $GOPATH/src/github.com/hashicorp/terraform
-  - git checkout v0.9.11
+  - git checkout v0.11.1
   - popd
 
 deploy:

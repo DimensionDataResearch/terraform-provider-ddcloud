@@ -61,7 +61,7 @@ The following arguments are supported:
 * `persistence_profile` (Optional) - The name of the persistence profile (if any) to use.
 * `irules`
 * `optimization_profile` (Optional) - The listener optimisation profile.  
-  Required if `type` is `STANDARD` and `protocol` is `TCP`.  
+  Required if `type` is `STANDARD` and `protocol` is `TCP` or `HTTP`.  
 	See the CloudControl documentation for further information.
 * `networkdomain` - (Required) The Id of the network domain in which the VIP pool is created.
 

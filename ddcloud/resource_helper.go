@@ -381,6 +381,29 @@ func (helper resourcePropertyHelper) SetDisks(disks models.Disks) {
 	helper.data.Set(resourceKeyServerDisk, diskProperties)
 }
 
+func (helper resourcePropertyHelper) GetServerBackupClients() (backupClients models.ServerBackupClients) {
+	value, ok := helper.data.GetOk(resourceKeyServerBackupClients)
+	if !ok {
+		return
+	}
+	serverBackupClients, ok := value.([]interface{})
+	if !ok {
+		return
+	}
+
+	backupClients = models.NewServerBackupClientsFromStateData(serverBackupClients)
+
+	return
+}
+
+func (helper resourcePropertyHelper) SetServerBackupClients(serverBackupClients models.ServerBackupClients) {
+	serverBackupClientProperties := make([]interface{}, len(serverBackupClients))
+	for index, serverBackupClient := range serverBackupClients {
+		serverBackupClientProperties[index] = serverBackupClient.ToMap()
+	}
+	helper.data.Set(resourceKeyServerBackupClients, serverBackupClientProperties)
+}
+
 func (helper resourcePropertyHelper) GetServerNetworkAdapters() (networkAdapters models.NetworkAdapters) {
 	// Primary network adapter.
 	value, ok := helper.data.GetOk(resourceKeyServerPrimaryNetworkAdapter)
