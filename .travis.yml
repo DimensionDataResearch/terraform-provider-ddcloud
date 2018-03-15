@@ -5,15 +5,15 @@ go:
 
 branches:
   only:
-    - master
     - /^development\/v.*$/
+    - /^release\/v.*$/
 
 install:
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform
   - pushd $GOPATH/src/github.com/hashicorp/terraform
-  - git checkout v0.11.1
+  - git checkout v0.11.4
   - popd
 
 deploy:
