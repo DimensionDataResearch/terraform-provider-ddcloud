@@ -1,5 +1,10 @@
 # Changes
 
+# 1.3.4
+
+* Implement `ddcloud_server_backup` resource type (DimensionDataResearch/dd-cloud-compute-terraform#26).
+* Expose downoad URLs for backup clients on computed `backup_client_urls` attribute of `ddcloud_server` resource type  (DimensionDataResearch/dd-cloud-compute-terraform#26).
+
 # 1.3.4-preview1
 
 * Persist private key for `ddcloud_ssl_domain_certificate` in state data.  
