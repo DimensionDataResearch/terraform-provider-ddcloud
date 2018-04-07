@@ -61,25 +61,25 @@ dist: build
 	cd $(BIN_DIRECTORY)/darwin-amd64 && \
 		zip -9 ../$(DIST_ZIP_PREFIX).darwin-amd64.zip $(EXECUTABLE_NAME)
 
-test: fmt testprovider testmodels testmaps testcompute
+test: fmt version testprovider testmodels testmaps testcompute
 
-testcompute:
+testcompute: fmt
 	go test -v $(VENDOR_ROOT)/$(REPO_BASE)/go-dd-cloud-compute/...
 
-testprovider: fmt
+testprovider: fmt version
 	go test -v $(PROVIDER_ROOT) -run=Test${TEST}
 
-testmodels: fmt
+testmodels: fmt version
 	go test -v $(REPO_ROOT)/models -run=Test${TEST}
 
-testmaps: fmt
+testmaps: fmt version
 	go test -v $(REPO_ROOT)/maps -run=Test${TEST}
 
-testall: 
+testall: fmt version
 	go test -v $(REPO_ROOT)/...
 
 # Run acceptance tests (since they're long-running, enable retry).
-testacc: fmt
+testacc: fmt version
 	rm -f "${PWD}/AccTest.log"
 	TF_ACC=1 TF_LOG=DEBUG TF_LOG_PATH="${PWD}/AccTest.log" \
 	MCP_EXTENDED_LOGGING=1 \
