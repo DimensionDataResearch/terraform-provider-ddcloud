@@ -1,5 +1,9 @@
 # Changes
 
+# 1.3.5
+
+* If the initial connection to the CloudControl API returns an invalid response, this response is now always written to the log (this helps when troubleshooting interaction with CloudControl).
+
 # 1.3.4
 
 * Implement `ddcloud_server_backup` resource type (DimensionDataResearch/dd-cloud-compute-terraform#26).
