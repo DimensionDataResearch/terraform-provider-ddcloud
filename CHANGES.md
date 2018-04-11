@@ -1,5 +1,9 @@
 # Changes
 
+# 1.3.6
+
+* Bug-fix: "invalid UTF-8" error if user account details contain non-ASCI characters.
+
 # 1.3.5
 
 * If the initial connection to the CloudControl API returns an invalid response, this response is now always written to the log (this helps when troubleshooting interaction with CloudControl).
