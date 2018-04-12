@@ -1,12 +1,13 @@
 language: go
 
 go:
-    - 1.9
+    - "1.9"
 
 branches:
   only:
     - /^development\/v.*$/
     - /^release\/v.*$/
+    - /^v.*$/
 
 install:
   - go get golang.org/x/crypto/pkcs12
