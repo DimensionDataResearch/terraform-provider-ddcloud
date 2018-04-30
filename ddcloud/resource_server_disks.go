@@ -63,8 +63,8 @@ func schemaDisk() *schema.Schema {
 
 // When creating a server resource, synchronise the server's disks with its resource data.
 //
-// imageSCSIControllers refers to the newly-deployed server's collection of SCSI controllers and their associated disks.
-func createDisks(imageSCSIControllers compute.VirtualMachineSCSIControllers, data *schema.ResourceData, providerState *providerState) error {
+// If the server is running, then it will be stopped before creating / updating disks, and then restarted.
+func createDisks(server *compute.Server, data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
@@ -73,7 +73,7 @@ func createDisks(imageSCSIControllers compute.VirtualMachineSCSIControllers, dat
 	// Since this is the first time, populate image disks.
 	configuredDisks := propertyHelper.GetDisks()
 	log.Printf("Configuration for server '%s' specifies %d disks: %#v.", serverID, len(configuredDisks), configuredDisks)
-	actualDisks := models.NewDisksFromVirtualMachineSCSIControllers(imageSCSIControllers)
+	actualDisks := models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers)
 	configuredDisks.CaptureIDs(actualDisks)
 
 	err := validateServerDisks(configuredDisks)
@@ -99,7 +99,7 @@ func createDisks(imageSCSIControllers compute.VirtualMachineSCSIControllers, dat
 
 	apiClient := providerState.Client()
 
-	server, err := apiClient.GetServer(serverID)
+	server, err = apiClient.GetServer(serverID)
 	if err != nil {
 		return err
 	}
@@ -116,6 +116,25 @@ func createDisks(imageSCSIControllers compute.VirtualMachineSCSIControllers, dat
 
 		return nil
 	}
+
+	serverWasStarted := server.Started
+	if serverWasStarted {
+		log.Printf("Shutting down server '%s' ('%s') before modifying disk configuration...",
+			server.Name,
+			server.ID,
+		)
+
+		err = serverShutdown(providerState, serverID)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Shutdown complete for server '%s' ('%s').",
+			server.Name,
+			server.ID,
+		)
+	}
+
 	err = processModifyDisks(modifyDisks, data, providerState)
 	if err != nil {
 		return err
@@ -127,11 +146,30 @@ func createDisks(imageSCSIControllers compute.VirtualMachineSCSIControllers, dat
 		return err
 	}
 
+	if serverWasStarted {
+		log.Printf("Restarting server '%s' ('%s') after modifying disk configuration...",
+			server.Name,
+			server.ID,
+		)
+
+		err = serverStart(providerState, serverID)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Restart complete for server '%s' ('%s').",
+			server.Name,
+			server.ID,
+		)
+	}
+
 	return nil
 }
 
 // When updating a server resource, synchronise the server's image disk attributes with its resource data
 // Removes image disks from existingDisksByUnitID as they are processed, leaving only additional disks.
+//
+// If the server is running, then it will be stopped before creating / updating disks, and then restarted.
 func updateDisks(data *schema.ResourceData, providerState *providerState) error {
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
@@ -197,6 +235,24 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 		return nil
 	}
 
+	serverWasStarted := server.Started
+	if serverWasStarted {
+		log.Printf("Shutting down server '%s' ('%s') before modifying disk configuration...",
+			server.Name,
+			server.ID,
+		)
+
+		err = serverShutdown(providerState, serverID)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Shutdown complete for server '%s' ('%s').",
+			server.Name,
+			server.ID,
+		)
+	}
+
 	// First remove any disks that are no longer required.
 	err = processRemoveDisks(removeDisks, data, providerState)
 	if err != nil {
@@ -213,6 +269,23 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 	err = processAddDisks(addDisks, data, providerState)
 	if err != nil {
 		return err
+	}
+
+	if serverWasStarted {
+		log.Printf("Restarting server '%s' ('%s') after modifying disk configuration...",
+			server.Name,
+			server.ID,
+		)
+
+		err = serverStart(providerState, serverID)
+		if err != nil {
+			return err
+		}
+
+		log.Printf("Restart complete for server '%s' ('%s').",
+			server.Name,
+			server.ID,
+		)
 	}
 
 	return nil
