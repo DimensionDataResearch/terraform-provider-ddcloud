@@ -1,5 +1,9 @@
 # Changes
 
+# 1.3.7
+
+* Bug-fix: create / update of `ddcloud_server` resource fails if server is running and disk configuration needs to be updated (DimensionDataResearch/dd-cloud-compute-terraform#116).
+
 # 1.3.6
 
 * Bug-fix: "invalid UTF-8" error if user account details contain non-ASCI characters.

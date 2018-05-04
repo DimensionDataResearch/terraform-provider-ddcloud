@@ -833,7 +833,7 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 	}
 	data.SetPartial(resourceKeyServerTag)
 
-	err = createDisks(server.SCSIControllers, data, providerState)
+	err = createDisks(server, data, providerState)
 	if err != nil {
 		return err
 	}
@@ -977,7 +977,7 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 	}
 	data.SetPartial(resourceKeyServerTag)
 
-	err = createDisks(server.SCSIControllers, data, providerState)
+	err = createDisks(server, data, providerState)
 	if err != nil {
 		return err
 	}
