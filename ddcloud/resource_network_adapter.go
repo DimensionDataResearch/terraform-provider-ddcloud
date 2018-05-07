@@ -174,35 +174,34 @@ func resourceNetworkAdapterCreate(data *schema.ResourceData, provider interface{
 }
 
 func resourceNetworkAdapterExists(data *schema.ResourceData, provider interface{}) (bool, error) {
-
-	nicExists := false
-
+	nicID := data.Id()
 	serverID := data.Get(resourceKeyNetworkAdapterServerID).(string)
 
 	apiClient := provider.(*providerState).Client()
 
-	nicID := data.Id()
-
-	log.Printf("Get the server with the ID %s", serverID)
+	log.Printf("Get the server with Id %s", serverID)
 
 	server, err := apiClient.GetServer(serverID)
 
 	if server == nil {
-		log.Printf("server with the id %s cannot be found", serverID)
+		log.Printf("Server '%s' not found; will treat network adapter '%s' as non-existent.", serverID, nicID)
+
+		return false, nil
 	}
 
 	if err != nil {
-		return nicExists, err
+		return false, err
 	}
+
 	serverNetworkAdapters := server.Network.AdditionalNetworkAdapters
 	for _, nic := range serverNetworkAdapters {
 
 		if *nic.ID == nicID {
-			nicExists = true
-			break
+			return true, nil
 		}
 	}
-	return nicExists, nil
+
+	return false, nil
 }
 
 func resourceNetworkAdapterRead(data *schema.ResourceData, provider interface{}) error {
