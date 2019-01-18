@@ -99,6 +99,10 @@ func Provider() terraform.ResourceProvider {
 			// An IP address list.
 			"ddcloud_address_list": resourceAddressList(),
 
+			// An IP address.
+			"ddcloud_address": resourceAddress(),
+
+
 			// A port list.
 			"ddcloud_port_list": resourcePortList(),
 
