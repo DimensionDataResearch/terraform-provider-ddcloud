@@ -102,7 +102,6 @@ func Provider() terraform.ResourceProvider {
 			// An IP address.
 			"ddcloud_address": resourceAddress(),
 
-
 			// A port list.
 			"ddcloud_port_list": resourcePortList(),
 
@@ -140,6 +139,9 @@ func Provider() terraform.ResourceProvider {
 
 			// A PKCS12 (PFX) file.
 			"ddcloud_pfx": dataSourcePFX(),
+
+			// A addresslist.
+			"ddcloud_addresslist": dataSourceAddressList(),
 		},
 
 		// Provider configuration

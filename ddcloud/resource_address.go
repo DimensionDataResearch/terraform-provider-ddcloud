@@ -2,15 +2,18 @@ package ddcloud
 
 import (
 	"github.com/hashicorp/terraform/helper/schema"
+	"github.com/pkg/errors"
 	"log"
+	"strings"
 )
 
 const (
-	resourceKeyAddress           = "address"
-	resourceKeyAddressBegin      = "begin"
-	resourceKeyAddressEnd        = "end"
-	resourceKeyAddressNetwork    = "network"
-	resourceKeyAddressPrefixSize = "prefix_size"
+	resourceKeyAddressBegin           = "begin"
+	resourceKeyAddressEnd             = "end"
+	resourceKeyAddressNetwork         = "network"
+	resourceKeyAddressPrefixSize      = "prefix_size"
+	resourceKeyAddressNetworkDomainID = "networkdomain"
+	resourceKeyAddressListID          = "addresslist_id"
 )
 
 func resourceAddress() *schema.Resource {
@@ -22,6 +25,18 @@ func resourceAddress() *schema.Resource {
 		Delete: resourceAddressDelete,
 
 		Schema: map[string]*schema.Schema{
+			resourceKeyAddressNetworkDomainID: &schema.Schema{
+				Type:        schema.TypeString,
+				ForceNew:    true,
+				Required:    true,
+				Description: "The Id of the network domain in which the address applies",
+			},
+			resourceKeyAddressListID: &schema.Schema{
+				Type:        schema.TypeString,
+				ForceNew:    true,
+				Required:    true,
+				Description: "The Id of the address list",
+			},
 			resourceKeyAddressBegin: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -30,26 +45,17 @@ func resourceAddress() *schema.Resource {
 			resourceKeyAddressEnd: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "",
 				Description: "The end address for an address range",
 			},
 			resourceKeyAddressNetwork: &schema.Schema{
 				Type:        schema.TypeString,
 				Optional:    true,
 				Description: "The base address for an IP network",
-				ConflictsWith: []string{
-					resourceKeyAddress + "." + resourceKeyAddressBegin,
-					resourceKeyAddress + "." + resourceKeyAddressEnd,
-				},
 			},
 			resourceKeyAddressPrefixSize: &schema.Schema{
 				Type:        schema.TypeInt,
 				Optional:    true,
 				Description: "The prefix size for an IP network",
-				ConflictsWith: []string{
-					resourceKeyAddress + "." + resourceKeyAddressBegin,
-					resourceKeyAddress + "." + resourceKeyAddressEnd,
-				},
 			},
 		},
 	}
@@ -57,204 +63,214 @@ func resourceAddress() *schema.Resource {
 
 // Check if an address list resource exists.
 func resourceAddressExists(data *schema.ResourceData, provider interface{}) (bool, error) {
-	log.Printf("XXXX Inside resourceAddressExists")
-	//addressListID := data.Id()
-	//
-	//log.Printf("Check if address list '%s' exists.", addressListID)
-	//
-	//client := provider.(*providerState).Client()
-	//
-	//addressList, err := client.GetIPAddressList(addressListID)
-	//exists := (addressList != nil)
-	//
-	//log.Printf("Address list '%s' exists: %t", addressListID, true)
-	//
-	//return exists, err
-	return false, nil
+	log.Printf("resourceAddressExists")
+	addressListId := data.Get(resourceKeyAddressListID).(string)
+
+	client := provider.(*providerState).Client()
+
+	begin, okBegin := data.GetOk(resourceKeyAddressBegin)
+	network, okNetwork := data.GetOk(resourceKeyAddressNetwork)
+
+	// Value been deleted in dd cloud manually
+	if okBegin || okNetwork {
+		if !client.CheckAddressExists(addressListId, begin.(string), network.(string)) {
+			data.SetId("") // Mark as deleted.
+			return false, nil
+		}
+	}
+
+	return true, nil
 }
 
 // Create an address list resource.
 func resourceAddressCreate(data *schema.ResourceData, provider interface{}) error {
-	log.Printf("XXXX Inside resourceAddressCreate")
 
+	log.Printf("resourceAddressCreate")
 
-	//propertyHelper := propertyHelper(data)
-	//
-	//networkDomainID := data.Get(resourceKeyAddressListNetworkDomainID).(string)
-	//name := data.Get(resourceKeyAddressListName).(string)
-	//description := data.Get(resourceKeyAddressListDescription).(string)
-	//ipVersion := data.Get(resourceKeyAddressListIPVersion).(string)
-	//childListIDs := propertyHelper.GetStringSetItems(resourceKeyAddressListChildIDs)
-	//
-	//var addressListEntries []compute.IPAddressListEntry
-	//if propertyHelper.HasProperty(resourceKeyAddressListAddresses) {
-	//	// Address list entries from a simple set of IP addresses.
-	//	simpleAddresses := propertyHelper.GetStringSetItems(resourceKeyAddressListAddresses)
-	//	for _, simpleAddress := range simpleAddresses {
-	//		addressListEntries = append(addressListEntries, compute.IPAddressListEntry{
-	//			Begin: simpleAddress,
-	//		})
-	//	}
-	//} else { // Default for backward compatibility
-	//	// Raw address list entries.
-	//	addressListEntries = propertyHelper.GetAddressListAddresses()
-	//}
-	//
-	//log.Printf("Create address list '%s' in network domain '%s'.", name, networkDomainID)
-	//
-	//client := provider.(*providerState).Client()
-	//addressListID, err := client.CreateIPAddressList(name, description, ipVersion, networkDomainID, addressListEntries, childListIDs)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//data.SetId(addressListID)
-	//
-	//log.Printf("Successfully created address list '%s'.", addressListID)
-	//
-	return nil
+	var begin string
+	var end string
+	var network string
+	var prefixSize int
+
+	addressListId := data.Get(resourceKeyAddressListID).(string)
+
+	valBegin, beginOk := data.GetOk(resourceKeyAddressBegin)
+	if beginOk {
+		begin = valBegin.(string)
+	}
+
+	valEnd, endOk := data.GetOk(resourceKeyAddressEnd)
+	if endOk {
+		end = valEnd.(string)
+	}
+
+	valNetwork, networkOk := data.GetOk(resourceKeyAddressNetwork)
+	if networkOk {
+		// networkIp := valNetwork.(string)
+		network = valNetwork.(string)
+	}
+
+	valPrefix, prefixOk := data.GetOkExists(resourceKeyAddressPrefixSize)
+	if prefixOk {
+		prefixSize = valPrefix.(int)
+	}
+
+	// Validation when ip address begin is used, only address type single IP or IP range is defined.
+	if beginOk {
+		if networkOk || prefixOk {
+			err := errors.New("INPUT ERROR: You must define one type of Address ONLY; Either single IP (begin) " +
+				"or IP range (begin and end) or Subnet (begin and prefix_size)")
+			return err
+		}
+	}
+
+	client := provider.(*providerState).Client()
+	_, err := client.AddAddress(addressListId, begin, end, network, prefixSize)
+
+	if err != nil {
+		return err
+	}
+
+	var ip string
+	if begin != "" {
+		ip = strings.Replace(begin, ":", "", -1)
+	} else {
+		ip = strings.Replace(network, ":", "", -1)
+	}
+
+	data.SetId(ip)
+
+	return resourceAddressRead(data, provider)
 }
 
 // Read an address resource.
 func resourceAddressRead(data *schema.ResourceData, provider interface{}) error {
-	//log.Printf("XXXX Inside resourceAddressListRead")
-	//addressListID := data.Id()
-	//log.Printf("XXXX get data domainID")
-	//networkDomainID := data.Get(resourceKeyAddressListNetworkDomainID).(string)
-	//log.Printf("XXXX get data domainID Done")
-	//log.Printf("Read address list '%s' in network domain '%s'.", addressListID, networkDomainID)
-	//log.Printf("XXXX Inside resourceAddressListRead before provider")
-	//client := provider.(*providerState).Client()
-	//log.Printf("XXXX Inside resourceAddressListRead after provider")
-	//addressList, err := client.GetIPAddressList(addressListID)
-	//if err != nil {
-	//	log.Printf("XXXX error %s", err)
-	//	return err
-	//}
-	//
-	//if addressList == nil {
-	//	log.Printf("Address list '%s' not found in network domain '%s' (will treat as deleted).", addressListID, networkDomainID)
-	//
-	//	data.SetId("") // Mark as deleted.
-	//}
-	//
-	//log.Printf("XXXX Inside resourceAddressListRead - check 2")
-	//childListIDs := make([]string, len(addressList.ChildLists))
-	//for index, childList := range addressList.ChildLists {
-	//	childListIDs[index] = childList.ID
-	//	log.Printf("XXXX Inside resourceAddressListRead - check 3")
-	//}
-	//
-	//propertyHelper := propertyHelper(data)
-	//data.Set(resourceKeyAddressListDescription, addressList.Description)
-	//propertyHelper.SetStringSetItems(resourceKeyAddressListChildIDs, childListIDs)
-	//
-	//if propertyHelper.HasProperty(resourceKeyAddressListAddresses) {
-	//	log.Printf("XXXX Inside HasProperty(resourceKeyAddressListAddresses)")
-	//
-	//	// Note that if the address list now has complex entries (rather than the simple ones configured), then we won't pick that up here.
-	//	// TODO: Modify this logic to switch over to complex addresses if resource state indicates it's necessary
-	//	// For example, if addressListEntry.End or addressListEntry.PrefixSize is populated, then we need to switch over to complex ports.
-	//
-	//	var addresses []string
-	//	for _, addressListEntry := range addressList.Addresses {
-	//		addresses = append(addresses, addressListEntry.Begin)
-	//	}
-	//	propertyHelper.SetStringSetItems(resourceKeyAddressListAddresses, addresses)
-	//} else { // Default for backward compatibility
-	//	log.Printf("XXXX Inside NO HasProperty(resourceKeyAddressListAddresses)")
-	//	propertyHelper.SetAddressListAddresses(addressList.Addresses)
-	//}
+	log.Printf("resourceAddressRead")
 
-	//TODO: Implement set resourcekey address. At the moment changes in address will not get detected for change
+	addressListId := data.Get(resourceKeyAddressListID).(string)
+	begin, _ := data.GetOk(resourceKeyAddressBegin)
+	network, _ := data.GetOk(resourceKeyAddressNetwork)
+
+	client := provider.(*providerState).Client()
+
+	// Check if address exists in cloud
+	addr, addrOk := client.GetAddressOk(addressListId, begin.(string), network.(string))
+	if !addrOk {
+		// Address has been deleted in cloud
+		// data.SetId("")
+		return nil
+	}
+
+	// Type subnet
+	if addr.PrefixSize != nil {
+		data.Set(resourceKeyAddressNetwork, addr.Begin)
+		data.Set(resourceKeyAddressPrefixSize, addr.PrefixSize)
+
+	} else {
+		// Type IP
+		data.Set(resourceKeyAddressBegin, addr.Begin)
+
+		// Type IP range
+		if addr.End != nil {
+			data.Set(resourceKeyAddressEnd, addr.End)
+		}
+	}
+
 	return nil
 }
 
 // Update an address list resource.
 func resourceAddressUpdate(data *schema.ResourceData, provider interface{}) error {
-	//log.Printf("XXXX Inside resourceAddressListUpdate")
-	//addressListID := data.Id()
-	//networkDomainID := data.Get(resourceKeyAddressListNetworkDomainID).(string)
-	//
-	//log.Printf("Update address list '%s' in network domain '%s'.", addressListID, networkDomainID)
-	//
-	//client := provider.(*providerState).Client()
-	//addressList, err := client.GetIPAddressList(addressListID)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//if addressList == nil {
-	//	log.Printf("Address list '%s' not found in network domain '%s' (will treat as deleted).", addressListID, networkDomainID)
-	//
-	//	data.SetId("") // Mark as deleted.
-	//
-	//	return nil
-	//}
-	//
-	//propertyHelper := propertyHelper(data)
-	//
-	//editRequest := addressList.BuildEditRequest()
-	//if data.HasChange(resourceKeyAddressListDescription) {
-	//	editRequest.Description = data.Get(resourceKeyAddressListDescription).(string)
-	//}
-	//if data.HasChange(resourceKeyAddressListAddress) || data.HasChange(resourceKeyAddressListAddresses) {
-	//	var addressListEntries []compute.IPAddressListEntry
-	//	if propertyHelper.HasProperty(resourceKeyAddressListAddresses) {
-	//		// Address list entries from a simple set of IP addresses.
-	//		simpleAddresses := propertyHelper.GetStringSetItems(resourceKeyAddressListAddresses)
-	//		for _, simpleAddress := range simpleAddresses {
-	//			addressListEntries = append(addressListEntries, compute.IPAddressListEntry{
-	//				Begin: simpleAddress,
-	//			})
-	//		}
-	//	} else { // Default for backward compatibility
-	//		// Raw address list entries.
-	//		addressListEntries = propertyHelper.GetAddressListAddresses()
-	//	}
-	//
-	//	editRequest.Addresses = addressListEntries
-	//}
-	//if data.HasChange(resourceKeyAddressListChildIDs) {
-	//	editRequest.ChildListIDs = propertyHelper.GetStringSetItems(resourceKeyAddressListChildIDs)
-	//}
-	//
-	//err = client.EditIPAddressList(editRequest)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//log.Printf("Updated address list '%s'.", addressListID)
 
-	return nil
+	log.Printf("resourceAddressUpdate")
+
+	var begin string
+	var end string
+	var network string
+	var prefixSize int
+
+	// Enable partial state mode
+	// data.Partial(true)
+
+	addressListId := data.Get(resourceKeyAddressListID).(string)
+
+	valBegin, beginOk := data.GetOk(resourceKeyAddressBegin)
+	if beginOk {
+		begin = valBegin.(string)
+	}
+
+	valEnd, endOk := data.GetOk(resourceKeyAddressEnd)
+	if endOk {
+		end = valEnd.(string)
+	}
+
+	valNetwork, networkOk := data.GetOk(resourceKeyAddressNetwork)
+	if networkOk {
+		network = valNetwork.(string)
+	}
+
+	valPrefix, prefixOk := data.GetOkExists(resourceKeyAddressPrefixSize)
+	if prefixOk {
+		prefixSize = valPrefix.(int)
+	}
+
+	client := provider.(*providerState).Client()
+
+	oldBegin, _ := data.GetChange(resourceKeyAddressBegin)
+	oldNetwork, _ := data.GetChange(resourceKeyAddressNetwork)
+
+	var ipAddress string
+
+	if oldBegin.(string) != "" {
+		ipAddress = oldBegin.(string)
+	} else {
+		ipAddress = oldNetwork.(string)
+	}
+
+	// Update step 1: Remove old address
+	_, errOld := client.DeleteAddress(addressListId, ipAddress)
+	if errOld != nil {
+		return errOld
+	}
+
+	// Update step 2: Add new address
+	newAddress, err := client.AddAddress(addressListId, begin, end, network, prefixSize)
+
+	if err != nil {
+		return err
+	}
+
+	log.Printf("Updated address: %s", newAddress.Begin)
+
+	// We succeeded, disable partial mode. This causes Terraform to save
+	// all fields again.
+	// data.Partial(false)
+
+	return resourceAddressRead(data, provider)
 }
 
 // Delete an address list resource.
 func resourceAddressDelete(data *schema.ResourceData, provider interface{}) error {
-	//log.Printf("XXXX Inside resourceAddressListDelete")
-	//addressListID := data.Id()
-	//networkDomainID := data.Get(resourceKeyAddressListNetworkDomainID).(string)
-	//
-	//log.Printf("Delete address list '%s' in network domain '%s'.", addressListID, networkDomainID)
-	//
-	//client := provider.(*providerState).Client()
-	//addressList, err := client.GetIPAddressList(addressListID)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//if addressList == nil {
-	//	log.Printf("Address list '%s' not found in network domain '%s' (will treat as deleted).", addressListID, networkDomainID)
-	//
-	//	return nil
-	//}
-	//
-	//err = client.DeleteIPAddressList(addressListID)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//log.Printf("Successfully deleted address list '%s' in network domain '%s'.", addressListID, networkDomainID)
+	log.Printf("resourceAddressDelete")
 
+	addressListId := data.Get(resourceKeyAddressListID).(string)
+	begin := data.Get(resourceKeyAddressBegin).(string)
+	network := data.Get(resourceKeyAddressNetwork).(string)
+
+	var ip string
+	if begin != "" {
+		ip = begin
+	} else {
+		ip = network
+	}
+
+	client := provider.(*providerState).Client()
+	_, err := client.DeleteAddress(addressListId, ip)
+
+	if err != nil {
+		return err
+	}
+
+	data.SetId("")
 	return nil
 }

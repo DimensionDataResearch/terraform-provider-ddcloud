@@ -1,10 +1,9 @@
 package ddcloud
 
 import (
-	"log"
-
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
+	"log"
 )
 
 const (
@@ -118,24 +117,20 @@ func resourceAddressList() *schema.Resource {
 
 // Check if an address list resource exists.
 func resourceAddressListExists(data *schema.ResourceData, provider interface{}) (bool, error) {
-	log.Printf("XXXX Inside resourceAddressListExists")
+	log.Printf("ResourceAddressListExists")
 	addressListID := data.Id()
-
-	log.Printf("Check if address list '%s' exists.", addressListID)
 
 	client := provider.(*providerState).Client()
 
 	addressList, err := client.GetIPAddressList(addressListID)
-	exists := (addressList != nil)
-
-	log.Printf("Address list '%s' exists: %t", addressListID, true)
+	exists := addressList != nil
 
 	return exists, err
 }
 
 // Create an address list resource.
 func resourceAddressListCreate(data *schema.ResourceData, provider interface{}) error {
-	log.Printf("XXXX Inside resourceAddressListCreate")
+	log.Printf("resourceAddressListCreate")
 	propertyHelper := propertyHelper(data)
 
 	networkDomainID := data.Get(resourceKeyAddressListNetworkDomainID).(string)
@@ -175,32 +170,23 @@ func resourceAddressListCreate(data *schema.ResourceData, provider interface{}) 
 
 // Read an address list resource.
 func resourceAddressListRead(data *schema.ResourceData, provider interface{}) error {
-	log.Printf("XXXX Inside resourceAddressListRead")
 	addressListID := data.Id()
-	log.Printf("XXXX get data domainID")
-	networkDomainID := data.Get(resourceKeyAddressListNetworkDomainID).(string)
-	log.Printf("XXXX get data domainID Done")
-	log.Printf("Read address list '%s' in network domain '%s'.", addressListID, networkDomainID)
-	log.Printf("XXXX Inside resourceAddressListRead before provider")
+
 	client := provider.(*providerState).Client()
-	log.Printf("XXXX Inside resourceAddressListRead after provider")
+
 	addressList, err := client.GetIPAddressList(addressListID)
 	if err != nil {
-		log.Printf("XXXX error %s", err)
 		return err
 	}
 
 	if addressList == nil {
-		log.Printf("Address list '%s' not found in network domain '%s' (will treat as deleted).", addressListID, networkDomainID)
-
 		data.SetId("") // Mark as deleted.
 	}
 
-	log.Printf("XXXX Inside resourceAddressListRead - check 2")
 	childListIDs := make([]string, len(addressList.ChildLists))
 	for index, childList := range addressList.ChildLists {
 		childListIDs[index] = childList.ID
-		log.Printf("XXXX Inside resourceAddressListRead - check 3")
+
 	}
 
 	propertyHelper := propertyHelper(data)
@@ -208,7 +194,6 @@ func resourceAddressListRead(data *schema.ResourceData, provider interface{}) er
 	propertyHelper.SetStringSetItems(resourceKeyAddressListChildIDs, childListIDs)
 
 	if propertyHelper.HasProperty(resourceKeyAddressListAddresses) {
-		log.Printf("XXXX Inside HasProperty(resourceKeyAddressListAddresses)")
 
 		// Note that if the address list now has complex entries (rather than the simple ones configured), then we won't pick that up here.
 		// TODO: Modify this logic to switch over to complex addresses if resource state indicates it's necessary
@@ -220,7 +205,6 @@ func resourceAddressListRead(data *schema.ResourceData, provider interface{}) er
 		}
 		propertyHelper.SetStringSetItems(resourceKeyAddressListAddresses, addresses)
 	} else { // Default for backward compatibility
-		log.Printf("XXXX Inside NO HasProperty(resourceKeyAddressListAddresses)")
 		propertyHelper.SetAddressListAddresses(addressList.Addresses)
 	}
 
@@ -230,7 +214,7 @@ func resourceAddressListRead(data *schema.ResourceData, provider interface{}) er
 
 // Update an address list resource.
 func resourceAddressListUpdate(data *schema.ResourceData, provider interface{}) error {
-	log.Printf("XXXX Inside resourceAddressListUpdate")
+	log.Printf("resourceAddressListUpdate")
 	addressListID := data.Id()
 	networkDomainID := data.Get(resourceKeyAddressListNetworkDomainID).(string)
 
@@ -289,11 +273,9 @@ func resourceAddressListUpdate(data *schema.ResourceData, provider interface{}) 
 
 // Delete an address list resource.
 func resourceAddressListDelete(data *schema.ResourceData, provider interface{}) error {
-	log.Printf("XXXX Inside resourceAddressListDelete")
+	log.Printf("resourceAddressListDelete")
 	addressListID := data.Id()
 	networkDomainID := data.Get(resourceKeyAddressListNetworkDomainID).(string)
-
-	log.Printf("Delete address list '%s' in network domain '%s'.", addressListID, networkDomainID)
 
 	client := provider.(*providerState).Client()
 	addressList, err := client.GetIPAddressList(addressListID)
