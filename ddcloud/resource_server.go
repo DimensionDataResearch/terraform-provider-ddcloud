@@ -1222,7 +1222,15 @@ func serverPowerOff(providerState *providerState, serverID string) error {
 func readServerBackupClientDownloadURLs(serverID string, data *schema.ResourceData, apiClient *compute.Client) error {
 	log.Printf("Read backup details for server '%s'.", serverID)
 
+	// Skip backup details as backup is not supported in appliances, a.k.a. otherunix.
+	os := strings.ToUpper(data.Get(resourceKeyServerOSFamily).(string))
+	if strings.Contains(os, "OTHERUNIX") {
+		return nil
+	}
+
+
 	backupDetails, err := apiClient.GetServerBackupDetails(serverID)
+
 	if err != nil {
 		return err
 	}
