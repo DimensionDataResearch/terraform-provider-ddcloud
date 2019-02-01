@@ -1223,7 +1223,7 @@ func readServerBackupClientDownloadURLs(serverID string, data *schema.ResourceDa
 	log.Printf("Read backup details for server '%s'.", serverID)
 
 	// Skip backup details as backup is not supported in appliances, a.k.a. otherunix.
-	os := strings.ToUpper(data.Get(resourceKeyServerOSFamily).(string))
+	os := strings.ToUpper(data.Get(resourceKeyServerOSType).(string))
 	if strings.Contains(os, "OTHERUNIX") {
 		return nil
 	}
