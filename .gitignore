@@ -32,3 +32,5 @@ ddcloud/version-info.go
 
 # Test logs
 AccTest.log
+
+**/.idea
