@@ -118,11 +118,11 @@ func resourceStaticRouteCreate(data *schema.ResourceData, provider interface{}) 
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock("Create static route '%s'", name)
 		defer asyncLock.Release()
-		log.Println("resourceStaticRouteCreate defer  asyncLock.Release")
+
 		var deployError error
 		staticRouteID, deployError = apiClient.CreateStaticRoute(networkDomainId, name, description, ipVersion,
 			destinationNetworkAddress, destinationPrefixSize, nextHopAddress)
-		log.Println("resourceStaticRouteCreate defer  apiClient.CreateStaticRoute")
+
 		if compute.IsResourceBusyError(deployError) {
 			context.Retry()
 		} else if deployError != nil {
@@ -281,11 +281,11 @@ func resourceStaticRouteUpdate(data *schema.ResourceData, provider interface{}) 
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
 		asyncLock := providerState.AcquireAsyncOperationLock("Create static route '%s'", name)
 		defer asyncLock.Release()
-		log.Println("resourceStaticRouteCreate defer  asyncLock.Release")
+
 		var deployError error
 		staticRouteID, deployError = apiClient.CreateStaticRoute(networkDomainId, name, description, ipVersion,
 			destinationNetworkAddress, destinationPrefixSize, nextHopAddress)
-		log.Println("resourceStaticRouteCreate defer  apiClient.CreateStaticRoute")
+
 		if compute.IsResourceBusyError(deployError) {
 			context.Retry()
 		} else if deployError != nil {
@@ -365,5 +365,36 @@ func resourceStaticRouteDelete(data *schema.ResourceData, provider interface{}) 
 
 func resourceStaticRouteImport(data *schema.ResourceData, provider interface{}) (importedData []*schema.ResourceData, err error) {
 	log.Println("resourceStaticRouteImport")
+
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
+	staticRouteId := data.Id()
+	name := data.Get(resourceKeyStaticRouteName).(string)
+	log.Printf("Import Static Route with ID: %s, Name:%s", staticRouteId, name)
+
+	var staticRoute *compute.StaticRoute
+
+	staticRoute, err = apiClient.GetStaticRoute(staticRouteId)
+
+	if err != nil {
+		return
+	}
+
+	if staticRoute == nil {
+		err = fmt.Errorf("static route ID: %s, name:%s not found", staticRouteId, name)
+		return
+	}
+
+	data.Set(resourceKeyStaticRouteNetworkdomain, staticRoute.NetworkDomainId)
+	data.Set(resourceKeyStaticRouteName, staticRoute.Name)
+	data.Set(resourceKeyStaticRouteDescription, staticRoute.Description)
+	data.Set(resourceKeyStaticRouteIpVersion, staticRoute.IpVersion)
+	data.Set(resourceKeyStaticRouteDestinationNetworkAddress, staticRoute.DestinationNetworkAddress)
+	data.Set(resourceKeyStaticRouteDestinationPrefixSize, staticRoute.DestinationPrefixSize)
+	data.Set(resourceKeyStaticRouteNextHopAddress, staticRoute.NextHopAddress)
+
+	importedData = []*schema.ResourceData{data}
+
 	return
 }

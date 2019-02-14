@@ -32,5 +32,8 @@ ddcloud/version-info.go
 
 # Test logs
 AccTest.log
-
+*.BAK
+#.bak
 **/.idea
+*.old
+*.OLD

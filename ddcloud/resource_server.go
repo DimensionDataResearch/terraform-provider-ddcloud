@@ -341,6 +341,16 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
 	data.Set(resourceKeyServerCPUCoreCount, server.CPU.CoresPerSocket)
 	data.Set(resourceKeyServerCPUSpeed, server.CPU.Speed)
+	data.Set(resourceKeyServerOSType, server.OperatingSystem)
+
+	// Skip backup details as backup is not supported in appliances, a.k.a. otherunix.
+	os := strings.ToUpper(data.Get(resourceKeyServerOSType).(string))
+	if strings.Contains(os, "OTHERUNIX") {
+		data.Set(resourceKeyServerBackupEnabled, false)
+		data.Set(resourceKeyServerBackupClientDownloadURLs, nil)
+		return nil
+	}
+
 
 	captureServerNetworkConfiguration(server, data, false)
 
@@ -642,6 +652,16 @@ func resourceServerImport(data *schema.ResourceData, provider interface{}) (impo
 	data.Set(resourceKeyServerCPUCount, server.CPU.Count)
 	data.Set(resourceKeyServerCPUCoreCount, server.CPU.CoresPerSocket)
 	data.Set(resourceKeyServerCPUSpeed, server.CPU.Speed)
+	data.Set(resourceKeyServerOSType, server.OperatingSystem)
+
+	// Skip backup details as backup is not supported in appliances, a.k.a. otherunix.
+	os := strings.ToUpper(data.Get(resourceKeyServerOSType).(string))
+	if strings.Contains(os, "OTHERUNIX") {
+		log.Printf("Backup is not supported for appliances.")
+		data.Set(resourceKeyServerBackupEnabled, false)
+		data.Set(resourceKeyServerBackupClientDownloadURLs, nil)
+	}
+
 
 	captureServerNetworkConfiguration(server, data, false)
 
@@ -725,6 +745,15 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 	data.SetPartial(resourceKeyServerOSType)
 	data.Set(resourceKeyServerOSFamily, operatingSystem.Family)
 	data.SetPartial(resourceKeyServerOSFamily)
+
+	// Backup: Skip backup details as backup is not supported in appliances, a.k.a. otherunix.
+	os := strings.ToUpper(data.Get(resourceKeyServerOSType).(string))
+	if strings.Contains(os, "OTHERUNIX") {
+		log.Printf("Backup is not supported for appliances")
+		data.Set(resourceKeyServerBackupEnabled, false)
+		data.Set(resourceKeyServerBackupClientDownloadURLs, nil)
+	}
+
 
 	// Validate disk configuration.
 	configuredDisks := propertyHelper.GetDisks()
@@ -876,6 +905,15 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 	data.SetPartial(resourceKeyServerOSType)
 	data.Set(resourceKeyServerOSFamily, operatingSystem.Family)
 	data.SetPartial(resourceKeyServerOSFamily)
+
+	// Skip backup details as backup is not supported in appliances, a.k.a. otherunix.
+	os := strings.ToUpper(data.Get(resourceKeyServerOSType).(string))
+	if strings.Contains(os, "OTHERUNIX") {
+		log.Printf("Backup is not supported for appliances")
+		data.Set(resourceKeyServerBackupEnabled, false)
+		data.Set(resourceKeyServerBackupClientDownloadURLs, nil)
+	}
+
 
 	// Validate disk configuration.
 	propertyHelper := propertyHelper(data)
