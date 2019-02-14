@@ -1228,7 +1228,8 @@ func readServerBackupClientDownloadURLs(serverID string, data *schema.ResourceDa
 
 	// Skip backup details as backup is not supported in appliances, a.k.a. otherunix.
 	os := strings.ToUpper(data.Get(resourceKeyServerOSType).(string))
-	if strings.Contains(os, "OTHERUNIX") {
+
+	if strings.Contains(os, "OTHERUNIX") || os == "" {
 		log.Printf("Backup is not supported for server '%s'.", serverID)
 		data.Set(resourceKeyServerBackupEnabled, false)
 		data.Set(resourceKeyServerBackupClientDownloadURLs, nil)
