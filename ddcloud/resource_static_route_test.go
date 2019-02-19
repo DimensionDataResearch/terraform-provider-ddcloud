@@ -2,10 +2,11 @@ package ddcloud
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/resource"
 	"github.com/hashicorp/terraform/terraform"
-	"testing"
 )
 
 /*
