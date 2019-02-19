@@ -19,6 +19,7 @@ func testAccDDCloudStaticRouteBasic(networkDomainId string, name string, descrip
 	return fmt.Sprintf(`
 		provider "ddcloud" {
 			region		= "AU"
+			
 		}
 	
 		resource "ddcloud_static_route" "acc_test_static_route" {
