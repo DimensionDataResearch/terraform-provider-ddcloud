@@ -9,6 +9,8 @@ import (
 	"github.com/hashicorp/terraform/terraform"
 )
 
+var staticRouteName string = "acc_test_static_route"
+
 /*
  * Acceptance-test configurations.
  */
@@ -18,7 +20,7 @@ func testAccDDCloudStaticRouteBasic(networkDomainId string, name string, descrip
 
 	return fmt.Sprintf(`
 		provider "ddcloud" {
-			region		= "AU"
+			region		= "AU"	
 		}
 	
 		resource "ddcloud_static_route" "acc_test_static_route" {
@@ -48,21 +50,21 @@ func TestAccStaticRouteBasicCreate(t *testing.T) {
 			resource.TestStep{
 				Config: testAccDDCloudStaticRouteBasic(
 					"3cecad11-0d41-4abf-a0c2-475563eef208",
-					"acc-test-static-route",
+					staticRouteName,
 					"Static Route for Terraform acceptance test.",
-					"IPv4",
-					"100.102.0.0",
+					"IPV4",
+					"100.103.0.0",
 					16,
 					"100.64.1.129",
 				),
 				Check: resource.ComposeTestCheckFunc(
-					testCheckDDCloudStaticRouteExists("acc_test_static_route", true),
-					testCheckDDCloudStaticRouteMatches("acc_test_static_route", compute.StaticRoute{
-						Name:                      "acc-test-staticroute",
+					testCheckDDCloudStaticRouteExists(staticRouteName, true),
+					testCheckDDCloudStaticRouteMatches(staticRouteName, compute.StaticRoute{
+						Name:                      staticRouteName,
 						Description:               "Static Route for Terraform acceptance test.",
-						NetworkDomainId:           "",
+						NetworkDomainId:           "3cecad11-0d41-4abf-a0c2-475563eef208",
 						IpVersion:                 "IPv4",
-						DestinationNetworkAddress: "100.100.0.0",
+						DestinationNetworkAddress: "100.103.0.0",
 						DestinationPrefixSize:     16,
 						NextHopAddress:            "100.10.1.129",
 					}),
@@ -89,7 +91,7 @@ func testCheckDDCloudStaticRouteDestroy(state *terraform.State) error {
 			return nil
 		}
 		if staticRoute != nil {
-			return fmt.Errorf("static route '%s' still exists", staticRouteID)
+			return fmt.Errorf("static route: '%s' still exists", staticRouteID)
 		}
 	}
 
@@ -106,16 +108,18 @@ func testCheckDDCloudStaticRouteExists(name string, exists bool) resource.TestCh
 		}
 
 		staticRouteID := res.Primary.ID
+		fmt.Sprintf("staticRouteID: %s", staticRouteID)
 
 		client := testAccProvider.Meta().(*providerState).Client()
+
 		staticRoute, err := client.GetStaticRoute(staticRouteID)
 		if err != nil {
 			return fmt.Errorf("bad: Get static route: %s", err)
 		}
 		if exists && staticRoute == nil {
-			return fmt.Errorf("bad: Static route not found with Id '%s'", staticRouteID)
+			return fmt.Errorf("bad: Static Rute not found with Id '%s'", staticRouteID)
 		} else if !exists && staticRoute != nil {
-			return fmt.Errorf("bad: Static route still exists with Id '%s'", staticRouteID)
+			return fmt.Errorf("bad: Static Route still exists with Id '%s'", staticRouteID)
 		}
 
 		return nil
@@ -133,12 +137,12 @@ func testCheckDDCloudStaticRouteMatches(name string, expected compute.StaticRout
 		staticRouteID := res.Primary.ID
 
 		client := testAccProvider.Meta().(*providerState).Client()
-		staticRoute, err := client.GetNetworkDomain(staticRouteID)
+		staticRoute, err := client.GetStaticRoute(staticRouteID)
 		if err != nil {
 			return fmt.Errorf("bad: Get static route: %s", err)
 		}
 		if staticRoute == nil {
-			return fmt.Errorf("bad: static route not found with Id '%s'", staticRouteID)
+			return fmt.Errorf("bad: static route not found with ID '%s'", staticRouteID)
 		}
 
 		if staticRoute.Name != expected.Name {
