@@ -21,17 +21,17 @@ func Provider() terraform.ResourceProvider {
 		// Provider settings schema
 		Schema: map[string]*schema.Schema{
 			"region": &schema.Schema{
-				Type:          schema.TypeString,
-				Optional:      true,
-				Default:       "",
-				Description:   "The region code that identifies the target end-point for the Dimension Data CloudControl API.",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
+				Description: "The region code that identifies the target end-point for the Dimension Data CloudControl API.",
 				ConflictsWith: []string{"cloudcontrol_endpoint"},
 			},
 			"cloudcontrol_endpoint": &schema.Schema{
-				Type:          schema.TypeString,
-				Optional:      true,
-				Default:       "",
-				Description:   "The base URL of a custom target end-point for the Dimension Data CloudControl API.",
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
+				Description: "The base URL of a custom target end-point for the Dimension Data CloudControl API.",
 				ConflictsWith: []string{"region"},
 			},
 			"username": &schema.Schema{

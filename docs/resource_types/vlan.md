@@ -7,17 +7,29 @@ A virtual LAN (VLAN) is a partitioned and isolated broadcast domain within a Man
 ## Example Usage
 
 ```
-resource "ddcloud_vlan" "my-vlan" {
-    name                    = "terraform-test-vlan"
-    description             = "This is my Terraform test VLAN."
-
-	# The Id of the network domain in which the VLAN will be deployed.
-    networkdomain           = "${ddcloud_networkdomain.my-domain.id}"
-
-    # VLAN's default network: 192.168.17.0/24 = 192.168.17.1 -> 192.168.17.254 (netmask = 255.255.255.0)
-    ipv4_base_address       = "192.168.17.0"
-    ipv4_prefix_size        = 24
+resource "ddcloud_vlan" "my-vlan-attached" {
+    name                    = "terraform-test-attached-vlan"
+    description             = "This is my Terraform test VLAN attached."
+    networkdomain           = "${data.ddcloud_networkdomain.my-domain.id}"
+    ipv4_base_address       = "172.16.0.0"
+    ipv4_prefix_size        = 16
+    
+    ## attached_vlan_gateway_addressing and detached_vlan_gateway_address are mutually exclusive
+    # Valid input either "HIGH" or "LOW"
+    attached_vlan_gateway_addressing = "HIGH"
 }
+
+resource "ddcloud_vlan" "my-vlan-detached" {
+    name                    = "terraform-test-detached-vlan"
+    description             = "This is my Terraform test VLAN detached."
+    networkdomain           = "${data.ddcloud_networkdomain.my-domain.id}"
+    ipv4_base_address       = "10.1.1.0"
+    ipv4_prefix_size        = 28
+    
+    ## attached_vlan_gateway_addressing and detached_vlan_gateway_address are mutually exclusive
+    detached_vlan_gateway_address = "10.0.0.1"
+}
+
 ```
 
 ## Argument Reference
@@ -29,6 +41,11 @@ The following arguments are supported:
 * `networkdomain` - (Required) The Id of the network domain in which the VLAN is deployed.
 * `ipv4_base_address` - (Required) The base address of the VLAN's IPv4 network.
 * `ipv4_prefix_size` - (Required) The prefix size of the VLAN's IPv4 network.
+
+** (Either `detached_vlan_gateway_address` or `attached_vlan_gateway_addressing` must be specified. They are mutually exclusive) 
+
+* `detached_vlan_gateway_address` - (Optional) The system will use this IP address as the IPv4 gateway when the Deploy Server API is used referencing a NIC to the VLAN.
+* `attached_vlan_gateway_addressing` - (Optional) LOW gatewayAddressing has small VLAM with IP addresses x.x.x.1-x.x.x.3 reserved at the bottom of the VLAN range. HIGH gatewayAddressing has VLAN with IP addresses x.x.x.252-x.x.x.254 reserved at the top of the VLAN range.
 
 ## Attribute Reference
 

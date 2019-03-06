@@ -15,6 +15,7 @@ import (
 
 // A basic VLAN (and the network domain that contains it).
 func testAccDDCloudVLANBasic(name string, description string) string {
+
 	return fmt.Sprintf(`
 		provider "ddcloud" {
 			region		= "AU"
@@ -24,17 +25,28 @@ func testAccDDCloudVLANBasic(name string, description string) string {
 			name		= "acc-test-networkdomain"
 			description	= "Network domain for Terraform acceptance test."
 			datacenter	= "AU9"
+	   		plan = "ENTERPRISE"
 		}
 
 		resource "ddcloud_vlan" "acc_test_vlan" {
 			name				= "%s"
 			description 		= "%s"
-
 			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
-
 			ipv4_base_address	= "192.168.17.0"
 			ipv4_prefix_size	= 24
+	   		attached_vlan_gateway_addressing = "HIGH"
 		}
+
+        resource "ddcloud_vlan" "acc_test_vlan_detached" {
+            name                    = "terraform-test-detached-vlan"
+            description             = "This is my Terraform test VLAN detached."
+            networkdomain           = "${ddcloud_networkdomain.acc_test_domain.id}"
+            ipv4_base_address       = "10.1.1.0"
+            ipv4_prefix_size        = 28
+            
+            ## attached_vlan_gateway_addressing and detached_vlan_gateway_address are mutually exclusive
+            detached_vlan_gateway_address = "10.0.0.1"
+        }
 	`, name, description)
 }
 

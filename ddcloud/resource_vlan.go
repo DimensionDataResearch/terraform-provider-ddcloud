@@ -11,16 +11,18 @@ import (
 )
 
 const (
-	resourceKeyVLANNetworkDomainID = "networkdomain"
-	resourceKeyVLANName            = "name"
-	resourceKeyVLANDescription     = "description"
-	resourceKeyVLANIPv4BaseAddress = "ipv4_base_address"
-	resourceKeyVLANIPv4PrefixSize  = "ipv4_prefix_size"
-	resourceKeyVLANIPv6BaseAddress = "ipv6_base_address"
-	resourceKeyVLANIPv6PrefixSize  = "ipv6_prefix_size"
-	resourceCreateTimeoutVLAN      = 5 * time.Minute
-	resourceEditTimeoutVLAN        = 3 * time.Minute
-	resourceDeleteTimeoutVLAN      = 5 * time.Minute
+	resourceKeyVLANNetworkDomainID           = "networkdomain"
+	resourceKeyVLANName                      = "name"
+	resourceKeyVLANDescription               = "description"
+	resourceKeyVLANIPv4BaseAddress           = "ipv4_base_address"
+	resourceKeyVLANIPv4PrefixSize            = "ipv4_prefix_size"
+	resourceKeyVLANIPv6BaseAddress           = "ipv6_base_address"
+	resourceKeyVLANIPv6PrefixSize            = "ipv6_prefix_size"
+	resourceKeyAttachedVlanGatewayAddressing = "attached_vlan_gateway_addressing"
+	resourceKeyDetachedGatewayAddress        = "detached_vlan_gateway_address"
+	resourceCreateTimeoutVLAN                = 5 * time.Minute
+	resourceEditTimeoutVLAN                  = 3 * time.Minute
+	resourceDeleteTimeoutVLAN                = 5 * time.Minute
 
 	// No more than 3 at a time for now
 	deployTimeoutVLAN = 3 * resourceCreateTimeoutVLAN
@@ -77,6 +79,18 @@ func resourceVLAN() *schema.Resource {
 				Computed:    true,
 				Description: "The VLAN's IPv6 prefix length.",
 			},
+			resourceKeyAttachedVlanGatewayAddressing: &schema.Schema{
+				Type:          schema.TypeString,
+				Optional:      true,
+				Description:   "A String literal LOW or HIGH.",
+				ConflictsWith: []string{resourceKeyDetachedGatewayAddress},
+			},
+			resourceKeyDetachedGatewayAddress: &schema.Schema{
+				Type:          schema.TypeString,
+				Optional:      true,
+				Description:   "IPv4 Address representation of the desired IPv4 Gateway.",
+				ConflictsWith: []string{resourceKeyAttachedVlanGatewayAddressing},
+			},
 		},
 	}
 }
@@ -84,8 +98,8 @@ func resourceVLAN() *schema.Resource {
 // Create a VLAN resource.
 func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	var (
-		networkDomainID, name, description, ipv4BaseAddress string
-		ipv4PrefixSize                                      int
+		networkDomainID, name, description, ipv4BaseAddress, gatewayAddressing, gatewayAddress string
+		ipv4PrefixSize                                                                         int
 	)
 
 	networkDomainID = data.Get(resourceKeyVLANNetworkDomainID).(string)
@@ -93,8 +107,11 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	description = data.Get(resourceKeyVLANDescription).(string)
 	ipv4BaseAddress = data.Get(resourceKeyVLANIPv4BaseAddress).(string)
 	ipv4PrefixSize = data.Get(resourceKeyVLANIPv4PrefixSize).(int)
+	gatewayAddressing = data.Get(resourceKeyAttachedVlanGatewayAddressing).(string)
+	gatewayAddress = data.Get(resourceKeyDetachedGatewayAddress).(string)
 
-	log.Printf("Create VLAN '%s' ('%s') in network domain '%s' (IPv4 network = '%s/%d').", name, description, networkDomainID, ipv4BaseAddress, ipv4PrefixSize)
+	log.Printf("Create VLAN '%s' ('%s') in network domain '%s' (IPv4 network = '%s/%d') AttachedGatewayAddressing:%s, DetachedGatewayAddress:%s ",
+		name, description, networkDomainID, ipv4BaseAddress, ipv4PrefixSize, gatewayAddressing, gatewayAddress)
 
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
@@ -110,7 +127,7 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 		defer asyncLock.Release() // Released at the end of the current attempt.
 
 		var deployError error
-		vlanID, deployError = apiClient.DeployVLAN(networkDomainID, name, description, ipv4BaseAddress, ipv4PrefixSize)
+		vlanID, deployError = apiClient.DeployVLAN(networkDomainID, name, description, ipv4BaseAddress, ipv4PrefixSize, gatewayAddressing, gatewayAddress)
 		if deployError != nil {
 			if compute.IsResourceBusyError(deployError) {
 				context.Retry()
@@ -286,7 +303,8 @@ func resourceVLANImport(data *schema.ResourceData, provider interface{}) (import
 	data.Set(resourceKeyVLANIPv6BaseAddress, vlan.IPv6Range.BaseAddress)
 	data.Set(resourceKeyVLANIPv6PrefixSize, vlan.IPv6Range.PrefixSize)
 	data.Set(resourceKeyVLANNetworkDomainID, vlan.NetworkDomain.ID)
-
+	data.Set(resourceKeyDetachedGatewayAddress, vlan.IPv4GatewayAddress)
+	data.Set(resourceKeyAttachedVlanGatewayAddressing, vlan.GatewayAddressing)
 	importedData = []*schema.ResourceData{data}
 
 	return
