@@ -66,14 +66,15 @@ func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
 				},
 				resourceKeyServerNetworkAdapterIPV4: &schema.Schema{
 					Type:        schema.TypeString,
-					Optional:    true,
 					Computed:    true,
+					Optional:    true,
 					Default:     nil,
 					Description: "The IPV4 address associated with the network adapter",
 				},
 				resourceKeyServerNetworkAdapterIPV6: &schema.Schema{
 					Type:        schema.TypeString,
 					Computed:    true,
+					Optional:    true,
 					Description: "The IPV6 Address associated the network adapter",
 				},
 				resourceKeyServerNetworkAdapterType: &schema.Schema{
@@ -155,7 +156,7 @@ func modifyServerNetworkAdapterIP(providerState *providerState, serverID string,
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
 
-		changeAddressError := apiClient.NotifyServerIPAddressChange(networkAdapter.ID, &networkAdapter.PrivateIPv4Address, nil)
+		changeAddressError := apiClient.NotifyServerIPAddressChange(networkAdapter.ID, &networkAdapter.PrivateIPv4Address, &networkAdapter.PrivateIPv6Address)
 		if compute.IsResourceBusyError(changeAddressError) {
 			context.Retry()
 		} else if changeAddressError != nil {

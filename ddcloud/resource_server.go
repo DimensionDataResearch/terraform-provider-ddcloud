@@ -374,6 +374,9 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 		data.Set(resourceKeyServerStarted, false)
 	}
 
+	networkAdapters := propertyHelper.GetServerNetworkAdapters()
+	propertyHelper.SetServerNetworkAdapters(networkAdapters, false)
+
 	return readServerBackupClientDownloadURLs(server.ID, data, apiClient)
 }
 
@@ -459,6 +462,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
+	// Primary adapter
 	if data.HasChange(resourceKeyServerPrimaryNetworkAdapter) {
 		actualNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
 		actualPrimaryNetworkAdapter := models.NewNetworkAdapterFromVirtualMachineNetworkAdapter(server.Network.PrimaryAdapter)
@@ -468,7 +472,8 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		log.Printf("Configured primary network adapter = %#v", configuredPrimaryNetworkAdapter)
 		log.Printf("Actual primary network adapter     = %#v", actualPrimaryNetworkAdapter)
 
-		if configuredPrimaryNetworkAdapter.PrivateIPv4Address != actualPrimaryNetworkAdapter.PrivateIPv4Address {
+		if (configuredPrimaryNetworkAdapter.PrivateIPv4Address != actualPrimaryNetworkAdapter.PrivateIPv4Address) ||
+			(configuredPrimaryNetworkAdapter.PrivateIPv6Address != actualPrimaryNetworkAdapter.PrivateIPv6Address) {
 			err = modifyServerNetworkAdapterIP(providerState, serverID, *configuredPrimaryNetworkAdapter)
 			if err != nil {
 				return err
@@ -507,6 +512,36 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 
 		actualNetworkAdapters = models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
+		propertyHelper.SetServerNetworkAdapters(actualNetworkAdapters, true)
+	}
+
+	// Additional Adapter
+	if data.HasChange(resourceKeyServerAdditionalNetworkAdapter) {
+
+		configuredAdapters := propertyHelper.GetServerNetworkAdapters().GetAdditional()
+		for _, adapter := range configuredAdapters {
+
+			err = modifyServerNetworkAdapterIP(providerState, serverID, adapter)
+			if err != nil {
+				return err
+			}
+
+			err = modifyServerNetworkAdapterType(providerState, serverID, adapter)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Persist final state.
+		server, err = apiClient.GetServer(serverID)
+		if err != nil {
+			return err
+		}
+		if server == nil {
+			return fmt.Errorf("cannot find server with Id '%s'", serverID)
+		}
+
+		actualNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
 		propertyHelper.SetServerNetworkAdapters(actualNetworkAdapters, true)
 	}
 
@@ -714,7 +749,7 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 		Name:                  name,
 		Description:           description,
 		AdministratorPassword: adminPassword,
-		Start: powerOn,
+		Start:                 powerOn,
 	}
 
 	err := validateAdminPassword(deploymentConfiguration.AdministratorPassword, image)
