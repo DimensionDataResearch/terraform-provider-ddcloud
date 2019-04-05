@@ -419,6 +419,7 @@ func (helper resourcePropertyHelper) GetServerNetworkAdapters() (networkAdapters
 	if !ok {
 		return
 	}
+
 	networkAdapters = append(networkAdapters,
 		models.NewNetworkAdaptersFromStateData(
 			value.([]interface{}),
@@ -485,11 +486,15 @@ func (helper resourcePropertyHelper) SetServerNetworkAdapters(networkAdapters mo
 	}
 
 	// Additional network adapters.
-	networkAdapterProperties = make([]interface{}, len(networkAdapters)-1)
+	networkAdapterPropertiesList := make([]interface{}, len(networkAdapters)-1)
 	for index, additionalNetworkAdapter := range networkAdapters.GetAdditional() {
-		networkAdapterProperties[index] = additionalNetworkAdapter.ToMap()
+		networkAdapterPropertiesList[index] = additionalNetworkAdapter.ToMap()
+
+		log.Printf("[DD] Resource Helper > SetServerNetworkAdapters ID:%s ipv4:%s ipv6:%s ",
+			additionalNetworkAdapter.ID, additionalNetworkAdapter.PrivateIPv4Address, additionalNetworkAdapter.PrivateIPv6Address)
 	}
-	data.Set(resourceKeyServerAdditionalNetworkAdapter, networkAdapterProperties)
+
+	data.Set(resourceKeyServerAdditionalNetworkAdapter, networkAdapterPropertiesList)
 }
 
 func (helper resourcePropertyHelper) GetNetworkAdapter() models.NetworkAdapter {
@@ -536,7 +541,7 @@ func (helper resourcePropertyHelper) SetNetworkAdapter(networkAdapter models.Net
 	data.Set(resourceKeyNetworkAdapterMACAddress, networkAdapter.MACAddress)
 	data.Set(resourceKeyNetworkAdapterVLANID, networkAdapter.VLANID)
 	data.Set(resourceKeyNetworkAdapterPrivateIPV4, networkAdapter.PrivateIPv4Address)
-	data.Set(resourceKeyNetworkAdapterPrivateIPV6, networkAdapter.PrivateIPv4Address)
+	data.Set(resourceKeyNetworkAdapterPrivateIPV6, networkAdapter.PrivateIPv6Address)
 	data.Set(resourceKeyNetworkAdapterType, networkAdapter.AdapterType)
 }
 

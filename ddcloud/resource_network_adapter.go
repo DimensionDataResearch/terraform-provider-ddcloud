@@ -116,6 +116,8 @@ func resourceNetworkAdapterCreate(data *schema.ResourceData, provider interface{
 		} else if addError != nil {
 			context.Fail(addError)
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err

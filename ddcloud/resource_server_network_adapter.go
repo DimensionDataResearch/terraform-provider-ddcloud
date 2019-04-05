@@ -30,8 +30,10 @@ func schemaServerAdditionalNetworkAdapter() *schema.Schema {
 
 func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
 	var maxItems int
+
 	if isPrimary {
 		maxItems = 1
+
 	} else {
 		maxItems = 0
 	}
@@ -40,8 +42,7 @@ func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
 		Type:     schema.TypeList,
 		Required: isPrimary,
 		Optional: !isPrimary,
-		Computed: !isPrimary,
-		ForceNew: !isPrimary,
+		ForceNew: false,
 		MinItems: 1,
 		MaxItems: maxItems,
 		Elem: &schema.Resource{
@@ -61,7 +62,7 @@ func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
 					Computed:    true,
 					Optional:    true,
 					Default:     nil,
-					ForceNew:    true,
+					ForceNew:    false,
 					Description: "VLAN ID of the network adapter",
 				},
 				resourceKeyServerNetworkAdapterIPV4: &schema.Schema{
@@ -167,18 +168,19 @@ func modifyServerNetworkAdapterIP(providerState *providerState, serverID string,
 		return err
 	}
 
-	log.Printf("Updating IP address(es) for network adapter '%s'...", networkAdapter.ID)
+	log.Printf("[DD] Updating IP address(es) for network adapter '%s'...", networkAdapter.ID)
 
 	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
 	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
 
-	log.Printf("Updated IP address(es) for network adapter '%s'.", networkAdapter.ID)
+	log.Printf("[DD] Updated IP address(es) for network adapter:'%s' ipv4:'%s' ipv6:'%s'.",
+		networkAdapter.ID, networkAdapter.PrivateIPv4Address, networkAdapter.PrivateIPv6Address)
 
 	return err
 }
 
 func modifyServerNetworkAdapterType(providerState *providerState, serverID string, networkAdapter models.NetworkAdapter) error {
-	log.Printf("Change type of network adapter '%s' to '%s'.",
+	log.Printf("[DD] Change type of network adapter '%s' to '%s'.",
 		networkAdapter.ID,
 		networkAdapter.AdapterType,
 	)
@@ -196,6 +198,8 @@ func modifyServerNetworkAdapterType(providerState *providerState, serverID strin
 		} else if changeTypeError != nil {
 			context.Fail(changeTypeError)
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err

@@ -312,6 +312,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 // Read a server resource.
 func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
+	log.Printf("resource_server > resourceServerRead")
 	propertyHelper := propertyHelper(data)
 
 	id := data.Id()
@@ -343,6 +344,34 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	data.Set(resourceKeyServerCPUSpeed, server.CPU.Speed)
 	data.Set(resourceKeyServerOSType, server.OperatingSystem)
 
+	powerState := propertyHelper.GetOptionalString(resourceKeyServerPowerState, false)
+
+	isServerStarted := server.Started
+
+	if powerState != nil {
+		switch strings.ToLower(*powerState) {
+		case "start":
+			if !isServerStarted {
+				data.Set(resourceKeyServerPowerState, "shutdown")
+			}
+		case "autostart":
+			if !isServerStarted {
+				data.Set(resourceKeyServerPowerState, "shutdown")
+			}
+		case "shutdown":
+			if isServerStarted {
+				data.Set(resourceKeyServerPowerState, "start")
+			}
+		case "shutdown-hard":
+			if isServerStarted {
+				data.Set(resourceKeyServerPowerState, "start")
+			}
+
+		default:
+			data.Set(resourceKeyServerPowerState, "disabled")
+		}
+	}
+
 	captureServerNetworkConfiguration(server, data, false)
 
 	var publicIPv4Address string
@@ -367,12 +396,6 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	propertyHelper.SetDisks(
 		models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
 	)
-
-	if server.Started {
-		data.Set(resourceKeyServerStarted, true)
-	} else {
-		data.Set(resourceKeyServerStarted, false)
-	}
 
 	networkAdapters := propertyHelper.GetServerNetworkAdapters()
 	propertyHelper.SetServerNetworkAdapters(networkAdapters, false)
@@ -464,7 +487,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	// Primary adapter
 	if data.HasChange(resourceKeyServerPrimaryNetworkAdapter) {
-		actualNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
+		log.Printf("[DD] resource_server resourceKeyServerPrimaryNetworkAdapter has changed ")
 		actualPrimaryNetworkAdapter := models.NewNetworkAdapterFromVirtualMachineNetworkAdapter(server.Network.PrimaryAdapter)
 
 		configuredPrimaryNetworkAdapter := propertyHelper.GetServerNetworkAdapters().GetPrimary()
@@ -475,6 +498,7 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		if (configuredPrimaryNetworkAdapter.PrivateIPv4Address != actualPrimaryNetworkAdapter.PrivateIPv4Address) ||
 			(configuredPrimaryNetworkAdapter.PrivateIPv6Address != actualPrimaryNetworkAdapter.PrivateIPv6Address) {
 			err = modifyServerNetworkAdapterIP(providerState, serverID, *configuredPrimaryNetworkAdapter)
+
 			if err != nil {
 				return err
 			}
@@ -510,14 +534,11 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		if server == nil {
 			return fmt.Errorf("cannot find server with Id '%s'", serverID)
 		}
-
-		actualNetworkAdapters = models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
-		propertyHelper.SetServerNetworkAdapters(actualNetworkAdapters, true)
 	}
 
-	// Additional Adapter
+	// Additional Adapters
 	if data.HasChange(resourceKeyServerAdditionalNetworkAdapter) {
-
+		log.Printf("[Resource_server] resourceKeyServerAdditionalNetworkAdapter has changed ")
 		configuredAdapters := propertyHelper.GetServerNetworkAdapters().GetAdditional()
 		for _, adapter := range configuredAdapters {
 
@@ -526,10 +547,6 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 				return err
 			}
 
-			err = modifyServerNetworkAdapterType(providerState, serverID, adapter)
-			if err != nil {
-				return err
-			}
 		}
 
 		// Persist final state.
@@ -541,8 +558,6 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 			return fmt.Errorf("cannot find server with Id '%s'", serverID)
 		}
 
-		actualNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
-		propertyHelper.SetServerNetworkAdapters(actualNetworkAdapters, true)
 	}
 
 	if data.HasChange(resourceKeyServerTag) {
@@ -565,12 +580,18 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		log.Printf("Server power state change has been detected.")
 		powerState := propertyHelper.GetOptionalString(resourceKeyServerPowerState, false)
 
+		isServerStartedActual := server.Started
+
 		if powerState != nil {
 			switch strings.ToLower(*powerState) {
 			case "start":
-				err = serverStart(providerState, serverID)
+				if !isServerStartedActual {
+					err = serverStart(providerState, serverID)
+				}
 			case "shutdown":
-				err = serverShutdown(providerState, serverID)
+				if isServerStartedActual {
+					err = serverShutdown(providerState, serverID)
+				}
 			case "shutdown-hard":
 				err = serverPowerOff(providerState, serverID)
 			case "disabled", "autostart":
