@@ -536,17 +536,38 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
-	// Additional Adapters
+	// Additional Network Adapters
 	if data.HasChange(resourceKeyServerAdditionalNetworkAdapter) {
 		log.Printf("[Resource_server] resourceKeyServerAdditionalNetworkAdapter has changed ")
-		configuredAdapters := propertyHelper.GetServerNetworkAdapters().GetAdditional()
-		for _, adapter := range configuredAdapters {
 
-			err = modifyServerNetworkAdapterIP(providerState, serverID, adapter)
+		// Note: Tried modifying network adapter; it won't work in adding and removing scenarios, the index of NIC confused terraform additional network adapter schema list.
+		// Current implementation treat additional nic(s) as one resource instead of one for each additional nic.
+
+		// Refresh additional network adapters by removing and re-adding.
+		log.Printf("[DD] Updating network adapters")
+
+		// Removed all additional network adapters
+		actualAdditionalAdapters := server.Network.AdditionalNetworkAdapters
+		for _, adapter := range actualAdditionalAdapters {
+			m := models.NewNetworkAdapterFromVirtualMachineNetworkAdapter(adapter)
+			err := removeServerNetworkAdapter(providerState, serverID, &m)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Add all additional network adapters
+		configuredAdditionalAdapters := propertyHelper.GetServerNetworkAdapters().GetAdditional()
+		for _, configured := range configuredAdditionalAdapters {
+			err = addServerNetworkAdapter(providerState, serverID, &configured)
 			if err != nil {
 				return err
 			}
 
+			err = modifyServerNetworkAdapterIP(providerState, serverID, configured)
+			if err != nil {
+				return err
+			}
 		}
 
 		// Persist final state.
@@ -878,8 +899,9 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 		return err
 	}
 
-	// Capture additional properties that may only be available after deployment.
 	server := resource.(*compute.Server)
+
+	// Capture additional properties that may only be available after deployment.
 	err = captureCreatedServerProperties(data, providerState, server, networkAdapters)
 	if err != nil {
 		return err
@@ -1022,8 +1044,9 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 		return err
 	}
 
-	// Capture additional properties that may only be available after deployment.
 	server := resource.(*compute.Server)
+
+	// Capture additional properties that may only be available after deployment.
 	err = captureCreatedServerProperties(data, providerState, server, networkAdapters)
 	if err != nil {
 		return err
@@ -1059,6 +1082,7 @@ func captureCreatedServerProperties(data *schema.ResourceData, providerState *pr
 	propertyHelper.SetServerNetworkAdapters(networkAdapters, true)
 	captureServerNetworkConfiguration(server, data, true)
 
+	// Public IPv4
 	publicIPv4Address, err := findPublicIPv4Address(apiClient,
 		networkDomainID,
 		*server.Network.PrimaryAdapter.PrivateIPv4Address,
@@ -1073,8 +1097,18 @@ func captureCreatedServerProperties(data *schema.ResourceData, providerState *pr
 	}
 	data.SetPartial(resourceKeyServerPublicIPv4)
 
+	// Started
 	data.Set(resourceKeyServerStarted, server.Started)
 	data.SetPartial(resourceKeyServerStarted)
+
+	for _, nic := range networkAdapters {
+		log.Printf("[DD] resource_server > captureCreatedServerProperties() nic id:%s ipv4:%s ipv6:%s",
+			nic.ID, nic.PrivateIPv4Address, nic.PrivateIPv6Address)
+		err = modifyServerNetworkAdapterIP(providerState, server.ID, nic)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

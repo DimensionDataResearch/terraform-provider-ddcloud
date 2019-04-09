@@ -156,8 +156,16 @@ func modifyServerNetworkAdapterIP(providerState *providerState, serverID string,
 	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
+		log.Printf("[DD] resource_server_network > modifyServerNetworkAdapterIP - Updating NIC id:%s ipv4:%s ipv6:%s",
+			networkAdapter.ID, networkAdapter.PrivateIPv4Address, networkAdapter.PrivateIPv6Address)
 
-		changeAddressError := apiClient.NotifyServerIPAddressChange(networkAdapter.ID, &networkAdapter.PrivateIPv4Address, &networkAdapter.PrivateIPv6Address)
+		var changeAddressError error
+		if len(networkAdapter.PrivateIPv6Address) > 0 {
+			changeAddressError = apiClient.NotifyServerIPAddressChange(networkAdapter.ID, &networkAdapter.PrivateIPv4Address, &networkAdapter.PrivateIPv6Address)
+		} else {
+			changeAddressError = apiClient.NotifyServerIPAddressChange(networkAdapter.ID, &networkAdapter.PrivateIPv4Address, nil)
+		}
+
 		if compute.IsResourceBusyError(changeAddressError) {
 			context.Retry()
 		} else if changeAddressError != nil {
@@ -167,8 +175,6 @@ func modifyServerNetworkAdapterIP(providerState *providerState, serverID string,
 	if err != nil {
 		return err
 	}
-
-	log.Printf("[DD] Updating IP address(es) for network adapter '%s'...", networkAdapter.ID)
 
 	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
 	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
