@@ -405,28 +405,45 @@ func (helper resourcePropertyHelper) SetServerBackupClients(serverBackupClients 
 }
 
 func (helper resourcePropertyHelper) GetServerNetworkAdapters() (networkAdapters models.NetworkAdapters) {
-	// Primary network adapter.
-	value, ok := helper.data.GetOk(resourceKeyServerPrimaryNetworkAdapter)
-	if !ok {
-		return
-	}
-	networkAdapters = models.NewNetworkAdaptersFromStateData(
-		value.([]interface{}),
-	)
+	// NOTE: Currently, there are two approach to define NAT.
+	// Option1: Define Primary NAT using primary_adapter_ipv4 attribute within server resource. Additional adapters defined using network_adapter resource.
+	// Option2: Define primary and additional NAT using primary_network_adapter and additional_network_adapter attribute within server resource. Can't use network_adapter resource in this instance.
+	// The use of primary_adapter_ipv4 and primary_network_adapter are mutually exclusive. Option1 take precedence
 
-	// Additional network adapter.
-	value, ok = helper.data.GetOk(resourceKeyServerAdditionalNetworkAdapter)
-	if !ok {
+	// Option 1 approach
+	primaryAdapterIpv4, option1 := helper.data.GetOk(resourceKeyServerPrimaryAdapterIPv4)
+	if option1 {
+		networkAdapter := models.NetworkAdapter{PrivateIPv4Address: primaryAdapterIpv4.(string)}
+		networkAdapters = append(networkAdapters, networkAdapter)
 		return
-	}
 
-	networkAdapters = append(networkAdapters,
-		models.NewNetworkAdaptersFromStateData(
+	} else {
+		// Option 2 approach
+
+		// Primary network adapter.
+		value, ok := helper.data.GetOk(resourceKeyServerPrimaryNetworkAdapter)
+		if !ok {
+			return
+		}
+		networkAdapters = models.NewNetworkAdaptersFromStateData(
 			value.([]interface{}),
-		)...,
-	)
+		)
 
-	return
+		// Additional network adapter.
+		value, ok = helper.data.GetOk(resourceKeyServerAdditionalNetworkAdapter)
+		if !ok {
+			return
+		}
+
+		networkAdapters = append(networkAdapters,
+			models.NewNetworkAdaptersFromStateData(
+				value.([]interface{}),
+			)...,
+		)
+
+		return
+	}
+
 }
 
 func (helper resourcePropertyHelper) GetOldServerNetworkAdapters() (networkAdapters models.NetworkAdapters) {

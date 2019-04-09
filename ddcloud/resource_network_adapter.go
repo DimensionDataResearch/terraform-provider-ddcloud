@@ -53,6 +53,7 @@ func resourceNetworkAdapter() *schema.Resource {
 			},
 			resourceKeyNetworkAdapterPrivateIPV6: &schema.Schema{
 				Type:        schema.TypeString,
+				Optional:    true,
 				Computed:    true,
 				Description: "Private IPV6 Address for the nic",
 			},
@@ -72,6 +73,7 @@ func resourceNetworkAdapterCreate(data *schema.ResourceData, provider interface{
 	propertyHelper := propertyHelper(data)
 	serverID := data.Get(resourceKeyNetworkAdapterServerID).(string)
 	ipv4Address := data.Get(resourceKeyNetworkAdapterPrivateIPV4).(string)
+
 	vlanID := data.Get(resourceKeyNetworkAdapterVLANID).(string)
 	adapterType := propertyHelper.GetOptionalString(resourceKeyNetworkAdapterType, false)
 

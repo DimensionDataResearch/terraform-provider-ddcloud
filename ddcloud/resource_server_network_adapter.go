@@ -39,9 +39,10 @@ func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
 	}
 
 	return &schema.Schema{
-		Type:     schema.TypeList,
-		Required: isPrimary,
-		Optional: !isPrimary,
+		Type: schema.TypeList,
+		// Required: isPrimary,
+		// Optional: !isPrimary,
+		Optional: true,
 		ForceNew: false,
 		MinItems: 1,
 		MaxItems: maxItems,
