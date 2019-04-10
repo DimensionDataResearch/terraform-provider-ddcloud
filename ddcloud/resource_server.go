@@ -167,7 +167,6 @@ func resourceServer() *schema.Resource {
 			resourceKeyServerPrimaryAdapterIPv4: &schema.Schema{
 				Type:        schema.TypeString,
 				Computed:    true,
-				Optional:    true,
 				Default:     nil,
 				Description: "The IPv4 address for the server's primary network adapter",
 			},
@@ -179,7 +178,6 @@ func resourceServer() *schema.Resource {
 			},
 			resourceKeyServerPrimaryAdapterIPv6: &schema.Schema{
 				Type:        schema.TypeString,
-				Optional:    true,
 				Computed:    true,
 				Description: "The IPv6 address of the server's primary network adapter",
 			},
@@ -1073,7 +1071,6 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 }
 
 // Capture additional properties that may only be available after deployment.
-// Workaround ipv6 is automatically assigned at provisioning by modifying NIC to ip as specified
 func captureCreatedServerProperties(data *schema.ResourceData, providerState *providerState, server *compute.Server, networkAdapters models.NetworkAdapters) error {
 	networkDomainID := data.Get(resourceKeyServerNetworkDomainID).(string)
 
