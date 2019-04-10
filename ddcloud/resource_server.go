@@ -536,33 +536,21 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
+	// TODO: Find a better solution to be able to update, add and remove additional adapters.
 	// Additional Network Adapters
 	if data.HasChange(resourceKeyServerAdditionalNetworkAdapter) {
 		log.Printf("[Resource_server] resourceKeyServerAdditionalNetworkAdapter has changed ")
 
-		// Note: Tried modifying network adapter; it won't work in adding and removing scenarios, the index of NIC confused terraform additional network adapter schema list.
-		// Current implementation treat additional nic(s) as one resource instead of one for each additional nic.
+		// Note: Tried modifying network adapter; it won't work in adding and removing scenarios, the index of NIC confuse terraform additional network adapter schema list.
+		// Current implementation treat additional nic(s) as an attribute in server resource instead of a network adapter resource by itself.
+		// At the moment, we had to disable the feature to attach and detach network adapter post-server provisioning and restrict update to modifying existing list of network adapter at server provision.
 
 		// Refresh additional network adapters by removing and re-adding.
 		log.Printf("[DD] Updating network adapters")
 
-		// Removed all additional network adapters
-		actualAdditionalAdapters := server.Network.AdditionalNetworkAdapters
-		for _, adapter := range actualAdditionalAdapters {
-			m := models.NewNetworkAdapterFromVirtualMachineNetworkAdapter(adapter)
-			err := removeServerNetworkAdapter(providerState, serverID, &m)
-			if err != nil {
-				return err
-			}
-		}
-
-		// Add all additional network adapters
+		// Update all additional network adapters
 		configuredAdditionalAdapters := propertyHelper.GetServerNetworkAdapters().GetAdditional()
 		for _, configured := range configuredAdditionalAdapters {
-			err = addServerNetworkAdapter(providerState, serverID, &configured)
-			if err != nil {
-				return err
-			}
 
 			err = modifyServerNetworkAdapterIP(providerState, serverID, configured)
 			if err != nil {
@@ -901,7 +889,7 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 
 	server := resource.(*compute.Server)
 
-	// Capture additional properties that may only be available after deployment.
+	// Capture additional properties (those only available after deployment) and modify auto-assinged IPs to the one specified in tf file.
 	err = captureCreatedServerProperties(data, providerState, server, networkAdapters)
 	if err != nil {
 		return err
@@ -1101,6 +1089,7 @@ func captureCreatedServerProperties(data *schema.ResourceData, providerState *pr
 	data.Set(resourceKeyServerStarted, server.Started)
 	data.SetPartial(resourceKeyServerStarted)
 
+	// Update network adapter IPs from Auto-Assigned to user-defined
 	for _, nic := range networkAdapters {
 		log.Printf("[DD] resource_server > captureCreatedServerProperties() nic id:%s ipv4:%s ipv6:%s",
 			nic.ID, nic.PrivateIPv4Address, nic.PrivateIPv6Address)
