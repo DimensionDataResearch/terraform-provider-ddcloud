@@ -169,12 +169,12 @@ func (helper resourcePropertyHelper) GetTags(key string) (tags []compute.Tag) {
 		tagProperties := item.(map[string]interface{})
 		tag := &compute.Tag{}
 
-		value, ok = tagProperties[resourceKeyServerTagName]
+		value, ok = tagProperties[resourceKeyTagName]
 		if ok {
 			tag.Name = value.(string)
 		}
 
-		value, ok = tagProperties[resourceKeyServerTagValue]
+		value, ok = tagProperties[resourceKeyTagValue]
 		if ok {
 			tag.Value = value.(string)
 		}
@@ -186,12 +186,12 @@ func (helper resourcePropertyHelper) GetTags(key string) (tags []compute.Tag) {
 }
 
 func (helper resourcePropertyHelper) SetTags(key string, tags []compute.Tag) {
-	tagProperties := &schema.Set{F: hashServerTag}
+	tagProperties := &schema.Set{F: hashTag}
 
 	for _, tag := range tags {
 		tagProperties.Add(map[string]interface{}{
-			resourceKeyServerTagName:  tag.Name,
-			resourceKeyServerTagValue: tag.Value,
+			resourceKeyTagName:  tag.Name,
+			resourceKeyTagValue: tag.Value,
 		})
 	}
 	helper.data.Set(key, tagProperties)

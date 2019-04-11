@@ -209,7 +209,7 @@ func resourceServer() *schema.Resource {
 				Computed:    true,
 			},
 
-			resourceKeyServerTag: schemaServerTag(),
+			resourceKeyTag: schemaTag(),
 
 			resourceKeyServerBackupEnabled: &schema.Schema{
 				Type:        schema.TypeBool,
@@ -388,7 +388,7 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 		data.Set(resourceKeyServerPublicIPv4, nil)
 	}
 
-	err = readServerTags(data, apiClient)
+	err = readTags(data, apiClient, compute.AssetTypeServer)
 	if err != nil {
 		return err
 	}
@@ -569,13 +569,13 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 
 	}
 
-	if data.HasChange(resourceKeyServerTag) {
-		err = applyServerTags(data, apiClient, providerState.Settings())
+	if data.HasChange(resourceKeyTag) {
+		err = applyTags(data, apiClient, compute.AssetTypeServer, providerState.Settings())
 		if err != nil {
 			return err
 		}
 
-		data.SetPartial(resourceKeyServerTag)
+		data.SetPartial(resourceKeyTag)
 	}
 
 	if data.HasChange(resourceKeyServerDisk) {
@@ -726,7 +726,7 @@ func resourceServerImport(data *schema.ResourceData, provider interface{}) (impo
 		data.Set(resourceKeyServerPublicIPv4, nil)
 	}
 
-	err = readServerTags(data, apiClient)
+	err = readTags(data, apiClient, compute.AssetTypeServer)
 	if err != nil {
 		return nil, err
 	}
@@ -897,11 +897,11 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 
 	data.Partial(true)
 
-	err = applyServerTags(data, apiClient, providerState.Settings())
+	err = applyTags(data, apiClient, compute.AssetTypeServer, providerState.Settings())
 	if err != nil {
 		return err
 	}
-	data.SetPartial(resourceKeyServerTag)
+	data.SetPartial(resourceKeyTag)
 
 	err = createDisks(server, data, providerState)
 	if err != nil {
@@ -1042,11 +1042,11 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 
 	data.Partial(true)
 
-	err = applyServerTags(data, apiClient, providerState.Settings())
+	err = applyTags(data, apiClient, compute.AssetTypeServer, providerState.Settings())
 	if err != nil {
 		return err
 	}
-	data.SetPartial(resourceKeyServerTag)
+	data.SetPartial(resourceKeyTag)
 
 	err = createDisks(server, data, providerState)
 	if err != nil {

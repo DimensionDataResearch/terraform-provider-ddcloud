@@ -47,6 +47,11 @@ The following arguments are supported:
 * `detached_vlan_gateway_address` - (Optional) The system will use this IP address as the IPv4 gateway when the Deploy Server API is used referencing a NIC to the VLAN.
 * `attached_vlan_gateway_addressing` - (Optional) LOW gatewayAddressing has small VLAM with IP addresses x.x.x.1-x.x.x.3 reserved at the bottom of the VLAN range. HIGH gatewayAddressing has VLAN with IP addresses x.x.x.252-x.x.x.254 reserved at the top of the VLAN range.
 
+Available Options include.
+* `tag` - (Optional) A set of tags to apply to the vlan.
+    * `name` - (Required) The tag name. **Note**: The tag name must already be defined for your organisation.
+    * `value` - (Required) The tag value.
+
 ## Attribute Reference
 
 The following additional attributes are exported:
