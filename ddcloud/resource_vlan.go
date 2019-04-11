@@ -91,6 +91,7 @@ func resourceVLAN() *schema.Resource {
 				Description:   "IPv4 Address representation of the desired IPv4 Gateway.",
 				ConflictsWith: []string{resourceKeyAttachedVlanGatewayAddressing},
 			},
+			resourceKeyTag: schemaTag(),
 		},
 	}
 }
@@ -155,6 +156,14 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	data.Set(resourceKeyVLANIPv6BaseAddress, vlan.IPv6Range.BaseAddress)
 	data.Set(resourceKeyVLANIPv6PrefixSize, vlan.IPv6Range.PrefixSize)
 
+	// Tags
+	data.Partial(true)
+	err = applyTags(data, apiClient, compute.AssetTypeVLAN, providerState.Settings())
+	if err != nil {
+		return err
+	}
+	data.SetPartial(resourceKeyTag)
+
 	return nil
 }
 
@@ -185,6 +194,12 @@ func resourceVLANRead(data *schema.ResourceData, provider interface{}) error {
 		data.Set(resourceKeyVLANIPv4PrefixSize, vlan.IPv4Range.PrefixSize)
 		data.Set(resourceKeyVLANIPv6BaseAddress, vlan.IPv6Range.BaseAddress)
 		data.Set(resourceKeyVLANIPv6PrefixSize, vlan.IPv6Range.PrefixSize)
+
+		err = readTags(data, apiClient, compute.AssetTypeVLAN)
+		if err != nil {
+			return err
+		}
+
 	} else {
 		data.SetId("") // Mark resource as deleted.
 	}
@@ -216,6 +231,15 @@ func resourceVLANUpdate(data *schema.ResourceData, provider interface{}) error {
 
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
+
+	if data.HasChange(resourceKeyTag) {
+		err := applyTags(data, apiClient, compute.AssetTypeVLAN, providerState.Settings())
+		if err != nil {
+			return err
+		}
+
+		data.SetPartial(resourceKeyTag)
+	}
 
 	if newName == nil && newDescription == nil {
 		return nil
@@ -305,6 +329,9 @@ func resourceVLANImport(data *schema.ResourceData, provider interface{}) (import
 	data.Set(resourceKeyVLANNetworkDomainID, vlan.NetworkDomain.ID)
 	data.Set(resourceKeyDetachedGatewayAddress, vlan.IPv4GatewayAddress)
 	data.Set(resourceKeyAttachedVlanGatewayAddressing, vlan.GatewayAddressing)
+
+	err = readTags(data, apiClient, compute.AssetTypeVLAN)
+
 	importedData = []*schema.ResourceData{data}
 
 	return
