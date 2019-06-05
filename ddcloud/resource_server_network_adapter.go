@@ -161,8 +161,9 @@ func modifyServerNetworkAdapterIP(providerState *providerState, serverID string,
 
 		var changeAddressError error
 		if len(networkAdapter.PrivateIPv6Address) > 0 {
-			changeAddressError = apiClient.NotifyServerIPAddressChange(networkAdapter.ID, &networkAdapter.PrivateIPv4Address, &networkAdapter.PrivateIPv6Address)
-		} else {
+			changeAddressError = apiClient.NotifyServerIPAddressChange(networkAdapter.ID, nil, &networkAdapter.PrivateIPv6Address)
+		}
+		if len(networkAdapter.PrivateIPv4Address) > 0 {
 			changeAddressError = apiClient.NotifyServerIPAddressChange(networkAdapter.ID, &networkAdapter.PrivateIPv4Address, nil)
 		}
 

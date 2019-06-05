@@ -18,6 +18,8 @@ const (
 	resourceKeyStaticRouteNextHopAddress            = "next_hop_address"
 	resourceKeyStaticRouteState                     = "state"
 	resourceKeyStaticRouteDataCenter                = "data_center"
+	resourceKeyStaticRouteDeleteFromDefault         = "delete_from_default"
+
 )
 
 func resourceStaticRoute() *schema.Resource {
@@ -77,6 +79,12 @@ func resourceStaticRoute() *schema.Resource {
 				Computed:    true,
 				Description: "Data center where Static Route reside",
 			},
+			resourceKeyStaticRouteDeleteFromDefault: &schema.Schema{
+				Type:        schema.TypeBool,
+				Required:    false,
+				Description: "Remove from default. Only applicable to default static route type SYSTEM",
+			},
+
 		},
 	}
 }
