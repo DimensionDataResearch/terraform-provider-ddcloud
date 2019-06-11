@@ -9,17 +9,16 @@ import (
 )
 
 const (
-	resourceKeyStaticRouteName                      = "name"
-	resourceKeyStaticRouteDescription               = "description"
-	resourceKeyStaticRouteNetworkdomain             = "networkdomain"
-	resourceKeyStaticRouteIpVersion                 = "ip_version"
-	resourceKeyStaticRouteDestinationNetworkAddress = "destination_network_address"
-	resourceKeyStaticRouteDestinationPrefixSize     = "destination_prefix_size"
-	resourceKeyStaticRouteNextHopAddress            = "next_hop_address"
-	resourceKeyStaticRouteState                     = "state"
-	resourceKeyStaticRouteDataCenter                = "data_center"
-	resourceKeyStaticRouteDeleteFromDefault         = "delete_from_default"
-
+	resourceKeyStaticRouteName                           = "name"
+	resourceKeyStaticRouteDescription                    = "description"
+	resourceKeyStaticRouteNetworkdomain                  = "networkdomain"
+	resourceKeyStaticRouteIpVersion                      = "ip_version"
+	resourceKeyStaticRouteDestinationNetworkAddress      = "destination_network_address"
+	resourceKeyStaticRouteDestinationPrefixSize          = "destination_prefix_size"
+	resourceKeyStaticRouteNextHopAddress                 = "next_hop_address"
+	resourceKeyStaticRouteState                          = "state"
+	resourceKeyStaticRouteDataCenter                     = "data_center"
+	resourceKeyStaticRouteOverwriteMatchingSystemDefault = "overwrite_system_default"
 )
 
 func resourceStaticRoute() *schema.Resource {
@@ -79,12 +78,13 @@ func resourceStaticRoute() *schema.Resource {
 				Computed:    true,
 				Description: "Data center where Static Route reside",
 			},
-			resourceKeyStaticRouteDeleteFromDefault: &schema.Schema{
-				Type:        schema.TypeBool,
-				Required:    false,
-				Description: "Remove from default. Only applicable to default static route type SYSTEM",
+			resourceKeyStaticRouteOverwriteMatchingSystemDefault: &schema.Schema{
+				Type:     schema.TypeBool,
+				Optional: true,
+				Description: "Overwrite existing static route if a matching address space found. This attribute is " +
+					"intended to overwrite system default static route. It will delete matching a system default route if found " +
+					"and create a client static route",
 			},
-
 		},
 	}
 }
@@ -102,6 +102,9 @@ func resourceStaticRouteExists(data *schema.ResourceData, provider interface{}) 
 
 func resourceStaticRouteCreate(data *schema.ResourceData, provider interface{}) error {
 	log.Println("resourceStaticRouteCreate")
+	providerState := provider.(*providerState)
+	apiClient := providerState.Client()
+
 	var networkDomainId, name, description, ipVersion, destinationNetworkAddress, nextHopAddress string
 	var destinationPrefixSize int
 
@@ -112,13 +115,33 @@ func resourceStaticRouteCreate(data *schema.ResourceData, provider interface{}) 
 	destinationNetworkAddress = data.Get(resourceKeyStaticRouteDestinationNetworkAddress).(string)
 	destinationPrefixSize = data.Get(resourceKeyStaticRouteDestinationPrefixSize).(int)
 	nextHopAddress = data.Get(resourceKeyStaticRouteNextHopAddress).(string)
+	enableOverwriteSystemDefault := data.Get(resourceKeyStaticRouteOverwriteMatchingSystemDefault).(bool)
+
+	// Overwrite system default static route
+	if enableOverwriteSystemDefault {
+		// Default System Static Route
+		route, _ := apiClient.GetStaticRouteByAddress(nil, networkDomainId, destinationNetworkAddress, destinationPrefixSize)
+		if route != nil {
+			log.Printf("System Static route with matching destinationNetworkAddress found. "+
+				"networkDomainId:%s, name: %s, description: %s, ipVersion: %s, "+
+				"destinationNetworkAddress: %s, destinationPrefixSize: %d, nextHopAddress: %s",
+				networkDomainId, name, description, ipVersion, destinationNetworkAddress, destinationPrefixSize, nextHopAddress)
+
+			err := apiClient.DeleteStaticRoute(route.ID)
+			if err != nil {
+				return err
+			}
+			log.Printf("Default system route deleted successfully. Name:%s", name)
+
+			data.SetId("") // Mark resource as deleted
+			//return nil
+		}
+
+	}
 
 	log.Printf("Create static route with networkDomainId:%s, name: %s, description: %s, ipVersion: %s, "+
 		"destinationNetworkAddress: %s, destinationPrefixSize: %d, nextHopAddress: %s",
 		networkDomainId, name, description, ipVersion, destinationNetworkAddress, destinationPrefixSize, nextHopAddress)
-
-	providerState := provider.(*providerState)
-	apiClient := providerState.Client()
 
 	var staticRouteID string
 	operationDescription := fmt.Sprintf("Create static route '%s'", name)
@@ -204,6 +227,7 @@ func resourceStaticRouteRead(data *schema.ResourceData, provider interface{}) er
 	data.Partial(true)
 
 	if staticRoute != nil {
+
 		data.Set(resourceKeyStaticRouteNetworkdomain, staticRoute.NetworkDomainId)
 		data.SetPartial(resourceKeyStaticRouteNetworkdomain)
 
@@ -224,8 +248,7 @@ func resourceStaticRouteRead(data *schema.ResourceData, provider interface{}) er
 
 		data.Set(resourceKeyStaticRouteNextHopAddress, staticRoute.NextHopAddress)
 		data.SetPartial(resourceKeyStaticRouteNextHopAddress)
-	} else {
-		data.SetId("") // Mark resource as deleted
+
 	}
 
 	data.Partial(false)
@@ -235,13 +258,28 @@ func resourceStaticRouteRead(data *schema.ResourceData, provider interface{}) er
 func resourceStaticRouteUpdate(data *schema.ResourceData, provider interface{}) error {
 	log.Println("resourceStaticRouteUpdate")
 
-	// update step 1: delete
-	log.Println("resourceStaticRouteUpdate: delete resource")
 	providerState := provider.(*providerState)
 	apiClient := providerState.Client()
 
 	id := data.Id()
 	name := data.Get(resourceKeyStaticRouteName).(string)
+
+	log.Println("resourceStaticRouteUpdate: Re-Create resource")
+	var networkDomainId, description, ipVersion, destinationNetworkAddress, nextHopAddress string
+	var destinationPrefixSize int
+
+	networkDomainId = data.Get(resourceKeyStaticRouteNetworkdomain).(string)
+	name = data.Get(resourceKeyStaticRouteName).(string)
+	description = data.Get(resourceKeyStaticRouteDescription).(string)
+	ipVersion = data.Get(resourceKeyStaticRouteIpVersion).(string)
+	destinationNetworkAddress = data.Get(resourceKeyStaticRouteDestinationNetworkAddress).(string)
+	destinationPrefixSize = data.Get(resourceKeyStaticRouteDestinationPrefixSize).(int)
+	nextHopAddress = data.Get(resourceKeyStaticRouteNextHopAddress).(string)
+
+	enableOverwriteSystemDefault := data.Get(resourceKeyStaticRouteOverwriteMatchingSystemDefault).(bool)
+
+	// update step 1: delete
+	log.Println("resourceStaticRouteUpdate: delete resource")
 
 	operationDescriptionDel := fmt.Sprintf("Deleting static route '%s'", name)
 
@@ -267,17 +305,26 @@ func resourceStaticRouteUpdate(data *schema.ResourceData, provider interface{}) 
 	}
 
 	// Update step 2: re-create
-	log.Println("resourceStaticRouteUpdate: Re-Create resource")
-	var networkDomainId, description, ipVersion, destinationNetworkAddress, nextHopAddress string
-	var destinationPrefixSize int
+	// Overwrite system default static route
+	if enableOverwriteSystemDefault {
+		// Default System Static Route
+		route, _ := apiClient.GetStaticRouteByAddress(nil, networkDomainId, destinationNetworkAddress, destinationPrefixSize)
+		if route != nil {
+			log.Printf("System Static route with matching destinationNetworkAddress found. "+
+				"networkDomainId:%s, name: %s, description: %s, ipVersion: %s, "+
+				"destinationNetworkAddress: %s, destinationPrefixSize: %d, nextHopAddress: %s",
+				networkDomainId, name, description, ipVersion, destinationNetworkAddress, destinationPrefixSize, nextHopAddress)
 
-	networkDomainId = data.Get(resourceKeyStaticRouteNetworkdomain).(string)
-	name = data.Get(resourceKeyStaticRouteName).(string)
-	description = data.Get(resourceKeyStaticRouteDescription).(string)
-	ipVersion = data.Get(resourceKeyStaticRouteIpVersion).(string)
-	destinationNetworkAddress = data.Get(resourceKeyStaticRouteDestinationNetworkAddress).(string)
-	destinationPrefixSize = data.Get(resourceKeyStaticRouteDestinationPrefixSize).(int)
-	nextHopAddress = data.Get(resourceKeyStaticRouteNextHopAddress).(string)
+			err := apiClient.DeleteStaticRoute(route.ID)
+			if err != nil {
+				return err
+			}
+			log.Printf("Default system route deleted successfully. Name:%s", name)
+
+			data.SetId("") // Mark resource as deleted
+		}
+
+	}
 
 	log.Printf("Create static route with networkDomainId:%s, name: %s, description: %s, ipVersion: %s, "+
 		"destinationNetworkAddress: %s, destinationPrefixSize: %d, nextHopAddress: %s",
