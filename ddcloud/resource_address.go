@@ -1,6 +1,9 @@
 package ddcloud
 
 import (
+	"fmt"
+	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
+	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/pkg/errors"
 	"log"
@@ -14,6 +17,7 @@ const (
 	resourceKeyAddressPrefixSize      = "prefix_size"
 	resourceKeyAddressNetworkDomainID = "networkdomain"
 	resourceKeyAddressListID          = "addresslist_id"
+	resourceKeyAddressAddressListName = "addresslist_name"
 )
 
 func resourceAddress() *schema.Resource {
@@ -31,11 +35,11 @@ func resourceAddress() *schema.Resource {
 				Required:    true,
 				Description: "The Id of the network domain in which the address applies",
 			},
-			resourceKeyAddressListID: &schema.Schema{
+			resourceKeyAddressAddressListName: &schema.Schema{
 				Type:        schema.TypeString,
 				ForceNew:    true,
 				Required:    true,
-				Description: "The Id of the address list",
+				Description: "The Name of the address list",
 			},
 			resourceKeyAddressBegin: &schema.Schema{
 				Type:        schema.TypeString,
@@ -64,9 +68,17 @@ func resourceAddress() *schema.Resource {
 // Check if an address list resource exists.
 func resourceAddressExists(data *schema.ResourceData, provider interface{}) (bool, error) {
 	log.Printf("resourceAddressExists")
-	addressListId := data.Get(resourceKeyAddressListID).(string)
-
 	client := provider.(*providerState).Client()
+	networkDomainId := data.Get(resourceKeyAddressNetworkDomainID).(string)
+	addressListName := data.Get(resourceKeyAddressAddressListName).(string)
+	addrList, _ := client.GetIPAddressListByName(addressListName, networkDomainId)
+
+	var addressListId string
+	if addrList == nil {
+		return false, nil
+	} else {
+		addressListId = addrList.ID
+	}
 
 	begin, okBegin := data.GetOk(resourceKeyAddressBegin)
 	network, okNetwork := data.GetOk(resourceKeyAddressNetwork)
@@ -92,7 +104,19 @@ func resourceAddressCreate(data *schema.ResourceData, provider interface{}) erro
 	var network string
 	var prefixSize int
 
-	addressListId := data.Get(resourceKeyAddressListID).(string)
+	providerState := provider.(*providerState)
+	client := providerState.Client()
+
+	addressListName := data.Get(resourceKeyAddressAddressListName).(string)
+	networkDomainId := data.Get(resourceKeyAddressNetworkDomainID).(string)
+	addrList, err := client.GetIPAddressListByName(addressListName, networkDomainId)
+
+	var addressListId string
+	if err != nil {
+		return err
+	} else {
+		addressListId = addrList.ID
+	}
 
 	valBegin, beginOk := data.GetOk(resourceKeyAddressBegin)
 	if beginOk {
@@ -124,8 +148,25 @@ func resourceAddressCreate(data *schema.ResourceData, provider interface{}) erro
 		}
 	}
 
-	client := provider.(*providerState).Client()
-	_, err := client.AddAddress(addressListId, begin, end, network, prefixSize)
+	operationDescription := fmt.Sprintf("Add Address to FW  Address List'")
+
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Create Address '%s'")
+		defer asyncLock.Release()
+
+		_, deployError := client.AddAddress(addressListId, begin, end, network, prefixSize)
+
+		if deployError != nil {
+			if compute.IsResourceBusyError(deployError) {
+				context.Retry()
+			} else {
+				context.Fail(deployError)
+			}
+		}
+
+		asyncLock.Release()
+	})
 
 	if err != nil {
 		return err
@@ -147,11 +188,21 @@ func resourceAddressCreate(data *schema.ResourceData, provider interface{}) erro
 func resourceAddressRead(data *schema.ResourceData, provider interface{}) error {
 	log.Printf("resourceAddressRead")
 
-	addressListId := data.Get(resourceKeyAddressListID).(string)
 	begin, _ := data.GetOk(resourceKeyAddressBegin)
 	network, _ := data.GetOk(resourceKeyAddressNetwork)
 
 	client := provider.(*providerState).Client()
+
+	networkDomainId := data.Get(resourceKeyAddressNetworkDomainID).(string)
+	addressListName := data.Get(resourceKeyAddressAddressListName).(string)
+	addrList, err := client.GetIPAddressListByName(addressListName, networkDomainId)
+
+	var addressListId string
+	if err != nil {
+		return err
+	} else {
+		addressListId = addrList.ID
+	}
 
 	// Check if address exists in cloud
 	addr, addrOk := client.GetAddressOk(addressListId, begin.(string), network.(string))
@@ -192,7 +243,19 @@ func resourceAddressUpdate(data *schema.ResourceData, provider interface{}) erro
 	// Enable partial state mode
 	// data.Partial(true)
 
-	addressListId := data.Get(resourceKeyAddressListID).(string)
+	providerState := provider.(*providerState)
+	client := providerState.Client()
+
+	networkDomainId := data.Get(resourceKeyAddressNetworkDomainID).(string)
+	addressListName := data.Get(resourceKeyAddressAddressListName).(string)
+	addrList, err := client.GetIPAddressListByName(addressListName, networkDomainId)
+
+	var addressListId string
+	if err != nil {
+		return err
+	} else {
+		addressListId = addrList.ID
+	}
 
 	valBegin, beginOk := data.GetOk(resourceKeyAddressBegin)
 	if beginOk {
@@ -214,8 +277,6 @@ func resourceAddressUpdate(data *schema.ResourceData, provider interface{}) erro
 		prefixSize = valPrefix.(int)
 	}
 
-	client := provider.(*providerState).Client()
-
 	oldBegin, _ := data.GetChange(resourceKeyAddressBegin)
 	oldNetwork, _ := data.GetChange(resourceKeyAddressNetwork)
 
@@ -227,24 +288,38 @@ func resourceAddressUpdate(data *schema.ResourceData, provider interface{}) erro
 		ipAddress = oldNetwork.(string)
 	}
 
-	// Update step 1: Remove old address
-	_, errOld := client.DeleteAddress(addressListId, ipAddress)
-	if errOld != nil {
-		return errOld
-	}
+	operationDescription := fmt.Sprintf("Delete Address in FW Address List'")
 
-	// Update step 2: Add new address
-	newAddress, err := client.AddAddress(addressListId, begin, end, network, prefixSize)
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Delete Address '%s'")
+		defer asyncLock.Release()
+
+		// Update step 1: Remove old address
+		_, deployErr := client.DeleteAddress(addressListId, ipAddress)
+		if deployErr != nil {
+			return
+		}
+
+		// Update step 2: Add new address
+		newAddress, deployErr := client.AddAddress(addressListId, begin, end, network, prefixSize)
+
+		if deployErr != nil {
+			return
+		}
+
+		log.Printf("Updated address: %s", newAddress.Begin)
+
+		// We succeeded, disable partial mode. This causes Terraform to save
+		// all fields again.
+		// data.Partial(false)
+
+		asyncLock.Release()
+	})
 
 	if err != nil {
 		return err
 	}
-
-	log.Printf("Updated address: %s", newAddress.Begin)
-
-	// We succeeded, disable partial mode. This causes Terraform to save
-	// all fields again.
-	// data.Partial(false)
 
 	return resourceAddressRead(data, provider)
 }
@@ -253,7 +328,9 @@ func resourceAddressUpdate(data *schema.ResourceData, provider interface{}) erro
 func resourceAddressDelete(data *schema.ResourceData, provider interface{}) error {
 	log.Printf("resourceAddressDelete")
 
-	addressListId := data.Get(resourceKeyAddressListID).(string)
+	providerState := provider.(*providerState)
+	client := providerState.Client()
+
 	begin := data.Get(resourceKeyAddressBegin).(string)
 	network := data.Get(resourceKeyAddressNetwork).(string)
 
@@ -264,8 +341,35 @@ func resourceAddressDelete(data *schema.ResourceData, provider interface{}) erro
 		ip = network
 	}
 
-	client := provider.(*providerState).Client()
-	_, err := client.DeleteAddress(addressListId, ip)
+	networkDomainId := data.Get(resourceKeyAddressNetworkDomainID).(string)
+	addressListName := data.Get(resourceKeyAddressAddressListName).(string)
+	addrList, err := client.GetIPAddressListByName(addressListName, networkDomainId)
+
+	var addressListId string
+	if err != nil {
+		return err
+	} else {
+		addressListId = addrList.ID
+	}
+
+	operationDescription := fmt.Sprintf("Delete Address in FW Address List'")
+
+	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
+		asyncLock := providerState.AcquireAsyncOperationLock("Delete Address '%s'")
+		defer asyncLock.Release()
+		_, deployError := client.DeleteAddress(addressListId, ip)
+
+		if deployError != nil {
+			if compute.IsResourceBusyError(deployError) {
+				context.Retry()
+			} else {
+				context.Fail(deployError)
+			}
+		}
+
+		asyncLock.Release()
+	})
 
 	if err != nil {
 		return err
