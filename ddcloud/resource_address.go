@@ -152,7 +152,8 @@ func resourceAddressCreate(data *schema.ResourceData, provider interface{}) erro
 
 	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock("Create Address '%s'")
+		asyncLock := providerState.AcquireAsyncOperationLock("Create Address begin:'%s' end:%s network:%s prefix:%d",
+			valBegin, valEnd, valNetwork, valPrefix)
 		defer asyncLock.Release()
 
 		_, deployError := client.AddAddress(addressListId, begin, end, network, prefixSize)
@@ -292,7 +293,7 @@ func resourceAddressUpdate(data *schema.ResourceData, provider interface{}) erro
 
 	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock("Delete Address '%s'")
+		asyncLock := providerState.AcquireAsyncOperationLock("Delete Address '%s'", valBegin)
 		defer asyncLock.Release()
 
 		// Update step 1: Remove old address
@@ -356,7 +357,7 @@ func resourceAddressDelete(data *schema.ResourceData, provider interface{}) erro
 
 	err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 		// CloudControl has issues if more than one asynchronous operation is initated at a time (returns UNEXPECTED_ERROR).
-		asyncLock := providerState.AcquireAsyncOperationLock("Delete Address '%s'")
+		asyncLock := providerState.AcquireAsyncOperationLock("Delete Address '%s'", begin)
 		defer asyncLock.Release()
 		_, deployError := client.DeleteAddress(addressListId, ip)
 
