@@ -47,6 +47,16 @@ func dataSourceVLAN() *schema.Resource {
 				Computed:    true,
 				Description: "The VLAN's IPv6 prefix length.",
 			},
+			resourceKeyVLANIPv6GatewayAddress: &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The VLAN's IPv6 Gateway Address",
+			},
+			resourceKeyVLANIPv4GatewayAddress: &schema.Schema{
+				Type:        schema.TypeString,
+				Computed:    true,
+				Description: "The VLAN's IPv4 Gateway Address",
+			},
 		},
 	}
 }
@@ -71,6 +81,9 @@ func dataSourceVLANRead(data *schema.ResourceData, provider interface{}) error {
 		data.Set(resourceKeyVLANIPv4PrefixSize, vlan.IPv4Range.PrefixSize)
 		data.Set(resourceKeyVLANIPv6BaseAddress, vlan.IPv6Range.BaseAddress)
 		data.Set(resourceKeyVLANIPv6PrefixSize, vlan.IPv6Range.PrefixSize)
+		data.Set(resourceKeyVLANIPv4GatewayAddress, vlan.IPv4GatewayAddress)
+		data.Set(resourceKeyVLANIPv6GatewayAddress, vlan.IPv6GatewayAddress)
+
 	} else {
 		return fmt.Errorf("failed to find VLAN '%s' in network domain '%s'", name, networkDomainID)
 	}

@@ -72,6 +72,7 @@ func captureServerNetworkConfiguration(server *compute.Server, data *schema.Reso
 		data.Set(resourceKeyServerPrimaryAdapterIPv6, nil)
 	}
 
+	// Network domain
 	data.Set(resourceKeyServerNetworkDomainID, server.Network.NetworkDomainID)
 }
 

@@ -26,8 +26,8 @@ The following configuration creates an address with single IP.
 resource "ddcloud_address" "single_ip" {
   begin   = "10.1.1.61"
   
-  networkdomain = "${data.ddcloud_networkdomain.my-domain.id}"
-  addresslist_id = "${data.ddcloud_addresslist.my-addresslist.id}"
+  networkdomain = "650a4030-5051-4344-a5a3-f7cbf7c44833"
+  addresslist_name = = "Team_A"
 }
 ```
 
@@ -39,8 +39,8 @@ resource "ddcloud_address" "ip_range" {
   begin   = "10.1.1.71"
   end     = "10.1.1.73" 
 
-  networkdomain = "${data.ddcloud_networkdomain.my-domain.id}"
-  addresslist_id = "${data.ddcloud_addresslist.my-addresslist.id}"
+  networkdomain = "650a4030-5051-4344-a5a3-f7cbf7c44833"
+  addresslist_name = = "Team_A"
 }
 ```
 
@@ -51,8 +51,8 @@ resource "ddcloud_address" "ip_subnet" {
   network = "198.51.100.0"
   prefix_size = 24
   
-  networkdomain = "${data.ddcloud_networkdomain.my-domain.id}"
-  addresslist_id = "${data.ddcloud_addresslist.my-addresslist.id}"
+  networkdomain = "650a4030-5051-4344-a5a3-f7cbf7c44833"
+  addresslist_name = = "Team_A"
 }
 ```
 
@@ -73,6 +73,8 @@ For an IP network, specify `network` and `prefix_size`.
 | end          | IP Address e.g. 10.0.1.3 |
 | network      | subnet e.g. 10.1.3.0 |
 | prefix_size  | e.g. 32 |
+| networkdomain| Network Domain ID where this Address reside in|
+| addresslist_name | The name of the Address List where this address reside in |
 
 ## Attribute Reference
 

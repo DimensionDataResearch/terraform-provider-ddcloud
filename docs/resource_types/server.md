@@ -22,6 +22,7 @@ resource "ddcloud_server" "myserver" {
   primary_network_adapter {
     vlan               = "${ddcloud_vlan.myvlan.id}"
     ipv4               = "192.168.17.10"
+    ipv6               = "2402:9900:111:1235:523b:c23b:9368:eaff"
   }
 
   dns_primary          = "8.8.8.8"
@@ -71,7 +72,8 @@ If specified, must be `os`, `customer`, or `auto` (default).
   * `vlan` - (Optional) The Id of the VLAN that the primary network adapter is attached to.  
   Must specify at least one of `vlan` or `ipv4`.  
   **Note**: Changing this property will result in the server being destroyed and recreated.
-  * `ipv4` - (Optional) The IPv4 address for the primary network adapter.  
+  * `ipv4` - (Optional) The IPv4 address for the primary network adapter. 
+  * `ipv6` - (Optional) The IPv6 address for the primary network adapter.  
   Note that if `ipv4` is specified, the VLAN will be inferred from this value.  
   Must specify at least one of `ipv4` or `vlan`.
   * `type` - (Optional) The primary network adapter type.  

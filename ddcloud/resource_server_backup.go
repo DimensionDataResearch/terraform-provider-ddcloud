@@ -410,6 +410,7 @@ func createBackupClients(server *compute.Server, backupClients models.ServerBack
 					context.Fail(addClientError)
 				}
 			}
+			log.Printf("BackupClientID: %s", backupClientID)
 		})
 		if err != nil {
 			return errors.Wrapf(err, "failed to add '%s' backup client to server '%s'", backupClient.Type, server.ID)

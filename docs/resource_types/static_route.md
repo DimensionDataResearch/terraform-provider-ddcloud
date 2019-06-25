@@ -45,7 +45,7 @@ For an IP network, specify `network` and `prefix_size`.
 |destination_network_address| Yes | Either a valid IPv4 address in dot-decimal notation or an IPv6 address in compressed or extended format. In conjunction with the destinationPrefixSize this must represent a CIDR boundary. |
 |destination_prefix_size| Yes | Integer prefix defining the size of the network. |
 |next_hop_address| Yes |Gateway address in the form of an INET gateway, CPNC gateway or an address on an Attached VLAN in the same Network Domain. Cannot be a system-reserved address on the Attached VLAN if an Attached VLAN is referenced. For details of system-reserved addresses please refer to Introduction to IP Addressing and Routing in MCP 2.0 (https://docs.mcp-services.net/x/GwIu).|
-
+|overwrite_system_default|No | If set to 'true', any default SYSTEM static route with matching destination address and network prefix size will be deleted and replaced by this (CLIENT) static route
 ## Attribute Reference
 
 There are currently no additional attributes for `ddcloud_static_route`.

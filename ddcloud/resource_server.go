@@ -209,7 +209,7 @@ func resourceServer() *schema.Resource {
 				Computed:    true,
 			},
 
-			resourceKeyServerTag: schemaServerTag(),
+			resourceKeyTag: schemaTag(),
 
 			resourceKeyServerBackupEnabled: &schema.Schema{
 				Type:        schema.TypeBool,
@@ -312,6 +312,7 @@ func resourceServerCreate(data *schema.ResourceData, provider interface{}) error
 
 // Read a server resource.
 func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
+	log.Printf("resource_server > resourceServerRead")
 	propertyHelper := propertyHelper(data)
 
 	id := data.Id()
@@ -343,6 +344,34 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 	data.Set(resourceKeyServerCPUSpeed, server.CPU.Speed)
 	data.Set(resourceKeyServerOSType, server.OperatingSystem)
 
+	powerState := propertyHelper.GetOptionalString(resourceKeyServerPowerState, false)
+
+	isServerStarted := server.Started
+
+	if powerState != nil {
+		switch strings.ToLower(*powerState) {
+		case "start":
+			if !isServerStarted {
+				data.Set(resourceKeyServerPowerState, "shutdown")
+			}
+		case "autostart":
+			if !isServerStarted {
+				data.Set(resourceKeyServerPowerState, "shutdown")
+			}
+		case "shutdown":
+			if isServerStarted {
+				data.Set(resourceKeyServerPowerState, "start")
+			}
+		case "shutdown-hard":
+			if isServerStarted {
+				data.Set(resourceKeyServerPowerState, "start")
+			}
+
+		default:
+			data.Set(resourceKeyServerPowerState, "disabled")
+		}
+	}
+
 	captureServerNetworkConfiguration(server, data, false)
 
 	var publicIPv4Address string
@@ -359,7 +388,7 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 		data.Set(resourceKeyServerPublicIPv4, nil)
 	}
 
-	err = readServerTags(data, apiClient)
+	err = readTags(data, apiClient, compute.AssetTypeServer)
 	if err != nil {
 		return err
 	}
@@ -368,11 +397,8 @@ func resourceServerRead(data *schema.ResourceData, provider interface{}) error {
 		models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
 	)
 
-	if server.Started {
-		data.Set(resourceKeyServerStarted, true)
-	} else {
-		data.Set(resourceKeyServerStarted, false)
-	}
+	networkAdapters := propertyHelper.GetServerNetworkAdapters()
+	propertyHelper.SetServerNetworkAdapters(networkAdapters, false)
 
 	return readServerBackupClientDownloadURLs(server.ID, data, apiClient)
 }
@@ -459,8 +485,9 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		}
 	}
 
+	// Primary adapter
 	if data.HasChange(resourceKeyServerPrimaryNetworkAdapter) {
-		actualNetworkAdapters := models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
+		log.Printf("[DD] resource_server resourceKeyServerPrimaryNetworkAdapter has changed ")
 		actualPrimaryNetworkAdapter := models.NewNetworkAdapterFromVirtualMachineNetworkAdapter(server.Network.PrimaryAdapter)
 
 		configuredPrimaryNetworkAdapter := propertyHelper.GetServerNetworkAdapters().GetPrimary()
@@ -468,8 +495,10 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		log.Printf("Configured primary network adapter = %#v", configuredPrimaryNetworkAdapter)
 		log.Printf("Actual primary network adapter     = %#v", actualPrimaryNetworkAdapter)
 
-		if configuredPrimaryNetworkAdapter.PrivateIPv4Address != actualPrimaryNetworkAdapter.PrivateIPv4Address {
+		if (configuredPrimaryNetworkAdapter.PrivateIPv4Address != actualPrimaryNetworkAdapter.PrivateIPv4Address) ||
+			(configuredPrimaryNetworkAdapter.PrivateIPv6Address != actualPrimaryNetworkAdapter.PrivateIPv6Address) {
 			err = modifyServerNetworkAdapterIP(providerState, serverID, *configuredPrimaryNetworkAdapter)
+
 			if err != nil {
 				return err
 			}
@@ -505,18 +534,48 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		if server == nil {
 			return fmt.Errorf("cannot find server with Id '%s'", serverID)
 		}
-
-		actualNetworkAdapters = models.NewNetworkAdaptersFromVirtualMachineNetwork(server.Network)
-		propertyHelper.SetServerNetworkAdapters(actualNetworkAdapters, true)
 	}
 
-	if data.HasChange(resourceKeyServerTag) {
-		err = applyServerTags(data, apiClient, providerState.Settings())
+	// TODO: Find a better solution to be able to update, add and remove additional adapters.
+	// Additional Network Adapters
+	if data.HasChange(resourceKeyServerAdditionalNetworkAdapter) {
+		log.Printf("[Resource_server] resourceKeyServerAdditionalNetworkAdapter has changed ")
+
+		// Note: Tried modifying network adapter; it won't work in adding and removing scenarios, the index of NIC confuse terraform additional network adapter schema list.
+		// Current implementation treat additional nic(s) as an attribute in server resource instead of a network adapter resource by itself.
+		// At the moment, we had to disable the feature to attach and detach network adapter post-server provisioning and restrict update to modifying existing list of network adapter at server provision.
+
+		// Refresh additional network adapters by removing and re-adding.
+		log.Printf("[DD] Updating network adapters")
+
+		// Update all additional network adapters
+		configuredAdditionalAdapters := propertyHelper.GetServerNetworkAdapters().GetAdditional()
+		for _, configured := range configuredAdditionalAdapters {
+
+			err = modifyServerNetworkAdapterIP(providerState, serverID, configured)
+			if err != nil {
+				return err
+			}
+		}
+
+		// Persist final state.
+		server, err = apiClient.GetServer(serverID)
+		if err != nil {
+			return err
+		}
+		if server == nil {
+			return fmt.Errorf("cannot find server with Id '%s'", serverID)
+		}
+
+	}
+
+	if data.HasChange(resourceKeyTag) {
+		err = applyTags(data, apiClient, compute.AssetTypeServer, providerState.Settings())
 		if err != nil {
 			return err
 		}
 
-		data.SetPartial(resourceKeyServerTag)
+		data.SetPartial(resourceKeyTag)
 	}
 
 	if data.HasChange(resourceKeyServerDisk) {
@@ -530,12 +589,18 @@ func resourceServerUpdate(data *schema.ResourceData, provider interface{}) error
 		log.Printf("Server power state change has been detected.")
 		powerState := propertyHelper.GetOptionalString(resourceKeyServerPowerState, false)
 
+		isServerStartedActual := server.Started
+
 		if powerState != nil {
 			switch strings.ToLower(*powerState) {
 			case "start":
-				err = serverStart(providerState, serverID)
+				if !isServerStartedActual {
+					err = serverStart(providerState, serverID)
+				}
 			case "shutdown":
-				err = serverShutdown(providerState, serverID)
+				if isServerStartedActual {
+					err = serverShutdown(providerState, serverID)
+				}
 			case "shutdown-hard":
 				err = serverPowerOff(providerState, serverID)
 			case "disabled", "autostart":
@@ -661,7 +726,7 @@ func resourceServerImport(data *schema.ResourceData, provider interface{}) (impo
 		data.Set(resourceKeyServerPublicIPv4, nil)
 	}
 
-	err = readServerTags(data, apiClient)
+	err = readTags(data, apiClient, compute.AssetTypeServer)
 	if err != nil {
 		return nil, err
 	}
@@ -714,7 +779,7 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 		Name:                  name,
 		Description:           description,
 		AdministratorPassword: adminPassword,
-		Start: powerOn,
+		Start:                 powerOn,
 	}
 
 	err := validateAdminPassword(deploymentConfiguration.AdministratorPassword, image)
@@ -822,8 +887,9 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 		return err
 	}
 
-	// Capture additional properties that may only be available after deployment.
 	server := resource.(*compute.Server)
+
+	// Capture additional properties (those only available after deployment) and modify auto-assinged IPs to the one specified in tf file.
 	err = captureCreatedServerProperties(data, providerState, server, networkAdapters)
 	if err != nil {
 		return err
@@ -831,11 +897,11 @@ func deployCustomizedServer(data *schema.ResourceData, providerState *providerSt
 
 	data.Partial(true)
 
-	err = applyServerTags(data, apiClient, providerState.Settings())
+	err = applyTags(data, apiClient, compute.AssetTypeServer, providerState.Settings())
 	if err != nil {
 		return err
 	}
-	data.SetPartial(resourceKeyServerTag)
+	data.SetPartial(resourceKeyTag)
 
 	err = createDisks(server, data, providerState)
 	if err != nil {
@@ -966,8 +1032,9 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 		return err
 	}
 
-	// Capture additional properties that may only be available after deployment.
 	server := resource.(*compute.Server)
+
+	// Capture additional properties that may only be available after deployment.
 	err = captureCreatedServerProperties(data, providerState, server, networkAdapters)
 	if err != nil {
 		return err
@@ -975,11 +1042,11 @@ func deployUncustomizedServer(data *schema.ResourceData, providerState *provider
 
 	data.Partial(true)
 
-	err = applyServerTags(data, apiClient, providerState.Settings())
+	err = applyTags(data, apiClient, compute.AssetTypeServer, providerState.Settings())
 	if err != nil {
 		return err
 	}
-	data.SetPartial(resourceKeyServerTag)
+	data.SetPartial(resourceKeyTag)
 
 	err = createDisks(server, data, providerState)
 	if err != nil {
@@ -1003,6 +1070,7 @@ func captureCreatedServerProperties(data *schema.ResourceData, providerState *pr
 	propertyHelper.SetServerNetworkAdapters(networkAdapters, true)
 	captureServerNetworkConfiguration(server, data, true)
 
+	// Public IPv4
 	publicIPv4Address, err := findPublicIPv4Address(apiClient,
 		networkDomainID,
 		*server.Network.PrimaryAdapter.PrivateIPv4Address,
@@ -1017,8 +1085,19 @@ func captureCreatedServerProperties(data *schema.ResourceData, providerState *pr
 	}
 	data.SetPartial(resourceKeyServerPublicIPv4)
 
+	// Started
 	data.Set(resourceKeyServerStarted, server.Started)
 	data.SetPartial(resourceKeyServerStarted)
+
+	// Update network adapter IPs from Auto-Assigned to user-defined
+	for _, nic := range networkAdapters {
+		log.Printf("[DD] resource_server > captureCreatedServerProperties() nic id:%s ipv4:%s ipv6:%s",
+			nic.ID, nic.PrivateIPv4Address, nic.PrivateIPv6Address)
+		err = modifyServerNetworkAdapterIP(providerState, server.ID, nic)
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

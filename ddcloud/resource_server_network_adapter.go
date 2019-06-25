@@ -30,8 +30,10 @@ func schemaServerAdditionalNetworkAdapter() *schema.Schema {
 
 func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
 	var maxItems int
+
 	if isPrimary {
 		maxItems = 1
+
 	} else {
 		maxItems = 0
 	}
@@ -40,8 +42,7 @@ func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
 		Type:     schema.TypeList,
 		Required: isPrimary,
 		Optional: !isPrimary,
-		Computed: !isPrimary,
-		ForceNew: !isPrimary,
+		ForceNew: false,
 		MinItems: 1,
 		MaxItems: maxItems,
 		Elem: &schema.Resource{
@@ -61,19 +62,20 @@ func schemaServerNetworkAdapter(isPrimary bool) *schema.Schema {
 					Computed:    true,
 					Optional:    true,
 					Default:     nil,
-					ForceNew:    true,
+					ForceNew:    false,
 					Description: "VLAN ID of the network adapter",
 				},
 				resourceKeyServerNetworkAdapterIPV4: &schema.Schema{
 					Type:        schema.TypeString,
-					Optional:    true,
 					Computed:    true,
+					Optional:    true,
 					Default:     nil,
 					Description: "The IPV4 address associated with the network adapter",
 				},
 				resourceKeyServerNetworkAdapterIPV6: &schema.Schema{
 					Type:        schema.TypeString,
 					Computed:    true,
+					Optional:    true,
 					Description: "The IPV6 Address associated the network adapter",
 				},
 				resourceKeyServerNetworkAdapterType: &schema.Schema{
@@ -154,8 +156,17 @@ func modifyServerNetworkAdapterIP(providerState *providerState, serverID string,
 	err := providerState.RetryAction(operationDescription, func(context retry.Context) {
 		asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 		defer asyncLock.Release()
+		log.Printf("[DD] resource_server_network > modifyServerNetworkAdapterIP - Updating NIC id:%s ipv4:%s ipv6:%s",
+			networkAdapter.ID, networkAdapter.PrivateIPv4Address, networkAdapter.PrivateIPv6Address)
 
-		changeAddressError := apiClient.NotifyServerIPAddressChange(networkAdapter.ID, &networkAdapter.PrivateIPv4Address, nil)
+		var changeAddressError error
+		if len(networkAdapter.PrivateIPv6Address) > 0 {
+			changeAddressError = apiClient.NotifyServerIPAddressChange(networkAdapter.ID, nil, &networkAdapter.PrivateIPv6Address)
+		}
+		if len(networkAdapter.PrivateIPv4Address) > 0 {
+			changeAddressError = apiClient.NotifyServerIPAddressChange(networkAdapter.ID, &networkAdapter.PrivateIPv4Address, nil)
+		}
+
 		if compute.IsResourceBusyError(changeAddressError) {
 			context.Retry()
 		} else if changeAddressError != nil {
@@ -166,18 +177,17 @@ func modifyServerNetworkAdapterIP(providerState *providerState, serverID string,
 		return err
 	}
 
-	log.Printf("Updating IP address(es) for network adapter '%s'...", networkAdapter.ID)
-
 	compositeNetworkAdapterID := fmt.Sprintf("%s/%s", serverID, networkAdapter.ID)
 	_, err = apiClient.WaitForChange(compute.ResourceTypeNetworkAdapter, compositeNetworkAdapterID, "Update adapter IP address", resourceUpdateTimeoutServer)
 
-	log.Printf("Updated IP address(es) for network adapter '%s'.", networkAdapter.ID)
+	log.Printf("[DD] Updated IP address(es) for network adapter:'%s' ipv4:'%s' ipv6:'%s'.",
+		networkAdapter.ID, networkAdapter.PrivateIPv4Address, networkAdapter.PrivateIPv6Address)
 
 	return err
 }
 
 func modifyServerNetworkAdapterType(providerState *providerState, serverID string, networkAdapter models.NetworkAdapter) error {
-	log.Printf("Change type of network adapter '%s' to '%s'.",
+	log.Printf("[DD] Change type of network adapter '%s' to '%s'.",
 		networkAdapter.ID,
 		networkAdapter.AdapterType,
 	)
@@ -195,6 +205,8 @@ func modifyServerNetworkAdapterType(providerState *providerState, serverID strin
 		} else if changeTypeError != nil {
 			context.Fail(changeTypeError)
 		}
+
+		asyncLock.Release()
 	})
 	if err != nil {
 		return err
