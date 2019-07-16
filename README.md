@@ -63,9 +63,9 @@ Create a folder containing a single `.tf` file:
 
 provider "ddcloud" {
   # User name and password can also be specified via MCP_USER and MCP_PASSWORD environment variables.
-  "username"           = "my_username"
-  "password"           = "my_password" # Watch out for escaping if your password contains characters such as "$".
-  "region"             = "AU" # The DD compute region code (e.g. "AU", "NA", "EU")
+  username           = "my_username"
+  password           = "my_password" # Watch out for escaping if your password contains characters such as "$".
+  region             = "AU" # The DD compute region code (e.g. "AU", "NA", "EU")
 }
 
 resource "ddcloud_networkdomain" "my-domain" {
