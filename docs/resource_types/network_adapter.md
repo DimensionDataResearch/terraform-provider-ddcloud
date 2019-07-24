@@ -9,7 +9,7 @@ Represents an additional network adapter in an existing server.
 ```
 resource "ddcloud_network_adapter" "test_server_adapter2" {
   server       = "${ddcloud_server.test_server.id}"
-  private_ipv4 = "192.168.18.100"
+  ipv4         = "192.168.18.100"
   vlan         = "${ddcloud_vlan.test_vlan.id}"
 }
 ```
