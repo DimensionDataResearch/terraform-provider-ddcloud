@@ -165,16 +165,33 @@ func resourceVLANCreate(data *schema.ResourceData, provider interface{}) error {
 	}
 
 	vlan := deployedResource.(*compute.VLAN)
+	//data.Set(resourceKeyVLANIPv6BaseAddress, vlan.IPv6Range.BaseAddress)
+	//data.Set(resourceKeyVLANIPv6PrefixSize, vlan.IPv6Range.PrefixSize)
+	data.Partial(true)
+	data.Set(resourceKeyVLANName, vlan.Name)
+	data.SetPartial(resourceKeyVLANName)
+	data.Set(resourceKeyVLANDescription, vlan.Description)
+	data.SetPartial(resourceKeyVLANDescription)
+	data.Set(resourceKeyVLANIPv4BaseAddress, vlan.IPv4Range.BaseAddress)
+	data.SetPartial(resourceKeyVLANIPv4BaseAddress)
+	data.Set(resourceKeyVLANIPv4PrefixSize, vlan.IPv4Range.PrefixSize)
+	data.SetPartial(resourceKeyVLANIPv4PrefixSize)
 	data.Set(resourceKeyVLANIPv6BaseAddress, vlan.IPv6Range.BaseAddress)
+	data.SetPartial(resourceKeyVLANIPv6BaseAddress)
 	data.Set(resourceKeyVLANIPv6PrefixSize, vlan.IPv6Range.PrefixSize)
+	data.SetPartial(resourceKeyVLANIPv6PrefixSize)
+	data.Set(resourceKeyVLANIPv4GatewayAddress, vlan.IPv4GatewayAddress)
+	data.SetPartial(resourceKeyVLANIPv4GatewayAddress)
+	data.Set(resourceKeyVLANIPv6GatewayAddress, vlan.IPv6GatewayAddress)
+	data.SetPartial(resourceKeyVLANIPv6GatewayAddress)
 
 	// Tags
-	data.Partial(true)
 	err = applyTags(data, apiClient, compute.AssetTypeVLAN, providerState.Settings())
 	if err != nil {
 		return err
 	}
 	data.SetPartial(resourceKeyTag)
+	data.Partial(false)
 
 	return nil
 }
