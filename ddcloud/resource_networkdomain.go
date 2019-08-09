@@ -227,7 +227,7 @@ func resourceNetworkDomainUpdate(data *schema.ResourceData, provider interface{}
 	apiClient := providerState.Client()
 
 	var err error
-	if newName != nil || newPlan != nil {
+	if newName != nil || newPlan != nil || newDescription != nil {
 		err = apiClient.EditNetworkDomain(id, newName, newDescription, newPlan)
 		if err != nil {
 			return err
