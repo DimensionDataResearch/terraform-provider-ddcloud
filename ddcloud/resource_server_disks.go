@@ -117,24 +117,6 @@ func createDisks(server *compute.Server, data *schema.ResourceData, providerStat
 		return nil
 	}
 
-	serverWasStarted := server.Started
-	if serverWasStarted {
-		log.Printf("Shutting down server '%s' ('%s') before modifying disk configuration...",
-			server.Name,
-			server.ID,
-		)
-
-		err = serverShutdown(providerState, serverID)
-		if err != nil {
-			return err
-		}
-
-		log.Printf("Shutdown complete for server '%s' ('%s').",
-			server.Name,
-			server.ID,
-		)
-	}
-
 	err = processModifyDisks(modifyDisks, data, providerState)
 	if err != nil {
 		return err
@@ -144,23 +126,6 @@ func createDisks(server *compute.Server, data *schema.ResourceData, providerStat
 	err = processAddDisks(addDisks, data, providerState)
 	if err != nil {
 		return err
-	}
-
-	if serverWasStarted {
-		log.Printf("Restarting server '%s' ('%s') after modifying disk configuration...",
-			server.Name,
-			server.ID,
-		)
-
-		err = serverStart(providerState, serverID)
-		if err != nil {
-			return err
-		}
-
-		log.Printf("Restart complete for server '%s' ('%s').",
-			server.Name,
-			server.ID,
-		)
 	}
 
 	return nil
@@ -235,24 +200,6 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 		return nil
 	}
 
-	serverWasStarted := server.Started
-	if serverWasStarted {
-		log.Printf("Shutting down server '%s' ('%s') before modifying disk configuration...",
-			server.Name,
-			server.ID,
-		)
-
-		err = serverShutdown(providerState, serverID)
-		if err != nil {
-			return err
-		}
-
-		log.Printf("Shutdown complete for server '%s' ('%s').",
-			server.Name,
-			server.ID,
-		)
-	}
-
 	// First remove any disks that are no longer required.
 	err = processRemoveDisks(removeDisks, data, providerState)
 	if err != nil {
@@ -269,23 +216,6 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 	err = processAddDisks(addDisks, data, providerState)
 	if err != nil {
 		return err
-	}
-
-	if serverWasStarted {
-		log.Printf("Restarting server '%s' ('%s') after modifying disk configuration...",
-			server.Name,
-			server.ID,
-		)
-
-		err = serverStart(providerState, serverID)
-		if err != nil {
-			return err
-		}
-
-		log.Printf("Restart complete for server '%s' ('%s').",
-			server.Name,
-			server.ID,
-		)
 	}
 
 	return nil
