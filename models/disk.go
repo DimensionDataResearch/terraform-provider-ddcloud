@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/maps"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
@@ -19,6 +20,7 @@ type Disk struct {
 	SCSIUnitID    int
 	SizeGB        int
 	Speed         string
+	Iops          int
 }
 
 // SCSIPath builds a path representing the disk's SCSI bus number and logical unit ID.
@@ -35,6 +37,7 @@ func (disk *Disk) ReadMap(diskProperties map[string]interface{}) {
 	disk.SCSIUnitID = reader.GetInt("scsi_unit_id")
 	disk.SizeGB = reader.GetInt("size_gb")
 	disk.Speed = reader.GetString("speed")
+	disk.Iops = reader.GetInt("iops")
 }
 
 // ToMap creates a new map using the values from the Disk.
@@ -48,12 +51,13 @@ func (disk *Disk) ToMap() map[string]interface{} {
 // UpdateMap updates a map using values from the Disk.
 func (disk *Disk) UpdateMap(diskProperties map[string]interface{}) {
 	writer := maps.NewWriter(diskProperties)
-
+	log.Printf("UpdateMap diskID: %s iops:%d", disk.ID, disk.Iops)
 	writer.SetString("id", disk.ID)
 	writer.SetInt("scsi_bus_number", disk.SCSIBusNumber)
 	writer.SetInt("scsi_unit_id", disk.SCSIUnitID)
 	writer.SetInt("size_gb", disk.SizeGB)
 	writer.SetString("speed", disk.Speed)
+	writer.SetInt("iops", disk.Iops)
 }
 
 // ReadVirtualMachineDisk populates the Disk with values from the specified VirtualMachineDisk.
@@ -62,6 +66,7 @@ func (disk *Disk) ReadVirtualMachineDisk(virtualMachineDisk compute.VirtualMachi
 	disk.SCSIUnitID = virtualMachineDisk.SCSIUnitID
 	disk.SizeGB = virtualMachineDisk.SizeGB
 	disk.Speed = virtualMachineDisk.Speed
+	disk.Iops = virtualMachineDisk.Iops
 }
 
 // ToVirtualMachineDisk updates a map using values from the Disk.
@@ -78,13 +83,14 @@ func (disk *Disk) UpdateVirtualMachineDisk(virtualMachineDisk *compute.VirtualMa
 	virtualMachineDisk.SCSIUnitID = disk.SCSIUnitID
 	virtualMachineDisk.SizeGB = disk.SizeGB
 	virtualMachineDisk.Speed = disk.Speed
+	virtualMachineDisk.Iops = disk.Iops
 }
 
 // NewDiskFromMap creates a Disk from the values in the specified map.
 func NewDiskFromMap(diskProperties map[string]interface{}) Disk {
 	disk := Disk{}
 	disk.ReadMap(diskProperties)
-
+	log.Printf("NewDiskFromMap diskID:'%s'", disk.ID)
 	return disk
 }
 

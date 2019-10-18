@@ -1,6 +1,7 @@
 package models
 
 import (
+	"log"
 	"sort"
 
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
@@ -53,6 +54,16 @@ func (disks Disks) BySCSIPath() map[string]Disk {
 	}
 
 	return disksBySCSIPath
+}
+
+// ByDiskID creates a map of Disk keyed by SCSI unit Id.
+func (disks Disks) ByDiskID(diskID string) Disk {
+	for _, disk := range disks {
+		if disk.ID == diskID {
+			return disk
+		}
+	}
+	return Disk{}
 }
 
 // CaptureIDs updates the Disk Ids from the actual disks.
@@ -129,19 +140,26 @@ func (disks Disks) SplitByAction(actualDisks Disks) (addDisks Disks, changeDisks
 		if ok {
 			// Existing disk.
 			if configuredDisk.SizeGB != actualDisk.SizeGB {
+				log.Printf("Splitbyaction - Add 1 disk - diskID:'%s' to changelist. change sizeGB", actualDisk.ID)
 				changeDisks = append(changeDisks, configuredDisk)
 			} else if configuredDisk.Speed != actualDisk.Speed {
+				log.Printf("Splitbyaction - Add 1 disk - diskID:'%s' to changelist. change speed", actualDisk.ID)
+				changeDisks = append(changeDisks, configuredDisk)
+			} else if configuredDisk.Iops != actualDisk.Iops {
+				log.Printf("Splitbyaction - Add 1 disk - diskID:'%s' to changelist. change Iops", actualDisk.ID)
 				changeDisks = append(changeDisks, configuredDisk)
 			}
 		} else {
 			// New disk.
 			addDisks = append(addDisks, configuredDisk)
+			log.Printf("Splitbyaction - Add 1 new disk")
 		}
 	}
 
 	// By process of elimination, any remaining actual disks do not appear in the configuration and should be removed.
 	for unconfiguredDiskUnitID := range actualDisksByUnitSCSIPath {
 		unconfiguredDisk := actualDisksByUnitSCSIPath[unconfiguredDiskUnitID]
+		log.Printf("Splitbyaction - Add 1 disk - diskID:'%s' to Remove List. change Iops", unconfiguredDisk.ID)
 		removeDisks = append(removeDisks, unconfiguredDisk)
 	}
 
