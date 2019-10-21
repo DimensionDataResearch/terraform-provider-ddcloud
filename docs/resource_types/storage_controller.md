@@ -48,6 +48,13 @@ resource "ddcloud_storage_controller "myserver_controller_0" {
       size_gb          = 500
       speed            = "ECONOMY"
   }
+  
+  disk {
+      scsi_unit_id       = 2
+      size_gb            = 5
+      speed              = "PROVISIONEDIOPS"
+      iops               = 20
+  }
 }
 ```
 
@@ -67,8 +74,8 @@ Default value: `LSI_LOGIC_PARALLEL`.
     **Note**: If you list _any_ of the controller's disks here, you must specify _all_ of its disks.  
     * `scsi_unit_id` - (Required) The SCSI Logical Unit Number (LUN) for the disk. Must be unique across the controller's disks.
     * `size_gb` - (Required) The size (in GB) of the disk. This value can be increased (to expand the disk) but not decreased.
-    * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, or `HIGHPERFORMANCE` (but varies between data centres).
-
+    * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, `HIGHPERFORMANCE` or `PROVISIONEDIOPS` (but varies between data centres).
+    * `iops` - (ONLY Required for disk speed PROVISIONEDIOPS) Specify Only if `PROVISIONEDIOPS` is specified as disk speed
 ## Attribute Reference
 
 This resource does not expose any additional attributes.
