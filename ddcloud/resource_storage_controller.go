@@ -745,29 +745,17 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 		} else if actualDisk.Iops != modifyDisk.Iops {
 			// Change IOPS
 			log.Printf(
-				"Changing disk IOPS of disk '%s' in server '%s' (from '%d' to '%d')...",
+				"Changing storage congtroller disk IOPS of disk '%s' in server '%s' (from '%d' to '%d')...",
 				modifyDisk.ID,
 				serverID,
 				actualDisk.Iops,
 				modifyDisk.Iops,
 			)
-			operationDescription := fmt.Sprintf("Change disk iops of disk '%s' in server '%s' from old IOPS '%d' "+
-				"to new IOPS '%d'", modifyDisk.ID, serverID, actualDisk.Iops, modifyDisk.Iops)
-			err = providerState.RetryAction(operationDescription, func(context retry.Context) {
-				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-				defer asyncLock.Release()
 
-				_, iopsErr := apiClient.ChangeServerDiskIops(modifyDisk.ID, modifyDisk.Iops)
-
-				if iopsErr != nil {
-					if compute.IsResourceBusyError(err) {
-						context.Retry()
-					} else {
-						context.Fail(err)
-					}
-				}
-
-			})
+			_, iopsErr := apiClient.ChangeServerDiskIops(modifyDisk.ID, modifyDisk.Iops)
+			if iopsErr != nil {
+				return iopsErr
+			}
 
 			resource, err := apiClient.WaitForChange(
 				compute.ResourceTypeServer,

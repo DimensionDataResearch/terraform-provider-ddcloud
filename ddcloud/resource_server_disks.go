@@ -568,23 +568,11 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 				modifyDisk.Iops,
 			)
 
-			operationDescription := fmt.Sprintf("Change disk iops of disk '%s' in server '%s' from old IOPS '%d' "+
-				"to new IOPS '%d'", modifyDisk.ID, serverID, actualImageDisk.Iops, modifyDisk.Iops)
-			err = providerState.RetryAction(operationDescription, func(context retry.Context) {
-				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
-				defer asyncLock.Release()
+			_, iopsErr := apiClient.ChangeServerDiskIops(modifyDisk.ID, modifyDisk.Iops)
 
-				_, iopsErr := apiClient.ChangeServerDiskIops(modifyDisk.ID, modifyDisk.Iops)
-
-				if iopsErr != nil {
-					if compute.IsResourceBusyError(err) {
-						context.Retry()
-					} else {
-						context.Fail(err)
-					}
-				}
-
-			})
+			if iopsErr != nil {
+				return iopsErr
+			}
 
 			resource, err := apiClient.WaitForChange(
 				compute.ResourceTypeServer,
