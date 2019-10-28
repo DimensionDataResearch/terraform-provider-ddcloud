@@ -20,14 +20,15 @@ const (
 	resourceKeyStorageControllerDiskUnitID = "scsi_unit_id"
 	resourceKeyStorageControllerDiskSizeGB = "size_gb"
 	resourceKeyStorageControllerDiskSpeed  = "speed"
+	resourceKeyStorageControllerDiskIops   = "iops"
 )
 
 /*
- * AF: Note that "terraform plan" produces an incorrect diff when a disk is removed from the ddcloud_storage_controller
+* AF: Note that "terraform plan" produces an incorrect diff when a disk is removed from the ddcloud_storage_controller
 * (no idea why, but I'd say it's probably a bug, and should be reported as such).
- *
- * This implementation will still do the correct thing (i.e. remove the disk), but the diff output from "terraform plan" is confusing for the user.
-*/
+*
+* This implementation will still do the correct thing (i.e. remove the disk), but the diff output from "terraform plan" is confusing for the user.
+ */
 
 func resourceStorageController() *schema.Resource {
 	return &schema.Resource{
@@ -472,6 +473,7 @@ func processAddStorageControllerDisks(addDisks models.Disks, data *schema.Resour
 
 	for index := range addDisks {
 		addDisk := &addDisks[index]
+		addDisk.SCSIBusNumber = busNumber
 
 		operationDescription := fmt.Sprintf("Add disk with SCSI unit ID %d to controller '%s' (for bus %d) in server '%s'",
 			addDisk.SCSIUnitID,
@@ -489,7 +491,9 @@ func processAddStorageControllerDisks(addDisks models.Disks, data *schema.Resour
 				addDisk.SCSIUnitID,
 				addDisk.SizeGB,
 				addDisk.Speed,
+				addDisk.Iops,
 			)
+
 			if compute.IsResourceBusyError(addDiskError) {
 				context.Retry()
 			} else if addDiskError != nil {
@@ -683,26 +687,26 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 				actualDisk.Speed,
 				modifyDisk.Speed,
 			)
+
+			var response *compute.APIResponseV2
+			var iopErr error
+
 			err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 				defer asyncLock.Release()
 
-				response, resizeError := apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed)
-				if compute.IsResourceBusyError(resizeError) {
+				if modifyDisk.Speed == compute.ServerDiskSpeedProvisionedIops {
+					response, iopErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, &modifyDisk.Iops)
+				} else {
+					response, iopErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, nil)
+				}
+
+				if compute.IsResourceBusyError(iopErr) {
 					context.Retry()
-				} else if resizeError != nil {
-					context.Fail(resizeError)
+				} else if iopErr != nil {
+					context.Fail(iopErr)
 				}
-				if response.Result != compute.ResultSuccess {
-					context.Fail(response.ToError(
-						"Unexpected result '%s' when changing speed of disk '%s' on storage controller '%s' (SCSI bus %d) in server '%s'.",
-						response.Result,
-						modifyDisk.ID,
-						targetController.ID,
-						targetController.BusNumber,
-						serverID,
-					))
-				}
+
 			})
 			if err != nil {
 				return err
@@ -738,6 +742,37 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 				actualDisk.Speed,
 				modifyDisk.Speed,
 			)
+		} else if actualDisk.Iops != modifyDisk.Iops {
+			// Change IOPS
+			log.Printf(
+				"Changing storage congtroller disk IOPS of disk '%s' in server '%s' (from '%d' to '%d')...",
+				modifyDisk.ID,
+				serverID,
+				actualDisk.Iops,
+				modifyDisk.Iops,
+			)
+
+			_, iopsErr := apiClient.ChangeServerDiskIops(modifyDisk.ID, modifyDisk.Iops)
+			if iopsErr != nil {
+				return iopsErr
+			}
+
+			resource, err := apiClient.WaitForChange(
+				compute.ResourceTypeServer,
+				serverID,
+				"Pending disk IOPS changes",
+				resourceUpdateTimeoutServer,
+			)
+
+			if err != nil {
+				return err
+			}
+
+			server := resource.(*compute.Server)
+			propertyHelper.SetDisks(
+				models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
+			)
+			propertyHelper.SetPartial(resourceKeyServerDisk)
 		}
 	}
 

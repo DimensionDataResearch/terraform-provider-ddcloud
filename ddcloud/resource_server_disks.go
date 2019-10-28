@@ -17,6 +17,7 @@ const (
 	resourceKeyServerDiskUnitID    = "scsi_unit_id"
 	resourceKeyServerDiskSizeGB    = "size_gb"
 	resourceKeyServerDiskSpeed     = "speed"
+	resourceKeyServerDiskIops      = "iops"
 )
 
 func schemaDisk() *schema.Schema {
@@ -56,6 +57,11 @@ func schemaDisk() *schema.Schema {
 					Description:  "The disk speed",
 					ValidateFunc: validateDiskSpeed,
 				},
+				resourceKeyServerDiskIops: &schema.Schema{
+					Type:        schema.TypeInt,
+					Optional:    true,
+					Description: "The disk IOPS",
+				},
 			},
 		},
 	}
@@ -65,6 +71,7 @@ func schemaDisk() *schema.Schema {
 //
 // If the server is running, then it will be stopped before creating / updating disks, and then restarted.
 func createDisks(server *compute.Server, data *schema.ResourceData, providerState *providerState) error {
+	log.Printf("Resource server disks. createDisks ...")
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
@@ -110,6 +117,7 @@ func createDisks(server *compute.Server, data *schema.ResourceData, providerStat
 	// After initial server deployment, we only need to handle disks that were part of the original server image (and of those, only ones we need to modify after the initial deployment completed deployment).
 	log.Printf("Configure image disks for server '%s'...", serverID)
 	actualDisks = models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers)
+
 	addDisks, modifyDisks, _ := configuredDisks.SplitByAction(actualDisks) // Ignore removeDisks since not all disks have been created yet
 	if addDisks.IsEmpty() && modifyDisks.IsEmpty() {
 		log.Printf("No post-deploy changes required for disks of server '%s'.", serverID)
@@ -171,6 +179,7 @@ func createDisks(server *compute.Server, data *schema.ResourceData, providerStat
 //
 // If the server is running, then it will be stopped before creating / updating disks, and then restarted.
 func updateDisks(data *schema.ResourceData, providerState *providerState) error {
+	log.Printf("Resource server disks. updateDisks ...")
 	propertyHelper := propertyHelper(data)
 	serverID := data.Id()
 
@@ -229,6 +238,7 @@ func updateDisks(data *schema.ResourceData, providerState *providerState) error 
 	}
 
 	addDisks, modifyDisks, removeDisks := configuredDisks.SplitByAction(actualDisks)
+
 	if addDisks.IsEmpty() && modifyDisks.IsEmpty() && removeDisks.IsEmpty() {
 		log.Printf("No post-deploy changes required for disks of server '%s'.", serverID)
 
@@ -310,12 +320,23 @@ func processAddDisks(addDisks models.Disks, data *schema.ResourceData, providerS
 			defer asyncLock.Release()
 
 			var addDiskError error
+
+			if addDisk.Speed != compute.ServerDiskSpeedProvisionedIops {
+				addDisk.Iops = 0
+			}
+
+			// Use default
+			scsiBusNumber := 0
+
 			addDisk.ID, addDiskError = apiClient.AddDiskToServer(
 				serverID,
-				addDisk.SCSIUnitID,
+				&scsiBusNumber,
+				&addDisk.SCSIUnitID,
 				addDisk.SizeGB,
 				addDisk.Speed,
+				addDisk.Iops,
 			)
+
 			if compute.IsResourceBusyError(addDiskError) {
 				context.Retry()
 			} else if addDiskError != nil {
@@ -481,41 +502,47 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 				modifyDisk.Speed,
 			)
 
+			var response *compute.APIResponseV2
+			var speedErr error
+
 			operationDescription := fmt.Sprintf("Change speed of disk '%s' in server '%s'", modifyDisk.ID, serverID)
 			err = providerState.RetryAction(operationDescription, func(context retry.Context) {
 				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 				defer asyncLock.Release()
 
-				response, resizeError := apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed)
-				if compute.IsResourceBusyError(resizeError) {
-					context.Retry()
-				} else if resizeError != nil {
-					context.Fail(resizeError)
+				if modifyDisk.Speed == compute.ServerDiskSpeedProvisionedIops {
+					response, speedErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, &modifyDisk.Iops)
+
+				} else {
+					response, speedErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, nil)
 				}
-				if response.Result != compute.ResultSuccess {
-					context.Fail(response.ToError(
-						"Unexpected result '%s' when resizing server disk '%s' for server '%s'.",
-						response.Result,
-						modifyDisk.ID,
-						serverID,
-					))
+
+				if speedErr != nil {
+					if compute.IsResourceBusyError(err) {
+						context.Retry()
+					} else {
+						context.Fail(speedErr)
+					}
 				}
+
 			})
-			if err != nil {
-				return err
-			}
 
 			resource, err := apiClient.WaitForChange(
 				compute.ResourceTypeServer,
 				serverID,
-				"Resize disk",
+				"Pending disk speed changes",
 				resourceUpdateTimeoutServer,
 			)
+
 			if err != nil {
 				return err
 			}
 
 			modifyDisk.Speed = actualImageDisk.Speed
+
+			if modifyDisk.Speed == compute.ServerDiskSpeedProvisionedIops {
+				modifyDisk.Iops = actualImageDisk.Iops
+			}
 
 			server = resource.(*compute.Server)
 			propertyHelper.SetDisks(
@@ -524,12 +551,45 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 			propertyHelper.SetPartial(resourceKeyServerDisk)
 
 			log.Printf(
-				"Resized disk '%s' for server '%s' (from %d to GB to %d).",
+				"Change disk speed for diskID:'%s' for server:'%s' (from '%s' to '%s').",
 				modifyDisk.ID,
 				serverID,
-				actualImageDisk.SizeGB,
-				modifyDisk.SizeGB,
+				actualImageDisk.Speed,
+				modifyDisk.Speed,
 			)
+
+		} else if actualImageDisk.Iops != modifyDisk.Iops {
+			// Change IOPS
+			log.Printf(
+				"Changing disk IOPS of disk '%s' in server '%s' (from '%d' to '%d')...",
+				modifyDisk.ID,
+				serverID,
+				actualImageDisk.Iops,
+				modifyDisk.Iops,
+			)
+
+			_, iopsErr := apiClient.ChangeServerDiskIops(modifyDisk.ID, modifyDisk.Iops)
+
+			if iopsErr != nil {
+				return iopsErr
+			}
+
+			resource, err := apiClient.WaitForChange(
+				compute.ResourceTypeServer,
+				serverID,
+				"Pending disk IOPS changes",
+				resourceUpdateTimeoutServer,
+			)
+
+			if err != nil {
+				return err
+			}
+
+			server = resource.(*compute.Server)
+			propertyHelper.SetDisks(
+				models.NewDisksFromVirtualMachineSCSIControllers(server.SCSIControllers),
+			)
+			propertyHelper.SetPartial(resourceKeyServerDisk)
 		}
 	}
 
@@ -672,6 +732,7 @@ func validateDiskSpeed(value interface{}, propertyName string) (messages []strin
 	case compute.ServerDiskSpeedEconomy:
 	case compute.ServerDiskSpeedStandard:
 	case compute.ServerDiskSpeedHighPerformance:
+	case compute.ServerDiskSpeedProvisionedIops:
 		break
 	default:
 		errors = append(errors,

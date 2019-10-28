@@ -33,6 +33,13 @@ resource "ddcloud_server" "myserver" {
       size_gb          = 10
       speed            = "STANDARD"
   }
+  
+   disk {
+      scsi_unit_id       = 1
+      size_gb            = 5
+      speed              = "PROVISIONEDIOPS"
+      iops               = 20
+   }
 }
 ```
 
@@ -66,7 +73,8 @@ If specified, must be `os`, `customer`, or `auto` (default).
   Additionally, if your server has (or is likely to have) multiple storage controllers (i.e. SCSI buses) then you should define one or more [ddcloud\_storage\_controller](storage_controller.md) resources and declare your disks there instead.  
     * `scsi_unit_id` - (Required) The SCSI Logical Unit Number (LUN) for the disk. Must be unique across the server's disks.
     * `size_gb` - (Required) The size (in GB) of the disk. This value can be increased (to expand the disk) but not decreased.
-    * `speed` - (Required) The disk speed. Usually one of `STANDARD`, `ECONOMY`, or `HIGHPERFORMANCE` (but varies between data centres).
+    * `speed` - (Required) The disk speed. Usually one of `ECONOMY`, `HIGHPERFORMANCE` or `PROVISIONEDIOPS` (but varies between data centres).
+    * `iops` - (ONLY Required for disk speed PROVISIONEDIOPS) Specify Only if `PROVISIONEDIOPS` is specified as disk speed 
 * `networkdomain` - (Required) The Id of the network domain in which the server is deployed.
 * `primary_network_adapter` - (Required) The primary network adapter attached to the server
   * `vlan` - (Optional) The Id of the VLAN that the primary network adapter is attached to.  
