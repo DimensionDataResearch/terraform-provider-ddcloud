@@ -7,7 +7,6 @@ import (
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/ddcloud"
 	"github.com/hashicorp/terraform-plugin-sdk/plugin"
-	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 // The main program entry-point.
