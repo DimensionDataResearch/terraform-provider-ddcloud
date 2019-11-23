@@ -28,9 +28,9 @@ func Provider() terraform.ResourceProvider {
 				ConflictsWith: []string{"cloudcontrol_endpoint"},
 			},
 			"cloudcontrol_endpoint": &schema.Schema{
-				Type:          schema.TypeString,
-				Optional:      true,
-				Default:       "",
+				Type:     schema.TypeString,
+				Optional: true,
+				// Default:       "",
 				Description:   "The base URL of a custom target end-point for the Dimension Data CloudControl API.",
 				ConflictsWith: []string{"region"},
 			},
