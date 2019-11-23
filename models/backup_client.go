@@ -99,6 +99,7 @@ func (backupClient *ServerBackupClient) ReadBackupClientDetail(backupClientDetai
 // ToBackupClientDetail updates a map using values from the ServerBackupClient.
 func (backupClient *ServerBackupClient) ToBackupClientDetail() compute.BackupClientDetail {
 	backupClientDetail := compute.BackupClientDetail{}
+
 	backupClient.UpdateBackupClientDetail(&backupClientDetail)
 
 	return backupClientDetail
