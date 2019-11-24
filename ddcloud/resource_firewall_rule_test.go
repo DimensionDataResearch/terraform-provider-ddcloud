@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 // ipv6.internode.on.net (CloudControl does not allow "ANY" as a source address for IPv6 rules)

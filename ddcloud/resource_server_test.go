@@ -7,8 +7,8 @@ import (
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 /*
@@ -33,7 +33,7 @@ func testAccDDCloudServerBasic(name string, description string, primaryIPv4Addre
 			description 		= "VLAN for Terraform acceptance test."
 
 			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
-
+            attached_vlan_gateway_addressing = "HIGH"
 			ipv4_base_address	= "192.168.17.0"
 			ipv4_prefix_size	= 24
 		}
@@ -41,7 +41,7 @@ func testAccDDCloudServerBasic(name string, description string, primaryIPv4Addre
 		resource "ddcloud_server" "acc_test_server" {
 			name				= "%s"
 			description 		= "%s"
-			admin_password		= "snausages!"
+			admin_password		= "Snausages!1234"
 
 			memory_gb			= 8
 
@@ -57,7 +57,7 @@ func testAccDDCloudServerBasic(name string, description string, primaryIPv4Addre
 
 			image				= "CentOS 7 64-bit 2 CPU"
 
-			auto_start			= false
+			
 			power_state         = shutdown
 
 			# Image disk
@@ -88,7 +88,7 @@ func testAccDDCloudServerImageDisk1(sizeGB int, speed string) string {
 			description 		= "VLAN for Terraform acceptance test."
 
 			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
-
+            attached_vlan_gateway_addressing = "HIGH"
 			ipv4_base_address	= "192.168.17.0"
 			ipv4_prefix_size	= 24
 		}
@@ -96,7 +96,7 @@ func testAccDDCloudServerImageDisk1(sizeGB int, speed string) string {
 		resource "ddcloud_server" "acc_test_server" {
 			name				= "acc-test-server-1-image-disk"
 			description 		= "Server for Terraform acceptance test (single image disk)."
-			admin_password		= "snausages!"
+			admin_password		= "Snausages!1234"
 
 			memory_gb			= 8
 
@@ -112,7 +112,7 @@ func testAccDDCloudServerImageDisk1(sizeGB int, speed string) string {
 
 			image				= "CentOS 7 64-bit 2 CPU"
 
-			auto_start			= false
+			
 
 			# Image disk
 			disk {
@@ -142,7 +142,7 @@ func testAccDDCloudServerAdditionalDisk1(scsiUnitID int, sizeGB int, speed strin
 			description 		= "VLAN for Terraform acceptance test."
 
 			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
-
+            attached_vlan_gateway_addressing = "HIGH"
 			ipv4_base_address	= "192.168.17.0"
 			ipv4_prefix_size	= 24
 		}
@@ -150,7 +150,7 @@ func testAccDDCloudServerAdditionalDisk1(scsiUnitID int, sizeGB int, speed strin
 		resource "ddcloud_server" "acc_test_server" {
 			name				= "acc-test-server-1-additional-disk"
 			description 		= "Server for Terraform acceptance test (single additional disk)."
-			admin_password		= "snausages!"
+			admin_password		= "Snausages!1234"
 
 			memory_gb			= 8
 
@@ -166,7 +166,7 @@ func testAccDDCloudServerAdditionalDisk1(scsiUnitID int, sizeGB int, speed strin
 
 			image		 		= "CentOS 7 64-bit 2 CPU"
 
-			auto_start			= false
+			
 
 			# Image disk
 			disk {
@@ -212,7 +212,7 @@ func testAccDDCloudServerTag(tags map[string]string) string {
 		resource "ddcloud_vlan" "acc_test_vlan" {
 			name				= "acc-test-vlan"
 			description 		= "VLAN for Terraform acceptance test."
-
+			attached_vlan_gateway_addressing = "HIGH"
 			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
 
 			ipv4_base_address	= "192.168.17.0"
@@ -222,7 +222,7 @@ func testAccDDCloudServerTag(tags map[string]string) string {
 		resource "ddcloud_server" "acc_test_server" {
 			name				= "acc-test-server-tags"
 			description 		= "Server for Terraform acceptance test (tags)."
-			admin_password		= "snausages!"
+			admin_password		= "Snausages!1234"
 
 			memory_gb			= 8
 
@@ -267,7 +267,7 @@ func testAccDDCloudServerPowerState(powerState string) string {
 		resource "ddcloud_vlan" "acc_test_vlan" {
 			name				= "acc-test-vlan"
 			description 		= "VLAN for Terraform acceptance test."
-
+            attached_vlan_gateway_addressing = "HIGH"
 			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
 
 			ipv4_base_address	= "192.168.17.0"
@@ -322,7 +322,7 @@ func TestAccServerBasicCreate(t *testing.T) {
 		),
 		Steps: []resource.TestStep{
 			resource.TestStep{
-				Config: testAccDDCloudServerBasic("acc-test-server",
+				Config: testAccDDCloudServerBasic("ddcloud_server.acc-test-server",
 					"Server for Terraform acceptance test.",
 					"192.168.17.6",
 				),

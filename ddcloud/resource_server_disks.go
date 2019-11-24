@@ -502,7 +502,7 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 				modifyDisk.Speed,
 			)
 
-			var response *compute.APIResponseV2
+			// var response *compute.APIResponseV2
 			var speedErr error
 
 			operationDescription := fmt.Sprintf("Change speed of disk '%s' in server '%s'", modifyDisk.ID, serverID)
@@ -511,10 +511,10 @@ func processModifyDisks(modifyDisks models.Disks, data *schema.ResourceData, pro
 				defer asyncLock.Release()
 
 				if modifyDisk.Speed == compute.ServerDiskSpeedProvisionedIops {
-					response, speedErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, &modifyDisk.Iops)
+					_, speedErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, &modifyDisk.Iops)
 
 				} else {
-					response, speedErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, nil)
+					_, speedErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, nil)
 				}
 
 				if speedErr != nil {

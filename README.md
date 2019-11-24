@@ -79,7 +79,7 @@ resource "ddcloud_vlan" "my-vlan" {
   description          = "This is my Terraform test VLAN."
 
   networkdomain        = "${ddcloud_networkdomain.my-domain.id}"
-
+  attached_vlan_gateway_addressing = "HIGH"
   # VLAN's default network: 192.168.17.1 -> 192.168.17.254 (netmask = 255.255.255.0)
   ipv4_base_address    = "192.168.17.0"
   ipv4_prefix_size     = 24
@@ -97,7 +97,7 @@ resource "ddcloud_server" "my-server" {
 
   networkdomain        = "${ddcloud_networkdomain.my-domain.id}"
 
-  primary_network_adapter = {
+  primary_network_adapter {
     ipv4               = "192.168.17.10"
   }
 

@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 /*
@@ -32,8 +32,8 @@ func testAccDDCloudVIPPoolBasic(poolName string, loadBalanceMethod string, servi
 			name					= "%s"
 			description 			= "VIP pool for Terraform acceptance test."
 			load_balance_method		= "%s"
-			service_down_action		= "%s",
-			slow_ramp_time			= %d,
+			service_down_action		= "%s"
+			slow_ramp_time			= %d
       health_monitors = ["CCDEFAULT.Udp","CCDEFAULT.Tcp"]
 			networkdomain 			= "${ddcloud_networkdomain.acc_test_domain.id}"
 		}

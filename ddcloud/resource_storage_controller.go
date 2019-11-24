@@ -555,7 +555,6 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 	propertyHelper := propertyHelper(data)
 	controllerID := data.Id()
 	serverID := data.Get(resourceKeyStorageControllerServerID).(string)
-
 	apiClient := providerState.Client()
 	targetController, err := getStorageController(apiClient, data)
 	if err != nil {
@@ -688,17 +687,18 @@ func processModifyStorageControllerDisks(modifyDisks models.Disks, data *schema.
 				modifyDisk.Speed,
 			)
 
-			var response *compute.APIResponseV2
 			var iopErr error
+			// var response *compute.APIResponseV2
 
 			err = providerState.RetryAction(operationDescription, func(context retry.Context) {
+
 				asyncLock := providerState.AcquireAsyncOperationLock(operationDescription)
 				defer asyncLock.Release()
 
 				if modifyDisk.Speed == compute.ServerDiskSpeedProvisionedIops {
-					response, iopErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, &modifyDisk.Iops)
+					_, iopErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, &modifyDisk.Iops)
 				} else {
-					response, iopErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, nil)
+					_, iopErr = apiClient.ChangeServerDiskSpeed(serverID, modifyDisk.ID, modifyDisk.Speed, nil)
 				}
 
 				if compute.IsResourceBusyError(iopErr) {

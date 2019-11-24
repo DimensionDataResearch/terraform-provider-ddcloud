@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 var staticRouteName string = "acc_test_static_route"
@@ -15,24 +15,29 @@ var staticRouteName string = "acc_test_static_route"
  * Acceptance-test configurations.
  */
 
-func testAccDDCloudStaticRouteBasic(networkDomainId string, name string, description string, ipVersion string,
+func testAccDDCloudStaticRouteBasic(name string, description string, ipVersion string,
 	destinationNetworkAddress string, destinationPrefixSize int, nextHopAddress string) string {
 
 	return fmt.Sprintf(`
 		provider "ddcloud" {
 			region		= "AU"	
 		}
-	
+	    resource "ddcloud_networkdomain" "acc_test_domain" {
+			name		= "acc-test-networkdomainsr"
+			description	= "Network domain for Terraform acceptance test."
+			datacenter	= "AU9"
+			
+		}
 		resource "ddcloud_static_route" "acc_test_static_route" {
 		    name = "%s"
 		    description = "%s"
-		    networkdomain = "%s"
+		    networkdomain = "${ddcloud_networkdomain.acc_test_domain.id}"
 		    ip_version = "%s"
 		    destination_network_address = "%s"
 		    destination_prefix_size = %d
 		    next_hop_address = "%s"
 		}`,
-		name, description, networkDomainId, ipVersion, destinationNetworkAddress, destinationPrefixSize, nextHopAddress)
+		name, description, ipVersion, destinationNetworkAddress, destinationPrefixSize, nextHopAddress)
 }
 
 /*
@@ -49,7 +54,7 @@ func TestAccStaticRouteBasicCreate(t *testing.T) {
 		Steps: []resource.TestStep{
 			resource.TestStep{
 				Config: testAccDDCloudStaticRouteBasic(
-					"3cecad11-0d41-4abf-a0c2-475563eef208",
+					// "3cecad11-0d41-4abf-a0c2-475563eef208",
 					staticRouteName,
 					"Static Route for Terraform acceptance test.",
 					"IPV4",
@@ -60,9 +65,9 @@ func TestAccStaticRouteBasicCreate(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					testCheckDDCloudStaticRouteExists(staticRouteName, true),
 					testCheckDDCloudStaticRouteMatches(staticRouteName, compute.StaticRoute{
-						Name:                      staticRouteName,
-						Description:               "Static Route for Terraform acceptance test.",
-						NetworkDomainId:           "3cecad11-0d41-4abf-a0c2-475563eef208",
+						Name:        staticRouteName,
+						Description: "Static Route for Terraform acceptance test.",
+						// NetworkDomainId:           "3cecad11-0d41-4abf-a0c2-475563eef208",
 						IpVersion:                 "IPv4",
 						DestinationNetworkAddress: "100.103.0.0",
 						DestinationPrefixSize:     16,
