@@ -78,7 +78,7 @@ resource "ddcloud_vlan" "my-vlan" {
   name                 = "terraform-test-vlan"
   description          = "This is my Terraform test VLAN."
 
-  networkdomain        = "${ddcloud_networkdomain.my-domain.id}"
+  networkdomain        = ddcloud_networkdomain.my-domain.id
   attached_vlan_gateway_addressing = "HIGH"
   # VLAN's default network: 192.168.17.1 -> 192.168.17.254 (netmask = 255.255.255.0)
   ipv4_base_address    = "192.168.17.0"
@@ -95,7 +95,7 @@ resource "ddcloud_server" "my-server" {
   memory_gb            = 8
   cpu_count            = 2
 
-  networkdomain        = "${ddcloud_networkdomain.my-domain.id}"
+  networkdomain        = ddcloud_networkdomain.my-domain.id
 
   primary_network_adapter {
     ipv4               = "192.168.17.10"
@@ -123,8 +123,8 @@ resource "ddcloud_server" "my-server" {
 }
 
 resource "ddcloud_nat" "my-server-nat" {
-  networkdomain       = "${ddcloud_networkdomain.my-domain.id}"
-  private_ipv4        = "${ddcloud_server.my-server.primary_adapter_ipv4}"
+  networkdomain       = ddcloud_networkdomain.my-domain.id
+  private_ipv4        = ddcloud_server.my-server.primary_adapter_ipv4
 
   # public_ipv4 is computed at deploy time.
 
@@ -146,10 +146,10 @@ resource "ddcloud_firewall_rule" "my-vm-http-in" {
   # For a ddcloud_vlan, you can obtain these values using the ipv4_baseaddress and ipv4_prefixsize properties.
 
   # You can also specify destination_network or destination_address_list instead of source_address.
-  destination_address = "${ddcloud_nat.my-server-nat.public_ipv4}"
+  destination_address = ddcloud_nat.my-server-nat.public_ipv4
   destination_port    = "80"
 
-  networkdomain       = "${ddcloud_networkdomain.my-domain.id}"
+  networkdomain       = ddcloud_networkdomain.my-domain.id
 }
 ```
 
