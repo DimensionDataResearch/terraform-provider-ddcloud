@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 /*
@@ -31,7 +31,7 @@ func testAccDDCloudVirtualListenerBasic(name string, listenerIPAddress string, e
 		resource "ddcloud_virtual_listener" "acc_test_listener" {
 			name                 	= "%s"
 			protocol             	= "HTTP"
-			optimization_profiles 	= ["TCP"]
+			optimization_profile 	= "TCP"
 			ipv4                	= "%s"
 			enabled                 = "%t"
 

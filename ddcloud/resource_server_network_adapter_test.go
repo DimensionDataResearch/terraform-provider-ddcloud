@@ -3,8 +3,8 @@ package ddcloud
 import (
 	"fmt"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 // Acceptance test configuration - ddcloud_server with single network_adapter (primary with IPv4 address)
@@ -31,7 +31,7 @@ func testAccDDCloudServerNetworkAdapterPrimaryWithIPV4Address(name string, descr
 		resource "ddcloud_server" "acc_test_server" {
 			name				 = "%s"
 			description 		 = "%s"
-			admin_password		 = "snausages!"
+			admin_password		 = "Snausages!1234"
 			memory_gb			 = 8
 			networkdomain 		 = "${ddcloud_networkdomain.acc_test_domain.id}"
 			dns_primary			 = "8.8.8.8"

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 /*
@@ -31,7 +31,7 @@ func testAccDDCloudAntiAffinityRuleBasic() string {
 			description 		= "VLAN for Terraform acceptance test."
 
 			networkdomain 		= "${ddcloud_networkdomain.acc_test_domain.id}"
-
+            attached_vlan_gateway_addressing = "HIGH"
 			ipv4_base_address	= "192.168.17.0"
 			ipv4_prefix_size	= 24
 		}
@@ -40,7 +40,7 @@ func testAccDDCloudAntiAffinityRuleBasic() string {
 			count					= 2
 			name					= "acc_test_server-${format("%d", count.index + 1)}"
 			description 			= "Server ${format("%d", count.index + 1)} for Terraform anti-affinity acceptance test."
-			admin_password			= "snausages!"
+			admin_password			= "Snausages!1234"
 
 			memory_gb				= 8
 
@@ -57,7 +57,7 @@ func testAccDDCloudAntiAffinityRuleBasic() string {
 
 			image					= "CentOS 7 64-bit 2 CPU"
 
-			auto_start				= false
+			
 
 			# Image disk
 			disk {

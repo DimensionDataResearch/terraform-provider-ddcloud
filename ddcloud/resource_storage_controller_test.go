@@ -7,8 +7,8 @@ import (
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/models"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 /*
@@ -43,7 +43,7 @@ func testAccDDCloudStorageController1DefaultWithImageDisk() string {
 		resource "ddcloud_server" "acc_test_server" {
 			name				= "AccTestStorageControllerServer"
 			description 		= "Server for storage controller acceptance test"
-			admin_password		= "snausages!"
+			admin_password		= "Snausages!1234"
 
 			memory_gb			= 8
 
@@ -59,7 +59,7 @@ func testAccDDCloudStorageController1DefaultWithImageDisk() string {
 
 			image				= "CentOS 7 64-bit 2 CPU"
 
-			auto_start			= false
+			
 		}
 
 		resource "ddcloud_storage_controller" "acc_test_server_controller_0" {
@@ -102,7 +102,7 @@ func testAccDDCloudStorageController1DefaultWithAdditional1Disk() string {
 		resource "ddcloud_server" "acc_test_server" {
 			name				= "AccTestStorageControllerServer"
 			description 		= "Server for storage controller acceptance test"
-			admin_password		= "snausages!"
+			admin_password		= "Snausages!1234"
 
 			memory_gb			= 8
 
@@ -118,7 +118,7 @@ func testAccDDCloudStorageController1DefaultWithAdditional1Disk() string {
 
 			image				= "CentOS 7 64-bit 2 CPU"
 
-			auto_start			= false
+			
 		}
 
 		resource "ddcloud_storage_controller" "acc_test_server_controller_0" {
@@ -188,7 +188,7 @@ func testAccDDCloudStorageController2With1DiskEach(withSecondController bool) st
 		resource "ddcloud_server" "acc_test_server" {
 			name				= "AccTestStorageControllerServer"
 			description 		= "Server for storage controller acceptance test"
-			admin_password		= "snausages!"
+			admin_password		= "Snausages!1234"
 
 			memory_gb			= 8
 
@@ -204,7 +204,7 @@ func testAccDDCloudStorageController2With1DiskEach(withSecondController bool) st
 
 			image				= "CentOS 7 64-bit 2 CPU"
 
-			auto_start			= false
+			
 		}
 
 		resource "ddcloud_storage_controller" "acc_test_server_controller_0" {

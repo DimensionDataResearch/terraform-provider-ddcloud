@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform/helper/resource"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/resource"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 /*
@@ -36,8 +36,8 @@ func testAccDDCloudVIPPoolMemberBasic(port *int) string {
 			name					= "acc_test_tool"
 			description 			= "VIP pool for Terraform acceptance test."
 			load_balance_method		= "ROUND_ROBIN"
-			service_down_action		= "NONE",
-			slow_ramp_time			= 10,
+			service_down_action		= "NONE"
+			slow_ramp_time			= 10
 
 			networkdomain 			= "${ddcloud_networkdomain.acc_test_domain.id}"
 		}
@@ -54,8 +54,7 @@ func testAccDDCloudVIPPoolMemberBasic(port *int) string {
 		resource "ddcloud_vip_pool_member" "acc_test_pool_member" {
 			pool					= "${ddcloud_vip_pool.acc_test_pool.id}"
 			node 					= "${ddcloud_vip_node.acc_test_node.id}"
-
-			%s
+            %s
 		}
 	`, memberPort)
 }

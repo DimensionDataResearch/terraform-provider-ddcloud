@@ -8,7 +8,7 @@ import (
 
 	"strconv"
 
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 // Migrate state for ddcloud_server.

@@ -11,8 +11,8 @@ import (
 
 	"github.com/DimensionDataResearch/dd-cloud-compute-terraform/retry"
 	"github.com/DimensionDataResearch/go-dd-cloud-compute/compute"
-	"github.com/hashicorp/terraform/helper/schema"
-	"github.com/hashicorp/terraform/terraform"
+	"github.com/hashicorp/terraform-plugin-sdk/helper/schema"
+	"github.com/hashicorp/terraform-plugin-sdk/terraform"
 )
 
 // Provider creates the Dimension Data Cloud resource provider.
@@ -28,9 +28,9 @@ func Provider() terraform.ResourceProvider {
 				ConflictsWith: []string{"cloudcontrol_endpoint"},
 			},
 			"cloudcontrol_endpoint": &schema.Schema{
-				Type:          schema.TypeString,
-				Optional:      true,
-				Default:       "",
+				Type:     schema.TypeString,
+				Optional: true,
+				// Default:       "",
 				Description:   "The base URL of a custom target end-point for the Dimension Data CloudControl API.",
 				ConflictsWith: []string{"region"},
 			},
