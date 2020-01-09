@@ -1,5 +1,9 @@
 # Changes
 
+### v3.0.0
+Breaking Changes:
+* Upgrade to terraform 0.12
+
 ### v1.3.8
 
 * Handle missing server when checking for existence of server network adapter (DimensionDataResearch/dd-cloud-compute-terraform#114).
