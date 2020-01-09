@@ -1,6 +1,6 @@
 module github.com/DimensionDataResearch/dd-cloud-compute-terraform
 
-go 1.13
+go 1.12
 
 require (
 	cloud.google.com/go v0.51.0 // indirect
