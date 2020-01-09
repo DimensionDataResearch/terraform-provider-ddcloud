@@ -1,20 +1,21 @@
 language: go
 
 go:
-    - "1.12.1"
+    - "1.13.5"
 
 branches:
   only:
     - /^development\/v.*$/
     - /^release\/v.*$/
     - /^v.*$/
+    - /^terraform.*$/
 
 install:
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform
   - pushd $GOPATH/src/github.com/hashicorp/terraform
-  - git checkout v0.11.13
+  - git checkout v0.12.18
   - popd
 
 script:
