@@ -209,4 +209,4 @@ Run `terraform-provider-ddcloud --version`.
 Run `terraform -version`.
 * Operating system  
 E.g. OSX 10.11.6, Windows 10, or Ubuntu 12.04
-* Anything else you think might be relevant
+* Anything else you think might be relevant.
