@@ -42,7 +42,9 @@ The following arguments are supported:
 * `ipv4_base_address` - (Required) The base address of the VLAN's IPv4 network.
 * `ipv4_prefix_size` - (Required) The prefix size of the VLAN's IPv4 network.
 
-** (Either `detached_vlan_gateway_address` or `attached_vlan_gateway_addressing` must be specified. They are mutually exclusive) 
+** (`detached_vlan_gateway_address` or `attached_vlan_gateway_addressing` are mutually exclusive). If not specified, 
+it will default to <em>attached_vlan_gateway_addressing = "LOW" </em>
+    
 
 * `detached_vlan_gateway_address` - (Optional) The system will use this IP address as the IPv4 gateway when the Deploy Server API is used referencing a NIC to the VLAN.
 * `attached_vlan_gateway_addressing` - (Optional) LOW gatewayAddressing has small VLAM with IP addresses x.x.x.1-x.x.x.3 reserved at the bottom of the VLAN range. HIGH gatewayAddressing has VLAN with IP addresses x.x.x.252-x.x.x.254 reserved at the top of the VLAN range.
