@@ -204,7 +204,7 @@ If you can't share this, see if you can create a stripped-down version of your c
 ### System specifications
 
 * CloudControl provider version  
-Run `terraform-provider-ddcloud --version`.
+Run `terraform-provider-ddcloud --version`
 * Terraform version  
 Run `terraform -version`.
 * Operating system  
