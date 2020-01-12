@@ -39,7 +39,8 @@ RUN git clone https://github.com/DimensionDataResearch/dd-cloud-compute-terrafor
 FROM alpine
 RUN apk add --update git bash openssh curl
 COPY --from=build /go/bin/terraform /bin 
-COPY --from=build /usr/local/bin/terraform-provider-ddcloud /bin
+# COPY --from=build /usr/local/bin/terraform-provider-ddcloud /bin
+COPY --from=build _bin /bin
 
 
 ## Kubectl binadry download (The K8s/Helm Terraform providers are not yet able to perform all the configuration required during a deployment)
