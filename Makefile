@@ -4,7 +4,7 @@ VERSION = 2.3.3
 VERSION_INFO_FILE = ./$(PROVIDER_NAME)/version-info.go
 
 BIN_DIRECTORY   = _bin
-# BIN_DIRECTORY = /usr/local/bin
+DEV_BIN_DIRECTORY = /usr/local/bin/
 EXECUTABLE_NAME = terraform-provider-$(PROVIDER_NAME)
 DIST_ZIP_PREFIX = $(EXECUTABLE_NAME).v$(VERSION)
 
@@ -20,11 +20,12 @@ fmt:
 
 clean:
 	rm -rf $(BIN_DIRECTORY) $(VERSION_INFO_FILE)
+	rm -rf $(DEV_BIN_DIRECTORY) $(VERSION_INFO_FILE)
 	go clean $(REPO_ROOT)/...
 
 # Peform a development (current-platform-only) build.
 dev: version fmt
-	go build -o $(BIN_DIRECTORY)/$(EXECUTABLE_NAME)
+	go build -o $(DEV_BIN_DIRECTORY)/$(EXECUTABLE_NAME)
 
 # Perform a full (all-platforms) build.
 build: version build-windows64 build-windows32 build-linux64 build-mac64
