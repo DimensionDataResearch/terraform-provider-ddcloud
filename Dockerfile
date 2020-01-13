@@ -2,7 +2,7 @@
 # Terraform Build Image
 
 # FROM golang:alpine as Build
-FROM golang:1.12.1-alpine as Build
+FROM golang:1.12.1-alpine as build
  
 ENV TERRAFORM_VERSION=0.11.14
 ENV DDCLOUD_VERSION=2.0
@@ -17,19 +17,19 @@ ENV TF_RELEASE=true
 WORKDIR $GOPATH/src/github.com/hashicorp/terraform
 RUN git clone https://github.com/hashicorp/terraform.git ./ && \
     git checkout v${TERRAFORM_VERSION} && \
-    /bin/bash scripts/build.sh && \
-    ls -l /bin
+    /bin/bash scripts/build.sh
 
 
 ## DDCloud Provider
-WORKDIR $GOPATH/src/github.com/DimensionDataResearch/dd-cloud-compute-terraform
+WORKDIR $GOPATH/src/github.com/DimensionDataResearch/dd-cloud-compute-terraform/
 RUN git clone https://github.com/DimensionDataResearch/dd-cloud-compute-terraform.git ./ && \
     # git checkout v${DDCLOUD_VERSION} && \
-    git checkout development/v${DDCLOUD_VERSION} && \
+    git checkout release/v${DDCLOUD_VERSION} && \
     go get github.com/pkg/errors && \
     go get golang.org/x/crypto/pkcs12 && \
     go get github.com/DimensionDataResearch/go-dd-cloud-compute/compute && \
-    make dev
+    make dev && \
+    ls /usr/local/bin
 
 
 
@@ -38,9 +38,8 @@ RUN git clone https://github.com/DimensionDataResearch/dd-cloud-compute-terrafor
 
 FROM alpine
 RUN apk add --update git bash openssh curl
-COPY --from=build /go/bin/terraform /bin 
-# COPY --from=build /usr/local/bin/terraform-provider-ddcloud /bin
-COPY --from=build _bin /bin
+COPY --from=build /go/bin/terraform /bin
+COPY  --from=build /usr/local/bin/terraform-provider-ddcloud /bin
 
 
 ## Kubectl binadry download (The K8s/Helm Terraform providers are not yet able to perform all the configuration required during a deployment)
