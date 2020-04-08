@@ -14,15 +14,17 @@ branches:
     - /^v.*$/
     - /^terraform.*$/
 
-install: true
-
-script:
+install:
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform
   - pushd $GOPATH/src/github.com/hashicorp/terraform
+  - git fetch --all --tags --prune
   - git checkout v0.12.24
   - popd
+
+script:
+
   - make dist
 
 deploy:
