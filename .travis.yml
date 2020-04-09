@@ -6,6 +6,7 @@ language: go
 
 go:
     - 1.12.1
+    - master
 
 branches:
   only:
@@ -14,15 +15,16 @@ branches:
     - /^v.*$/
     - /^terraform.*$/
 
-install:
+install: true
+
+script:
+  - env GO111MODULE=on go build
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform
   - pushd $GOPATH/src/github.com/hashicorp/terraform
   - git checkout v0.12.19
   - popd
-
-script:
   - make dist
 
 deploy:
