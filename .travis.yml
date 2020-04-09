@@ -19,12 +19,10 @@ install:
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform
   - pushd $GOPATH/src/github.com/hashicorp/terraform
-  - git fetch --all --tags --prune
-  - git checkout v0.12.24
+  - git checkout v0.12.19
   - popd
 
 script:
-
   - make dist
 
 deploy:
