@@ -31,7 +31,7 @@ deploy:
   provider: releases
   file: _bin/terraform-provider-ddcloud.*.zip
   file_glob: true
-  skip_cleanup: true
+  cleanup: true
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     tags: true
