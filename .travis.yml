@@ -5,8 +5,10 @@ language: go
 # env: GO111MODULE=on GOFLAGS='-mod vendor'
 
 go:
-    - 1.12.1
-    - master
+    - 1.12
+
+env:
+  - GOMAXPROCS=4 GO111MODULE=on
 
 branches:
   only:
@@ -18,10 +20,12 @@ branches:
 install: true
 
 script:
-  - env GO111MODULE=on go build
+
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
-  - go get github.com/hashicorp/terraform
+  - go get github.com/hashicorp/terraform@v0.12.19
+  - go mod tidy
+  - go mod vendor
   - pushd $GOPATH/src/github.com/hashicorp/terraform
   - git checkout v0.12.19
   - popd
