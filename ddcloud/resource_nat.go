@@ -145,7 +145,7 @@ func resourceNATCreate(data *schema.ResourceData, provider interface{}) error {
 	}
 
 	data.Set(resourceKeyNATPublicAddress, natRule.ExternalIPAddress)
-
+	data.Set(resourceKeyNATPrivateAddress, natRule.InternalIPAddress)
 	return nil
 }
 
