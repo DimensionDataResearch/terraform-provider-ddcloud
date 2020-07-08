@@ -3,6 +3,9 @@ language: go
 go:
     - "1.12.1"
 
+env:
+  - GOMAXPROCS=4 GO111MODULE=on
+  -
 branches:
   only:
     - /^development\/v.*$/
@@ -12,10 +15,12 @@ branches:
 install:
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
-  - go get github.com/hashicorp/terraform
+  - go get github.com/hashicorp/terraform@0.11.13
   - pushd $GOPATH/src/github.com/hashicorp/terraform
   - git checkout v0.11.13
   - popd
+  - go mod tidy
+  - go mod vendor
 
 script:
   - make dist
