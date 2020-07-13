@@ -20,15 +20,14 @@ branches:
 install: true
 
 script:
-
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform@v0.12.19
   - go mod tidy
   - go mod vendor
-  - pushd $GOPATH/src/github.com/hashicorp/terraform
-  - git checkout v0.12.19
-  - popd
+  # - pushd $GOPATH/src/github.com/hashicorp/terraform
+  # - git checkout v0.12.19
+  # - popd
   - make dist
 
 deploy:
