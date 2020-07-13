@@ -28,6 +28,7 @@ script:
   # - pushd $GOPATH/src/github.com/hashicorp/terraform
   # - git checkout v0.12.19
   # - popd
+  - cd $GOPATH/src/github.com/hashicorp/terraform
   - make dist
 
 deploy:
