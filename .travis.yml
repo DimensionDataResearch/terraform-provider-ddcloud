@@ -35,6 +35,7 @@ script:
 
 deploy:
   provider: releases
+  tag_name: v3.0.2
   file: _bin/terraform-provider-ddcloud.*.zip
   file_glob: true
   cleanup: true
