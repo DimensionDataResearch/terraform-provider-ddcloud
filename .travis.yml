@@ -9,6 +9,7 @@ go:
 
 env:
   - GOMAXPROCS=4 GO111MODULE=on
+  - GIT_TAG = 3.0.2
 
 branches:
   only:
@@ -33,9 +34,13 @@ script:
 #  - cd github.com/hashicorp/terraform
   - make dist
 
+before_deploy:
+  - export GIT_TAG
+  - export TRAVIS_TAG=$GIT_TAG
+
 deploy:
   provider: releases
-  tag_name: v3.0.2
+  tag_name: $GIT_TAG
   file: _bin/terraform-provider-ddcloud.*.zip
   file_glob: true
   cleanup: true
