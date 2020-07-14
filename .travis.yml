@@ -27,6 +27,9 @@ matrix:
   allow_failures:
     - go: tip
 
+before_deploy:
+  - export TRAVIS_TAG="Terraform12_3.0.4"
+
 deploy:
   provider: releases
   tag_name: $GIT_TAG
