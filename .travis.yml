@@ -33,10 +33,11 @@ deploy:
   tag_name: $GIT_TAG
   file: _bin/terraform-provider-ddcloud.*.zip
   file_glob: true
-  cleanup: true
+  skip_cleanup: true
+  draft: true
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
-    tags: true
+    tags: false
     branches:
       only:
         - /^development\/v.*$/
