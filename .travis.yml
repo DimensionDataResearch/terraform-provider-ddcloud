@@ -25,17 +25,14 @@ install:
   - go mod tidy
   - go mod vendor
 
-script:
 
-  # - pushd $GOPATH/src/github.com/hashicorp/terraform
-  # - git checkout v0.12.19
-  # - popd
-#  - ls -al
-#  - cd github.com/hashicorp/terraform
+script:
+#  - pushd $GOPATH/src/github.com/hashicorp/terraform
+#  - git checkout v0.12.19
+#  - popd
   - make dist
 
 before_deploy:
-  - export GIT_TAG
   - export TRAVIS_TAG=$GIT_TAG
 
 deploy:
