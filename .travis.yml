@@ -29,10 +29,4 @@ deploy:
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branch: test_travisconfig
-      only:
-      - /^development\/v.*$/
-      - /^release\/v.*$/
-      - /^v.*$/
-      - /^terraform.*$/
-      - /^test.*$/
   skip_cleanup: 'true'
