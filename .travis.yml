@@ -28,11 +28,11 @@ deploy:
   file: _bin/terraform-provider-ddcloud.*.zip
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
-    branch:
-      only:
-        - /^development\/v.*$/
-        - /^release\/v.*$/
-        - /^v.*$/
-        - /^terraform.*$/
-        - /^test.*$/
+#    branch:
+#      only:
+#        - /^development\/v.*$/
+#        - /^release\/v.*$/
+#        - /^v.*$/
+#        - /^terraform.*$/
+#        - /^test.*$/
   skip_cleanup: 'true'
