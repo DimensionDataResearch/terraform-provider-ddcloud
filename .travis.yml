@@ -13,11 +13,12 @@ install:
   - go get github.com/hashicorp/terraform@v0.11.13
   - go mod tidy
   - go mod vendor
-
+before_script:
+  - git submodule update --init --recursive
+  - git submodule status
 script:
   - make dist
 before_deploy:
-  - git submodule update --init --recursive
   - export TRAVIS_TAG="v2.3.5"
   - git tag $TRAVIS_TAG
 deploy:
