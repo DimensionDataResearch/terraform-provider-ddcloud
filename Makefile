@@ -20,7 +20,6 @@ fmt:
 
 clean:
 	rm -rf $(BIN_DIRECTORY) $(VERSION_INFO_FILE)
-	rm -rf $(DEV_BIN_DIRECTORY) $(VERSION_INFO_FILE)
 	go clean $(REPO_ROOT)/...
 
 # Peform a development (current-platform-only) build.
