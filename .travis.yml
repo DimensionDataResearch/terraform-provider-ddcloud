@@ -9,8 +9,8 @@ install:
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform@v0.11.13
-  # - go mod tidy
-  # - go mod vendor
+  - go mod tidy
+  - go mod vendor
 # before_script:
 #   - git submodule update --init --recursive
 #   - git submodule status
@@ -30,4 +30,4 @@ deploy:
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branch: test_travis_v11
-  cleanup: 'false'
+  skip_cleanup: 'true'
