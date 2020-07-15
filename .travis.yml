@@ -33,4 +33,4 @@ deploy:
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branch: test_travis_v11
-  skip_cleanup: 'true'
+  cleanup: 'false'
