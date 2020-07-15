@@ -13,9 +13,11 @@ install:
   - go get github.com/hashicorp/terraform@v0.11.13
   - go mod tidy
   - go mod vendor
+
 script:
   - make dist
 before_deploy:
+  - git submodule update --init --recursive
   - export TRAVIS_TAG="v2.3.5"
   - git tag $TRAVIS_TAG
 deploy:
@@ -29,4 +31,4 @@ deploy:
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branch: development\/v2.0
-  skip_cleanup: 'true'
+  cleanup: 'true'
