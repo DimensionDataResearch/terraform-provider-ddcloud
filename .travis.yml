@@ -14,8 +14,8 @@ install:
   - go mod tidy
   - go mod vendor
 before_script:
-  - git submodule update --init --recursive
-#   - git submodule status
+  - git submodule update
+  - echo $(git submodule status)
 script:
   - make dist
 before_deploy:
