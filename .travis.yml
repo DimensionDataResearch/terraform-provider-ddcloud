@@ -31,4 +31,4 @@ deploy:
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branch: development\/v2.0
-  cleanup: 'true'
+  cleanup: 'false'
