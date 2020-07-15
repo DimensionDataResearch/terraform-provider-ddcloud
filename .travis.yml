@@ -1,33 +1,32 @@
 language: go
-services:
-  - docker
+
 go:
-  - 1.12.x
-env:
-  - GOMAXPROCS=4 GO111MODULE=on
+  - "1.12.1"
+
+branches:
+  only:
+    - /^development\/v.*$/
+    - /^release\/v.*$/
+    - /^v.*$/
+
 install:
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
-  - go get github.com/hashicorp/terraform@v0.11.13
-  - go mod tidy
-  - go mod vendor
-# before_script:
-#   - git submodule update --init --recursive
-#   - git submodule status
+  - go get github.com/hashicorp/terraform
+  - pushd $GOPATH/src/github.com/hashicorp/terraform
+  - git checkout v0.11.13
+  - popd
+
 script:
   - make dist
-before_deploy:
-  - export TRAVIS_TAG="v2.3.5"
-  - git tag $TRAVIS_TAG
+
 deploy:
   provider: releases
-  draft: true
-  overwrite: false
-  api_key:
-    secure: YeP33TYT4M9lINGBZscSBRUpAQWJNz/bQS0oaPdvUklF5noKccUsVUgMbtqy7VxIYes8UsVQTtiOExMRVq2j6Gcz7oiLpG5stmFERY7cZG4SKI9Q4lTMcZZZFn5IO0FP4+WF36ztuOGXXi8y40nlYqq/A2NS93C1soZ9Wb/nihmhGIoBOIBo9yfyt7n/qTiVneMeDs66nzc8K3GmzaP9vA2ydWprSrzIDdUYW474pCj7/JzXN1S/3ACZtA7Yt6BQujaacZOhjIjPh/GIYscN5R1t1q0VuFC4AFpxKk52syLNUuf7t25+1simPCS+BhL8BnqsPeXyuJc1ZwHfCmaZ8anqBX75Dsdy+3yQBqHDOfR8nRRrA3YZtViXzeAc+ki6zlHmbc717rxa8XyWecHwBkI/8c4xiKkOOf1DOfv+M/u1VvOz0Y+1stkg6VCwXVAqMAu3YIlHRdl0HyIZx9myXLo5qHLSsvCNzSwp5zdjm1+6KHmY5rTTSOdi9R1yHUGQK+aSrVb2bf5cX6ONCEPMgLnrHCaMSy/+TfX3/0JO69XGOEWiIMXcnRvjDjBIOaNNrnSwkXIGe0sq+96IcSCZj6E0SVbhLuWS6fKTkpn5mV1iKqkNPIGUD++a8BxC09DDnE0+9vbMFQGPuWoEaZ68DDs5oP2RGlYDzmlIGZLfsIw=
-  file_glob: true
   file: _bin/terraform-provider-ddcloud.*.zip
+  file_glob: true
+  skip_cleanup: true
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
-    branch: test_travis_v11
-  skip_cleanup: 'true'
+    tags: true
+  api_key:
+    secure: LTJjqC/G2arlaXfH+BGaU4dWUdBk9f6nKQwM0B3MtRZm76Lhi/wZFWOqzU3qSXbSGEHuSgfH4MsSM3AqQrLwsYRxkDo2QmwC05WrCa8ErdHPl0MWxEr1ZnRSysZsh2/BoVka1NsH93quPxCi6VjlSXPEjMAOtpMytsax3ac/gSZNOHrByEyxmNPFYlsS8eY+7B8D5c8EbBYZ6uuyN5vBqs46HwiAiXqIKEoUnjUjTrr/oyyH9Dd9RW98Ak6QF8ZnyrW1W6g4jyGPlRKfP6mhNI18jhn26w45sx6B84zKNY6YgmGwtrGJHfWC8qS0WBEDIKlmkRL8/j9mEzvsHMQ8wVYItgSPHl+kRnQjEuqI6vkiyEeFdmUrs1ZFKWbfkfO9Doz6pohQBxrATM480nEumnyRyeo50wxiXwe0BAlG5do/duqPT/p03sb2Zh8JolXqfbHcCXFdFiX9cEUBhaO+ofiWfpq0T2ezxr5fH8m+1TMZLOPhJc1yDXirnoEFtrm4QBYAfMJOeJhKHB12MZjMIirYahNoFT1+wDeTx/GGwfIkm4AG+OnYic2muRqIU+dG3DPpbn2YbkNTnS+nvdE73g8wcQQnjbsPaD7obuKnMrK7EDIgBl8CJwzdRan9kRc6BUuGzdGEJ1ern7yZKzIrmTz76hbPTRB6tTWTQh1uBb0=
