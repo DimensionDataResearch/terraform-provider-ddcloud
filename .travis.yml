@@ -1,0 +1,32 @@
+dist: trusty
+sudo: required
+language: go
+services:
+- docker
+go:
+- 1.12.x
+env:
+- GOMAXPROCS=4 GO111MODULE=on
+install:
+- go get golang.org/x/crypto/pkcs12
+- go get github.com/pkg/errors
+- go get github.com/hashicorp/terraform@v0.12.19
+- go mod tidy
+- go mod vendor
+script:
+- make dist
+before_deploy:
+- export TRAVIS_TAG="v3.0.4"
+- git tag $TRAVIS_TAG
+deploy:
+  provider: releases
+  draft: true
+  overwrite: false
+  api_key:
+    secure: d1RGN4v0bLwxMvXZRpXuyycOsMyIFrsskizdEP0w1ioNF4Q8RsI5hzNbfV1MrhonPDTxaMt80yd9WD1DrvJ5AB3ldnf61NLIzQZ8XDJH2qGfpzWYkB21tOFX67ywnYAwKPwNpAmQNywM740ZN2et1WXZikl8NNRb6XK1g8nraQK2xlTBNfidEQXsFUyKi+30mYo/BpxC96qSQiLjrc5kiz4yyFH0ESIeLiHCf2N/Y9aw9k2zNYxsknYY8uzAE1gCPWFlBTxv0Xhoa45VMzAG8EBcO3BRE8aE1vY0PbuntF23kzTr0XNIS3PmlANATnz71Aog9GQRRNq/jAaOaLA75USJ1VkSl34M+alPZpMF8GUJKvKlPlyH1wKRvc8lfunAR3kUmUt1ht21yyVvUjb170vE5YhvPoFuwWH0suB1HihEfwI6cwCf6zjscwJ3Aqu4iHtXzT7Z6/UwzBPOC18ps1MpawbEMYSL+fy3BaKQPpBCqx3k1BAT3T9x+fMkAytd3BLEkXdyPOHD23lZcmcj/pD9eHEZtcTGoXkDo+M0DqKJriXrO5wjS0dJuzs3wQtHSZzlw/gtzsH6CqNliRovy0GQtBPDUD9Gi14CX6eBtndaYAw/71e7/B0P5keKSFR7GounFVvK5p/NXpSYVGdZY+xy4sNx4Bo9nkHwzl5+BWc=
+  file_glob: true
+  file: _bin/terraform-provider-ddcloud.*.zip
+  on:
+    repo: DimensionDataResearch/dd-cloud-compute-terraform
+    branch: test_travisconfig
+  skip_cleanup: 'true'
