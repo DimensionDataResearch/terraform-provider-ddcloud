@@ -8,6 +8,7 @@ branches:
     - /^development\/v.*$/
     - /^release\/v.*$/
     - /^v.*$/
+    - /^test.*$/
 
 install:
   - go get golang.org/x/crypto/pkcs12
