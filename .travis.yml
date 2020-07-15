@@ -24,5 +24,6 @@ deploy:
   file: _bin/terraform-provider-ddcloud.*.zip
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
+    branch: terraform_v12_upgrade
     tags: true
-  skip_cleanup: 'true'
+  cleanup: 'false'
