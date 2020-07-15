@@ -5,16 +5,16 @@ go:
   - 1.12.x
 env:
   - GOMAXPROCS=4 GO111MODULE=on
-git:
-  submodules: true
+#git:
+#  submodules: true
 install:
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform@v0.11.13
   - go mod tidy
   - go mod vendor
-# before_script:
-#   - git submodule update --init --recursive
+before_script:
+  - git submodule update --init --recursive
 #   - git submodule status
 script:
   - make dist
