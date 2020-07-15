@@ -5,6 +5,8 @@ go:
   - 1.12.x
 env:
   - GOMAXPROCS=4 GO111MODULE=on
+git:
+  submodules: true
 install:
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
