@@ -15,7 +15,7 @@ install:
 script:
 - make dist
 before_deploy:
-- export TRAVIS_TAG="v3.0.4"
+- export TRAVIS_TAG="v3.0.5"
 - git tag $TRAVIS_TAG
 deploy:
   provider: releases
