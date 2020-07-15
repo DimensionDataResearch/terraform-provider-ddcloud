@@ -31,5 +31,5 @@ deploy:
   file: _bin/terraform-provider-ddcloud.*.zip
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
-    branch: development\/v2.0
+    branch: test_travis_v11
   cleanup: 'false'
