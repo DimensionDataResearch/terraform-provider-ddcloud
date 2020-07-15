@@ -1,5 +1,3 @@
-dist: trusty
-sudo: required
 language: go
 services:
   - docker
@@ -11,7 +9,7 @@ install:
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform@v0.11.13
-  - go mod tidy
+  # - go mod tidy
   # - go mod vendor
 # before_script:
 #   - git submodule update --init --recursive
