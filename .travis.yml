@@ -28,5 +28,4 @@ deploy:
   file: _bin/terraform-provider-ddcloud.*.zip
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
-    branch: test_travisconfig
   skip_cleanup: 'true'
