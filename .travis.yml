@@ -24,6 +24,8 @@ before_deploy:
   - git tag $TRAVIS_TAG
 deploy:
   provider: releases
+  tag_name: $TRAVIS_TAG
+  # target_commitish: $TRAVIS_COMMIT
   draft: true
   overwrite: false
   api_key:
