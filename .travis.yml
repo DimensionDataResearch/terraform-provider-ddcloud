@@ -1,6 +1,6 @@
+dist: trusty
 language: go
-services:
-  - docker
+
 go:
   - 1.12.x
 env:
@@ -13,7 +13,7 @@ install:
   - go get github.com/hashicorp/terraform@v0.11.13
   - go mod tidy
   - go mod vendor
-  # - go get github.com/DimensionDataResearch/go-dd-cloud-compute@development/v2.0
+  - go get github.com/DimensionDataResearch/go-dd-cloud-compute@development/v2.0
 before_script:
   - git submodule update
   - echo $(git submodule status)
@@ -36,4 +36,4 @@ deploy:
     # tags: true
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branch: test_travis_v11
-  cleanup: 'true'
+  skip_cleanup: 'true'
