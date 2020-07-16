@@ -33,7 +33,7 @@ deploy:
   file_glob: true
   file: _bin/terraform-provider-ddcloud.*.zip
   on:
-    tags: true
+#    tags: true
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branch: test_travis_v11
   cleanup: 'false'
