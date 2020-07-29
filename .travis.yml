@@ -5,22 +5,23 @@ go:
   - 1.12.x
 env:
   - GOMAXPROCS=4 GO111MODULE=on
-#git:
-#  submodules: true
+git:
+  submodules: true
+
 install:
   - go get golang.org/x/crypto/pkcs12
   - go get github.com/pkg/errors
   - go get github.com/hashicorp/terraform@v0.11.13
   - go mod tidy
   - go mod vendor
-  # - go get github.com/DimensionDataResearch/go-dd-cloud-compute@development/v2.0
+  - go get github.com/DimensionDataResearch/go-dd-cloud-compute@development/v2.0
 before_script:
   - git submodule update
-  - echo $(git submodule status)
+
 script:
   - make dist
 before_deploy:
-  - export TRAVIS_TAG="v2.3.5"
+  - export TRAVIS_TAG="v2.3.6"
   - git tag $TRAVIS_TAG
 deploy:
   provider: releases
@@ -35,5 +36,5 @@ deploy:
   on:
     # tags: true
     repo: DimensionDataResearch/dd-cloud-compute-terraform
-    branch: development\/v2.0
+    branch: feature\/tagging
   skip_cleanup: 'true'
