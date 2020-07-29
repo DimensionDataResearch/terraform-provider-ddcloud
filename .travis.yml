@@ -14,7 +14,7 @@ install:
   - go get github.com/hashicorp/terraform@v0.11.13
   - go mod tidy
   - go mod vendor
-  - go get github.com/DimensionDataResearch/go-dd-cloud-compute@development/v2.0
+  # - go get github.com/DimensionDataResearch/go-dd-cloud-compute@development/v2.0
 before_script:
   - git submodule update
 
