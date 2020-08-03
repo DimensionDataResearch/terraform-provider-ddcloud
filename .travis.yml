@@ -28,11 +28,11 @@ before_script:
 script:
   - make dist
 before_deploy:
-#  - export TRAVIS_TAG="v2.3.6"
-#  - git tag $TRAVIS_TAG
-  - export TRAVIS_TAG="terraform11.0.$TRAVIS_BUILD_NUMBER"
-  - echo "$TRAVIS_TAG" "$TRAVIS_COMMIT"
-  - git tag "$TRAVIS_TAG" "$TRAVIS_COMMIT"
+  - export TRAVIS_TAG="v2.3.6"
+  - git tag $TRAVIS_TAG
+#  - export TRAVIS_TAG="terraform11.0.$TRAVIS_BUILD_NUMBER"
+#  - echo "$TRAVIS_TAG" "$TRAVIS_COMMIT"
+#  - git tag "$TRAVIS_TAG" "$TRAVIS_COMMIT"
 deploy:
   provider: releases
   tag_name: $TRAVIS_TAG
@@ -46,5 +46,10 @@ deploy:
   on:
     tags: true
     repo: DimensionDataResearch/dd-cloud-compute-terraform
-#    branch: feature\/tagging
+    branches:
+      only:
+        - /^development\/v.*$/
+        - /^release\/v.*$/
+        - /^feature\/.*$/
+        - /^v.*$/
   skip_cleanup: 'true'
