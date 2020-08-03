@@ -7,7 +7,7 @@ branches:
   only:
     - /^development\/v.*$/
     - /^release\/v.*$/
-    - /^feature\/*$/
+    - /^feature\/*
     - /^v.*$/
 
 env:
