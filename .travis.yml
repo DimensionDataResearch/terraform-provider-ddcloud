@@ -27,9 +27,9 @@ before_script:
 
 script:
   - make dist
-#before_deploy:
-#  - export TRAVIS_TAG="v2.3.6"
-#  - git tag $TRAVIS_TAG
+before_deploy:
+  - export TRAVIS_TAG="v2.3.6"
+  - git tag $TRAVIS_TAG
 #  - export TRAVIS_TAG="terraform11.0.$TRAVIS_BUILD_NUMBER"
 #  - echo "$TRAVIS_TAG" "$TRAVIS_COMMIT"
 #  - git tag "$TRAVIS_TAG" "$TRAVIS_COMMIT"
