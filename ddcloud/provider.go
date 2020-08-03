@@ -127,8 +127,11 @@ func Provider() terraform.ResourceProvider {
 			// A reserved IPv6 or private IPv4 address on a VLAN.
 			"ddcloud_ip_address_reservation": resourceIPAddressReservation(),
 
-			// Enterprise network domain static route
+			// Enterprise network domain static route.
 			"ddcloud_static_route": resourceStaticRoute(),
+
+			// A IP address block in network domain.
+			"ddcloud_ip_address_block": resourceIPAddressBlock(),
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{

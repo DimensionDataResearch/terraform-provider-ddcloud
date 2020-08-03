@@ -3,6 +3,13 @@ language: go
 
 go:
   - 1.12.x
+branches:
+  only:
+    - /^development\/v.*$/
+    - /^release\/v.*$/
+    - /^feature\/*$/
+    - /^v.*$/
+
 env:
   - GOMAXPROCS=4 GO111MODULE=on
 git:
@@ -34,7 +41,7 @@ deploy:
   file_glob: true
   file: _bin/terraform-provider-ddcloud.*.zip
   on:
-    # tags: true
+    tags: true
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branch: feature\/tagging
   skip_cleanup: 'true'
