@@ -35,8 +35,8 @@ before_deploy:
 #  - git tag "$TRAVIS_TAG" "$TRAVIS_COMMIT"
 deploy:
   provider: releases
-  tag_name: $TRAVIS_TAG
-  target_commitish: $TRAVIS_COMMIT
+#  tag_name: $TRAVIS_TAG
+#  target_commitish: $TRAVIS_COMMIT
   draft: true
   overwrite: true
   api_key:
@@ -44,7 +44,7 @@ deploy:
   file_glob: true
   file: _bin/terraform-provider-ddcloud.*.zip
   on:
-    tags: true
+#    tags: true
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branches:
       only:
