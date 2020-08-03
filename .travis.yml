@@ -29,14 +29,14 @@ script:
   - make dist
 before_deploy:
   - export TRAVIS_TAG="v2.3.6"
-  - git tag $TRAVIS_TAG
-#  - export TRAVIS_TAG="terraform11.0.$TRAVIS_BUILD_NUMBER"
-#  - echo "$TRAVIS_TAG" "$TRAVIS_COMMIT"
-#  - git tag "$TRAVIS_TAG" "$TRAVIS_COMMIT"
+  - export TRAVIS_COMMIT="f8a8316f0a46450d6c123d842dd95096cfa30098"
+  # - git tag $TRAVIS_TAG
+  - echo "$TRAVIS_TAG" "$TRAVIS_COMMIT"
+  - git tag "$TRAVIS_TAG" "$TRAVIS_COMMIT"
 deploy:
   provider: releases
-#  tag_name: $TRAVIS_TAG
-#  target_commitish: $TRAVIS_COMMIT
+  tag_name: $TRAVIS_TAG
+  target_commitish: $TRAVIS_COMMIT
   draft: true
   overwrite: true
   api_key:
@@ -44,7 +44,7 @@ deploy:
   file_glob: true
   file: _bin/terraform-provider-ddcloud.*.zip
   on:
-#    tags: true
+    tags: true
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branches:
       only:
