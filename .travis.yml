@@ -28,14 +28,17 @@ before_script:
 script:
   - make dist
 before_deploy:
-  - export TRAVIS_TAG="v2.3.6"
-  - git tag $TRAVIS_TAG
+#  - export TRAVIS_TAG="v2.3.6"
+#  - git tag $TRAVIS_TAG
+  - export TRAVIS_TAG="terraform11.0.$TRAVIS_BUILD_NUMBER"
+  - echo "$TRAVIS_TAG" "$TRAVIS_COMMIT"
+  - - git tag "$TRAVIS_TAG" "$TRAVIS_COMMIT"
 deploy:
   provider: releases
   tag_name: $TRAVIS_TAG
-  # target_commitish: $TRAVIS_COMMIT
+  target_commitish: $TRAVIS_COMMIT
   draft: true
-  overwrite: false
+  overwrite: true
   api_key:
     secure: YeP33TYT4M9lINGBZscSBRUpAQWJNz/bQS0oaPdvUklF5noKccUsVUgMbtqy7VxIYes8UsVQTtiOExMRVq2j6Gcz7oiLpG5stmFERY7cZG4SKI9Q4lTMcZZZFn5IO0FP4+WF36ztuOGXXi8y40nlYqq/A2NS93C1soZ9Wb/nihmhGIoBOIBo9yfyt7n/qTiVneMeDs66nzc8K3GmzaP9vA2ydWprSrzIDdUYW474pCj7/JzXN1S/3ACZtA7Yt6BQujaacZOhjIjPh/GIYscN5R1t1q0VuFC4AFpxKk52syLNUuf7t25+1simPCS+BhL8BnqsPeXyuJc1ZwHfCmaZ8anqBX75Dsdy+3yQBqHDOfR8nRRrA3YZtViXzeAc+ki6zlHmbc717rxa8XyWecHwBkI/8c4xiKkOOf1DOfv+M/u1VvOz0Y+1stkg6VCwXVAqMAu3YIlHRdl0HyIZx9myXLo5qHLSsvCNzSwp5zdjm1+6KHmY5rTTSOdi9R1yHUGQK+aSrVb2bf5cX6ONCEPMgLnrHCaMSy/+TfX3/0JO69XGOEWiIMXcnRvjDjBIOaNNrnSwkXIGe0sq+96IcSCZj6E0SVbhLuWS6fKTkpn5mV1iKqkNPIGUD++a8BxC09DDnE0+9vbMFQGPuWoEaZ68DDs5oP2RGlYDzmlIGZLfsIw=
   file_glob: true
