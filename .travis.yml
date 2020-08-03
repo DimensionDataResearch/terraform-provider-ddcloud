@@ -29,7 +29,7 @@ script:
   - make dist
 before_deploy:
   - export TRAVIS_TAG="v2.3.6"
-  - export TRAVIS_COMMIT="f8a8316f0a46450d6c123d842dd95096cfa30098"
+  - export TRAVIS_COMMIT="dcdf8bd8af8d0144fb830cdccbf4ad048d946a9c"
   # - git tag $TRAVIS_TAG
   - echo "$TRAVIS_TAG" "$TRAVIS_COMMIT"
   - git tag "$TRAVIS_TAG" "$TRAVIS_COMMIT"
