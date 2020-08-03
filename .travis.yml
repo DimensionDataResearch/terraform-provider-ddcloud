@@ -7,7 +7,7 @@ branches:
   only:
     - /^development\/v.*$/
     - /^release\/v.*$/
-    - /^feature\/*
+    - /^feature\/.*
     - /^v.*$/
 
 env:
@@ -43,5 +43,5 @@ deploy:
   on:
     tags: true
     repo: DimensionDataResearch/dd-cloud-compute-terraform
-    branch: feature\/tagging
+#    branch: feature\/tagging
   skip_cleanup: 'true'
