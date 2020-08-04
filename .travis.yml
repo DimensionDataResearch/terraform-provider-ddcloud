@@ -24,8 +24,5 @@ deploy:
   file: _bin/terraform-provider-ddcloud.*.zip
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
-    branches:
-      only:
-        - /^development\/v.*$/
-        - /^release\/v.*$/
+    branch: development\/v2.0
   skip_cleanup: 'true'
