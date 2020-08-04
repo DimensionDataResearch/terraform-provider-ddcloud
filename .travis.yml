@@ -20,7 +20,7 @@ deploy:
   api_key:
     secure: e8YOmjwTS+Dqp7JtyC0yCGonHmpN0ZmhZUPb5miZKtzlHUqqsiMglOrfkqad4r2olyjLWtyNwWwXvqEPSPKO81FOs7HQ1PkoluvAOdesvaBZ2bm5LbXhpzSzbFZNN4mdx5RNYMmIB6pBz48bC5AtcWD6yWtVWG1v7ZhIlXYlo7TQvV2VxZKN/j45OdfDmkGM+es+MlBTzmJUanoReXdvXjvwb373yHDDNVi5mfWE+AwMK/G8+gUdDb6UTBO59GnbT3VisB1tL31aytWwaubdiuWmnpFxeZ/i+cJvGoywbwSGUv80ZyE97JpO81wLG2f+dlkUCRMzLd9GhPxWVmP+JxXPXYvlewXPijoK3SEfH6+Ojj5CjyoycHEcB0/QIZpQOUyWRMsqkeA4TCluCZe5luq4Xjn3AJo9LAfCYCymHmrVAL0/t1Qyv/cXIwPu9lSEFjHXYKojMLdtYVYS9jUCcWI0a01mQUb1MKPixbxeDe/7iZ1PgSng7hbomnjlX+ETO6y3BB4yzJMDEFmoHgBxNQo8ArvfJ4EijiA4q+NMgU7FosKjLBYcO/GV+0AK/wG0jPaPd8u3kLNJRGctBSMz1HmX0YBtE+d0w74ps9lOPArzfOltN98X3sqRp0zvtVuRM68pIbBIQ0l15PU4r2IDXQT1yNR0QQqI9Mp5OGZlJwE=
   file_glob: true
-    file: _bin/terraform-provider-ddcloud.*.zip
+  file: _bin/terraform-provider-ddcloud.*.zip
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branches:
