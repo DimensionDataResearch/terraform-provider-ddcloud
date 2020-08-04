@@ -73,6 +73,7 @@ func resourceNetworkDomain() *schema.Resource {
 				Description: "The IPv4 subnet for transit outside of the network domain",
 			},
 			resourceKeyNetworkDomainFirewallRule: schemaNetworkDomainFirewallRule(),
+			resourceKeyTag:                       schemaTag(),
 		},
 	}
 }
@@ -140,6 +141,12 @@ func resourceNetworkDomainCreate(data *schema.ResourceData, provider interface{}
 		return err
 	}
 
+	// Tags
+	err = applyTags(data, apiClient, compute.AssetTypeNetworkDomain, providerState.Settings())
+	if err != nil {
+		return err
+	}
+	data.SetPartial(resourceKeyTag)
 	data.Partial(false)
 
 	return nil
@@ -183,6 +190,11 @@ func resourceNetworkDomainRead(data *schema.ResourceData, provider interface{}) 
 			networkDomain.OutsideTransitVLANIPv4Subnet.PrefixSize,
 		))
 		data.SetPartial(resourceKeyNetworkDomainOutsideTransitIPv4Subnet)
+
+		err = readTags(data, apiClient, compute.AssetTypeNetworkDomain)
+		if err != nil {
+			return err
+		}
 	} else {
 		data.SetId("") // Mark resource as deleted.
 	}
@@ -227,6 +239,16 @@ func resourceNetworkDomainUpdate(data *schema.ResourceData, provider interface{}
 	apiClient := providerState.Client()
 
 	var err error
+
+	if data.HasChange(resourceKeyTag) {
+		err := applyTags(data, apiClient, compute.AssetTypeNetworkDomain, providerState.Settings())
+		if err != nil {
+			return err
+		}
+
+		data.SetPartial(resourceKeyTag)
+	}
+
 	if newName != nil || newPlan != nil || newDescription != nil {
 		err = apiClient.EditNetworkDomain(id, newName, newDescription, newPlan)
 		if err != nil {
@@ -338,6 +360,8 @@ func resourceNetworkDomainImport(data *schema.ResourceData, provider interface{}
 	data.Set(resourceKeyNetworkDomainNatIPv4Address, networkDomain.NatIPv4Address)
 	data.Set(resourceKeyNetworkDomainPlan, networkDomain.Type)
 	data.Set(resourceKeyNetworkDomainDataCenter, networkDomain.DatacenterID)
+
+	err = readTags(data, apiClient, compute.AssetTypeNetworkDomain)
 
 	importedData = []*schema.ResourceData{data}
 

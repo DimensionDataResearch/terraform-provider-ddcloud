@@ -1,11 +1,11 @@
 PROVIDER_NAME = ddcloud
 
-VERSION = 2.3.5
+VERSION = 2.3.6
 VERSION_INFO_FILE = ./$(PROVIDER_NAME)/version-info.go
 
 BIN_DIRECTORY   = _bin
 DEV_BIN_DIRECTORY = _bin
-#DEV_BIN_DIRECTORY = /usr/local/bin/
+LOCAL_BIN_DIRECTORY = /usr/local/bin
 EXECUTABLE_NAME = terraform-provider-$(PROVIDER_NAME)
 DIST_ZIP_PREFIX = $(EXECUTABLE_NAME).v$(VERSION)
 
@@ -22,6 +22,10 @@ fmt:
 clean:
 	rm -rf $(BIN_DIRECTORY) $(VERSION_INFO_FILE)
 	go clean $(REPO_ROOT)/...
+
+# Peform a LOCAL development (current-platform-only) build.
+local: version fmt
+	go build -o $(LOCAL_BIN_DIRECTORY)/$(EXECUTABLE_NAME)
 
 # Peform a development (current-platform-only) build.
 dev: version fmt
