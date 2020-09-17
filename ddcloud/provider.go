@@ -23,14 +23,12 @@ func Provider() terraform.ResourceProvider {
 			"region": &schema.Schema{
 				Type:          schema.TypeString,
 				Optional:      true,
-				Default:       "",
 				Description:   "The region code that identifies the target end-point for the Dimension Data CloudControl API.",
 				ConflictsWith: []string{"cloudcontrol_endpoint"},
 			},
 			"cloudcontrol_endpoint": &schema.Schema{
 				Type:          schema.TypeString,
 				Optional:      true,
-				Default:       "",
 				Description:   "The base URL of a custom target end-point for the Dimension Data CloudControl API.",
 				ConflictsWith: []string{"region"},
 			},
@@ -129,8 +127,11 @@ func Provider() terraform.ResourceProvider {
 			// A reserved IPv6 or private IPv4 address on a VLAN.
 			"ddcloud_ip_address_reservation": resourceIPAddressReservation(),
 
-			// Enterprise network domain static route
+			// Enterprise network domain static route.
 			"ddcloud_static_route": resourceStaticRoute(),
+
+			// A IP address block in network domain.
+			"ddcloud_ip_address_block": resourceIPAddressBlock(),
 		},
 
 		DataSourcesMap: map[string]*schema.Resource{

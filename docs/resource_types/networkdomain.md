@@ -51,7 +51,12 @@ The following arguments are supported:
   * `type` - (Required) The type of default firewall rule to configure    
   Valid types are: `BlockOutboundMailIPv4`, `BlockOutboundMailIPv4Secure`, `BlockOutboundMailIPv6`, `BlockOutboundMailIPv6Secure`, and `DenyExternalInboundIPv6`. 
   * `enabled` - (Required) Is the firewall rule enabled? If `false`, then the rule is disabled.
- 
+
+Available Options include.
+* `tag` - (Optional) A set of tags to apply to the vlan.
+    * `name` - (Required) The tag name. **Note**: The tag name must already be defined for your organisation.
+    * `value` - (Required) The tag value.
+
 ## Attribute Reference
 
 The following attributes are exported:
