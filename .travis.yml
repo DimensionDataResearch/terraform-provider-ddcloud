@@ -2,31 +2,28 @@ dist: trusty
 sudo: required
 language: go
 services:
-  - docker
+- docker
 go:
-  - 1.12.x
+- 1.12.x
 env:
-  - GOMAXPROCS=4 GO111MODULE=on
+- GOMAXPROCS=4 GO111MODULE=on
 install:
-  - go get golang.org/x/crypto/pkcs12
-  - go get github.com/pkg/errors
-  - go get github.com/hashicorp/terraform@v0.12.19
-  - go mod tidy
-  - go mod vendor
+- go get golang.org/x/crypto/pkcs12
+- go get github.com/pkg/errors
+- go get github.com/hashicorp/terraform@v0.12.19
+- go mod tidy
+- go mod vendor
 script:
-  - make dist
+- make dist
 before_deploy:
-  - export TRAVIS_TAG="v3.0.4"
-  - git tag $TRAVIS_TAG
+- export TRAVIS_TAG="v3.0.5"
+- git tag $TRAVIS_TAG
 deploy:
   provider: releases
-  draft: true
-  overwrite: false
   api_key:
-    secure: YeP33TYT4M9lINGBZscSBRUpAQWJNz/bQS0oaPdvUklF5noKccUsVUgMbtqy7VxIYes8UsVQTtiOExMRVq2j6Gcz7oiLpG5stmFERY7cZG4SKI9Q4lTMcZZZFn5IO0FP4+WF36ztuOGXXi8y40nlYqq/A2NS93C1soZ9Wb/nihmhGIoBOIBo9yfyt7n/qTiVneMeDs66nzc8K3GmzaP9vA2ydWprSrzIDdUYW474pCj7/JzXN1S/3ACZtA7Yt6BQujaacZOhjIjPh/GIYscN5R1t1q0VuFC4AFpxKk52syLNUuf7t25+1simPCS+BhL8BnqsPeXyuJc1ZwHfCmaZ8anqBX75Dsdy+3yQBqHDOfR8nRRrA3YZtViXzeAc+ki6zlHmbc717rxa8XyWecHwBkI/8c4xiKkOOf1DOfv+M/u1VvOz0Y+1stkg6VCwXVAqMAu3YIlHRdl0HyIZx9myXLo5qHLSsvCNzSwp5zdjm1+6KHmY5rTTSOdi9R1yHUGQK+aSrVb2bf5cX6ONCEPMgLnrHCaMSy/+TfX3/0JO69XGOEWiIMXcnRvjDjBIOaNNrnSwkXIGe0sq+96IcSCZj6E0SVbhLuWS6fKTkpn5mV1iKqkNPIGUD++a8BxC09DDnE0+9vbMFQGPuWoEaZ68DDs5oP2RGlYDzmlIGZLfsIw=
-  file_glob: true
-  file: _bin/terraform-provider-ddcloud.*.zip
+    secure: cVYCBCoBCRe+d+93Q1wjKt2UJNH8skjOPD0BQBshKBcTeq4XWI+VN1lFVKmkNvB3ZAC+jcA4WKOZWsyeHAgXgmdfw4L2bVIt+kNMq2BC9lSV2+eLwbF81SKqKme+plVqR+DcbvF5SPGUqP83pwGyKBPo+kxUV44ICnn4ZblaRngERg7mfmgRuKczjf1/P5FwTJYZnu4Kmof+ZCEWucpDsq+Ro7gCXlcyw3/+JypcoXzMHFvtSkPxpg+5YrBTtipQUfo6ZTyHsB155asPY60KOdwYGY+nZdlePbLM9KQqC6aH+VLnrZ5dM/CTD7BlJEjkaBS/KR/x0vuETvfDLgtTLfhyug7FrgOuBsIjiuRNmBWvPvQkKGB4VwDiABHW4ZDsz5XOpTrHI2wG4veI4RCoYdA7R8a7yPDYEDdYidN+Nfvl73z+57p/DbKMVVy/jMtstoYCd683jOgAkAAlCI33cVGJETNd7K77HrmH/8epFDcHXsHajP3j/pPIJxZtsUXohVVuluNoEpHPrSCAcEC/GaXmCkuUcm8vGzow/knsUeAHJ1ikKWF25LCtUa73fGFBTOVGBkvwVvofaxMay0S4ypKPdqYrw4XgChKAsIIWjQlRj7o0ojmzWFeeghipeZRznAfKkIaxEZnF61pj51O1E9ePenlW8A15v/8mtMm1NgU=
+  file: _bin/
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
-    branch: release\/v12.0
+    branch: release/v12.0
   skip_cleanup: 'true'
