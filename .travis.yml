@@ -22,7 +22,7 @@ deploy:
   provider: releases
   api_key:
     secure: cVYCBCoBCRe+d+93Q1wjKt2UJNH8skjOPD0BQBshKBcTeq4XWI+VN1lFVKmkNvB3ZAC+jcA4WKOZWsyeHAgXgmdfw4L2bVIt+kNMq2BC9lSV2+eLwbF81SKqKme+plVqR+DcbvF5SPGUqP83pwGyKBPo+kxUV44ICnn4ZblaRngERg7mfmgRuKczjf1/P5FwTJYZnu4Kmof+ZCEWucpDsq+Ro7gCXlcyw3/+JypcoXzMHFvtSkPxpg+5YrBTtipQUfo6ZTyHsB155asPY60KOdwYGY+nZdlePbLM9KQqC6aH+VLnrZ5dM/CTD7BlJEjkaBS/KR/x0vuETvfDLgtTLfhyug7FrgOuBsIjiuRNmBWvPvQkKGB4VwDiABHW4ZDsz5XOpTrHI2wG4veI4RCoYdA7R8a7yPDYEDdYidN+Nfvl73z+57p/DbKMVVy/jMtstoYCd683jOgAkAAlCI33cVGJETNd7K77HrmH/8epFDcHXsHajP3j/pPIJxZtsUXohVVuluNoEpHPrSCAcEC/GaXmCkuUcm8vGzow/knsUeAHJ1ikKWF25LCtUa73fGFBTOVGBkvwVvofaxMay0S4ypKPdqYrw4XgChKAsIIWjQlRj7o0ojmzWFeeghipeZRznAfKkIaxEZnF61pj51O1E9ePenlW8A15v/8mtMm1NgU=
-  file: _bin/
+  file: _bin/terraform-provider-ddcloud.*.zip
   on:
     repo: DimensionDataResearch/dd-cloud-compute-terraform
     branch: release/v12.0
