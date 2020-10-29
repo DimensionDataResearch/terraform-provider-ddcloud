@@ -31,11 +31,16 @@ For more information, see the [provider documentation](docs/).
 
 ## Prerequisites
 
-Requires Terraform v0.8.x or newer (currently built against Terraform v0.11.x).
+Requires Terraform v0.12+ 
 
 ## Installing the provider
-
 Download the [latest release](https://github.com/DimensionDataResearch/dd-cloud-compute-terraform/releases/latest) and place the provider executable in the same directory as the main Terraform executable.
+Simply place terraform-provider-ddcloud binary on the same directory as terraform binary.
+
+## Using Terraform v0.13
+In terraform v0.13, the concept of registry namespace is introduced.
+To use in-house provider build, follow instructions below. 
+- Instruction to be provided
 
 ### Docker
 
