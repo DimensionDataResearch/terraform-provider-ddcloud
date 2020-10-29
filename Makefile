@@ -1,10 +1,9 @@
 PROVIDER_NAME = ddcloud
 
-VERSION = 3.0.4
+VERSION = 3.0.5
 VERSION_INFO_FILE = ./$(PROVIDER_NAME)/version-info.go
 
 BIN_DIRECTORY   = _bin
-# BIN_DIRECTORY = /usr/local/bin
 EXECUTABLE_NAME = terraform-provider-$(PROVIDER_NAME)
 DIST_ZIP_PREFIX = $(EXECUTABLE_NAME).v$(VERSION)
 
