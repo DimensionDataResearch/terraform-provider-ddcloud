@@ -154,7 +154,7 @@ func Provider() terraform.ResourceProvider {
 // Returns the provider's compute API client.
 func configureProvider(providerSettings *schema.ResourceData) (interface{}, error) {
 	// Log provider version (for diagnostic purposes).
-	log.Print("ddcloud provider version is " + ProviderVersion)
+	// log.Print("ddcloud provider version is " + ProviderVersion)
 
 	log.Printf("ProviderSettings = %#v", providerSettings)
 
