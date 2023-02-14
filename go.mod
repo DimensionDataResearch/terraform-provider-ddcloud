@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go v0.51.0 // indirect
 	cloud.google.com/go/storage v1.5.0 // indirect
 	github.com/DimensionDataResearch/go-dd-cloud-compute v1.13.0
-	github.com/aws/aws-sdk-go v1.27.3 // indirect
+	github.com/aws/aws-sdk-go v1.34.0 // indirect
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/google/go-cmp v0.4.0 // indirect
 	github.com/hashicorp/go-getter v1.4.1 // indirect
